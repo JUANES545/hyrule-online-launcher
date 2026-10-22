@@ -97,6 +97,12 @@ Pitfall: the DLL's address scan starts about 45-50 s after Connect and needs the
 
 Confirmed by the user in Routed mode: both Links visible in both windows and each pad moves only its own Link. Rumble is not verified yet.
 
+### Launcher (`HyruleOnline.exe`)
+
+`scripts/Build.ps1` runs `Build-Input.ps1`, then compiles the WPF launcher (csc, no extra dependencies) into `.artifacts\app`. It hosts the same router in-process (`src/Input/Router.cs` + `Sdl.cs`, shared with the console `InputRouter.exe`), so it can show live pads. Functions adapted from the local co-op launcher: live stick/trigger preview, assign by pressing the bottom face button, swap players, vibration test, reserved player slots across reconnects. Functions that do not apply online and were dropped: split-screen layout, display plan and resolution changes, motion/DSU, Steam shortcut and the in-game return chord.
+
+The Start button runs `Start-Online.ps1 -InputMode Routed -ExternalRouter` (hidden) and maps its output lines to the three step indicators (server, Cemu A, Cemu B). It prompts for Continue at the right moment. Stop runs `Stop-Online.ps1`. Every two seconds it also checks which project-owned Cemu/server processes exist, so it reflects sessions started elsewhere. Closing it offers: stop the session, close only the launcher (the bridge falls back to real XInput after 5 s, and the Cemu profiles are XInput 0/1), or cancel. `scripts/Test.ps1` runs the router reconciliation and assignment tests.
+
 ### Result (2026-10-22)
 
 Both instances on localhost see the other player's Link, and each controller moves only its own Link. Confirmed visually by the user. Still untested: other machines over a VPN, long sessions, armor sync edge cases ("Couldn't find armor address" appears once, then it retries and succeeds).

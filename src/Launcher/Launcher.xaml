@@ -1,0 +1,75 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ Title="Hyrule Online" Width="760" Height="900" MinWidth="640" MinHeight="600" WindowStartupLocation="CenterScreen"
+ Background="#0B1015" Foreground="#EAF2F2" FontFamily="Segoe UI" FontSize="16" TextOptions.TextRenderingMode="Grayscale">
+ <Window.Resources>
+  <FontFamily x:Key="TitleFont">Georgia</FontFamily>
+  <Style TargetType="TextBlock"><Setter Property="TextWrapping" Value="Wrap"/><Setter Property="Padding" Value="0,0,0,2"/></Style>
+  <Style TargetType="Button">
+   <Setter Property="Background" Value="#801B252B"/><Setter Property="Foreground" Value="#ECF5F4"/>
+   <Setter Property="Padding" Value="18,8"/><Setter Property="Margin" Value="4,0,4,6"/><Setter Property="FontSize" Value="16"/>
+   <Setter Property="BorderThickness" Value="2"/><Setter Property="BorderBrush" Value="#364E5659"/><Setter Property="Cursor" Value="Hand"/>
+   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
+    <Border x:Name="Chrome" CornerRadius="5" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}">
+     <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+    </Border><ControlTemplate.Triggers>
+     <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="Background" Value="#B0354549"/></Trigger>
+     <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="#E1CFA1"/></Trigger>
+     <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.4"/></Trigger>
+    </ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+  </Style>
+  <Style TargetType="ProgressBar"><Setter Property="Height" Value="5"/><Setter Property="Background" Value="#293A42"/><Setter Property="Foreground" Value="#63E0BD"/><Setter Property="BorderThickness" Value="0"/></Style>
+ </Window.Resources>
+ <StackPanel Margin="28,20,28,16">
+  <TextBlock Text="THE LEGEND OF ZELDA" TextAlignment="Center" FontFamily="{StaticResource TitleFont}" Foreground="#CFBF9C" FontSize="13"/>
+  <TextBlock Text="BREATH OF THE WILD" TextAlignment="Center" FontFamily="{StaticResource TitleFont}" FontSize="34" Foreground="#E2D5B2" Margin="0,4,0,2"/>
+  <TextBlock Text="ONLINE MULTIPLAYER" TextAlignment="Center" Foreground="#A7B5B5" FontSize="13" Margin="0,0,0,18"/>
+
+  <TextBlock Text="SESSION" TextAlignment="Center" FontFamily="{StaticResource TitleFont}" FontSize="14" Foreground="#CBBF9F" Margin="0,0,0,10"/>
+  <Border Background="#A0152027" CornerRadius="8" Padding="18" BorderBrush="#3449585A" BorderThickness="1" Margin="0,0,0,18">
+   <StackPanel>
+    <TextBlock x:Name="Status" Text="Ready." FontSize="20" TextAlignment="Center" Margin="0,0,0,10"/>
+    <Grid Margin="0,0,0,8">
+     <Grid.ColumnDefinitions><ColumnDefinition Width="24"/><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+     <Ellipse x:Name="ServerDot" Grid.Row="0" Width="12" Height="12" Fill="#4B5A60" VerticalAlignment="Center"/>
+     <TextBlock Grid.Row="0" Grid.Column="1" Text="Dedicated server"/><TextBlock x:Name="ServerText" Grid.Row="0" Grid.Column="2" Foreground="#A5BAC5" Text="Stopped"/>
+     <Ellipse x:Name="ADot" Grid.Row="1" Width="12" Height="12" Fill="#4B5A60" VerticalAlignment="Center"/>
+     <TextBlock Grid.Row="1" Grid.Column="1" Text="Player 1 (Cemu A)"/><TextBlock x:Name="AText" Grid.Row="1" Grid.Column="2" Foreground="#A5BAC5" Text="Stopped"/>
+     <Ellipse x:Name="BDot" Grid.Row="2" Width="12" Height="12" Fill="#4B5A60" VerticalAlignment="Center"/>
+     <TextBlock Grid.Row="2" Grid.Column="1" Text="Player 2 (Cemu B)"/><TextBlock x:Name="BText" Grid.Row="2" Grid.Column="2" Foreground="#A5BAC5" Text="Stopped"/>
+    </Grid>
+    <TextBlock x:Name="Prompt" TextAlignment="Center" Foreground="#E0BE75" MinHeight="44" Margin="0,4,0,8"/>
+    <WrapPanel HorizontalAlignment="Center"><Button x:Name="Start" Width="200" Content="Start session"/><Button x:Name="Stop" Width="200" Content="Stop session"/></WrapPanel>
+   </StackPanel>
+  </Border>
+
+  <TextBlock Text="CONTROLLERS" TextAlignment="Center" FontFamily="{StaticResource TitleFont}" FontSize="14" Foreground="#CBBF9F" Margin="0,0,0,10"/>
+  <Border Background="#A0152027" CornerRadius="8" Padding="18" BorderBrush="#3449585A" BorderThickness="1" Margin="0,0,0,10">
+   <StackPanel>
+    <TextBlock Text="Player 1" TextAlignment="Center" FontFamily="{StaticResource TitleFont}" FontSize="22"/>
+    <TextBlock x:Name="P1Status" TextAlignment="Center" Foreground="#63E0BD" FontSize="14"/>
+    <TextBlock x:Name="P1Name" TextAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Foreground="#A5BAC5" Margin="0,2,0,8"/>
+    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+     <Canvas Height="60" Width="175" HorizontalAlignment="Left"><Ellipse Width="58" Height="58" Canvas.Left="0" Canvas.Top="0" Fill="#0B141B" Stroke="#304752"/><Ellipse Width="58" Height="58" Canvas.Left="91" Canvas.Top="0" Fill="#0B141B" Stroke="#304752"/><Ellipse x:Name="P1L" Width="18" Height="18" Fill="#63E0BD" Canvas.Left="20" Canvas.Top="20"/><Ellipse x:Name="P1R" Width="18" Height="18" Fill="#E0BE75" Canvas.Left="111" Canvas.Top="20"/></Canvas>
+     <StackPanel Grid.Column="1"><TextBlock Text="LT / RT" FontSize="12" Foreground="#78939F"/><ProgressBar x:Name="P1LT" Maximum="255" Margin="0,8,0,10"/><ProgressBar x:Name="P1RT" Maximum="255"/></StackPanel>
+    </Grid>
+    <WrapPanel HorizontalAlignment="Center" Margin="0,8,0,0"><Button x:Name="Assign1" Width="200" Content="Assign controller"/><Button x:Name="Rumble1" Width="200" Content="Test vibration"/></WrapPanel>
+   </StackPanel>
+  </Border>
+  <Border Background="#A0152027" CornerRadius="8" Padding="18" BorderBrush="#3449585A" BorderThickness="1" Margin="0,0,0,10">
+   <StackPanel>
+    <TextBlock Text="Player 2" TextAlignment="Center" FontFamily="{StaticResource TitleFont}" FontSize="22"/>
+    <TextBlock x:Name="P2Status" TextAlignment="Center" Foreground="#63E0BD" FontSize="14"/>
+    <TextBlock x:Name="P2Name" TextAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Foreground="#A5BAC5" Margin="0,2,0,8"/>
+    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+     <Canvas Height="60" Width="175" HorizontalAlignment="Left"><Ellipse Width="58" Height="58" Canvas.Left="0" Canvas.Top="0" Fill="#0B141B" Stroke="#304752"/><Ellipse Width="58" Height="58" Canvas.Left="91" Canvas.Top="0" Fill="#0B141B" Stroke="#304752"/><Ellipse x:Name="P2L" Width="18" Height="18" Fill="#63E0BD" Canvas.Left="20" Canvas.Top="20"/><Ellipse x:Name="P2R" Width="18" Height="18" Fill="#E0BE75" Canvas.Left="111" Canvas.Top="20"/></Canvas>
+     <StackPanel Grid.Column="1"><TextBlock Text="LT / RT" FontSize="12" Foreground="#78939F"/><ProgressBar x:Name="P2LT" Maximum="255" Margin="0,8,0,10"/><ProgressBar x:Name="P2RT" Maximum="255"/></StackPanel>
+    </Grid>
+    <WrapPanel HorizontalAlignment="Center" Margin="0,8,0,0"><Button x:Name="Assign2" Width="200" Content="Assign controller"/><Button x:Name="Rumble2" Width="200" Content="Test vibration"/></WrapPanel>
+   </StackPanel>
+  </Border>
+  <Button x:Name="Swap" Content="Swap players" HorizontalAlignment="Center" Width="200" Margin="0,0,0,12"/>
+
+  <TextBox x:Name="Log" IsReadOnly="True" Height="110" FontFamily="Consolas" FontSize="12" Background="#0F171C" Foreground="#A5BAC5" BorderBrush="#3449585A" VerticalScrollBarVisibility="Auto" TextWrapping="Wrap"/>
+ </StackPanel>
+</Window>
