@@ -180,6 +180,7 @@ namespace HyruleOnline {
     var help = C<Border>("HelpPanel");
     if (router.Snapshot().Assigning >= 0) router.CancelAssign();
     else if (help.Visibility == Visibility.Visible) help.Visibility = Visibility.Collapsed;
+    else if (GameOpen()) Window.WindowState = WindowState.Minimized;
     else Window.Close();
     e.Handled = true;
    };
@@ -756,6 +757,11 @@ namespace HyruleOnline {
    var running = script;
    if (running == null) return;
    try { if (!running.HasExited) running.Kill(); } catch (Exception) { }
+  }
+
+  // Escape minimizes the launcher while a game is open or starting, and closes it otherwise.
+  bool GameOpen() {
+   return script != null || Scripts.Owned(root).Exists(path => path.EndsWith("Cemu.exe", StringComparison.OrdinalIgnoreCase));
   }
 
   void OnClosing(object sender, System.ComponentModel.CancelEventArgs e) {
