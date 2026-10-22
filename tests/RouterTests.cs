@@ -16,6 +16,41 @@ namespace HyruleOnline {
    }
   }
 
+  const string QualityRules = "[Definition]\nname = Graphics\n\n[Preset]\nname = Low (50%)\ncategory = Shadows\n$shadowRes = 0.5\n\n[Preset]\nname = Medium (100%, Default)\ncategory = Shadows\ndefault = 1\n$shadowRes = 1\n\n[Preset]\nname = Extreme (400%, Unstable)\ncategory = Shadows\n$shadowRes = 4\n\n[Preset]\nname = Low (Low Draw Distance, Sharp Shadows)\ncategory = Shadow Draw Distance\n\n[Preset]\nname = High (Default)\ncategory = Shadow Draw Distance\ndefault = 1\n\n[Preset]\nname = Very High (Recommended)\ncategory = Shadow Draw Distance\n\n[Preset]\nname = None\ncategory = Anti-Aliasing\n\n[Preset]\nname = Normal FXAA (Default)\ncategory = Anti-Aliasing\ndefault = 1\n\n[Preset]\nname = 16:9 (Default)\ncategory = Aspect Ratio\ndefault = 1\n";
+
+  static void Graphics() {
+   var shadows = GraphicsMod.Parse(QualityRules, GraphicsMod.ShadowsCategory);
+   Require(shadows.Count == 3 && shadows[0].Name == "Low (50%)" && shadows.Count(c => c.Default) == 1 && shadows[1].Default, "shadow presets are read in order with their default");
+   var distance = GraphicsMod.Parse(QualityRules, GraphicsMod.ShadowDistanceCategory);
+   Require(distance.Count == 3 && distance[0].Label == "Low" && distance[1].Label == "High (Default)" && distance[2].Label == "Very High (Recommended)", "long explanations are dropped from the labels");
+   Require(shadows[2].Label == "Extreme (400%, Unstable)" && shadows[0].Label == "Low (50%)" && GraphicsMod.Label("None") == "None" && GraphicsMod.Label("Ultra (Higher Draw Distance, Slightly Blurrier Shadows)") == "Ultra", "labels keep percentages and flags");
+   Require(GraphicsMod.Parse(QualityRules, "Aspect Ratio").Count == 1 && GraphicsMod.Parse(null, GraphicsMod.ShadowsCategory).Count == 0 && GraphicsMod.Parse("[Definition]", GraphicsMod.ShadowsCategory).Count == 0, "other categories and odd packs are handled");
+   Require(GraphicsMod.Pick(shadows, "Extreme (400%, Unstable)").Name == "Extreme (400%, Unstable)" && GraphicsMod.Pick(shadows, null).Name == "Medium (100%, Default)" && GraphicsMod.Pick(shadows, "Gone").Default, "a missing preset falls back to the pack default");
+   Require(GraphicsMod.Pick(new List<GraphicsMod.Choice>(), "x") == null, "no presets means no choice");
+   Require(GraphicsMod.NearestScale(1.0) == 1.0 && GraphicsMod.NearestScale(1.4) == 1.5 && GraphicsMod.NearestScale(0) == 0.5 && GraphicsMod.NearestScale(9) == 2.0 && GraphicsMod.NearestScale(double.NaN) == 1.0, "a saved scale is brought to an offered one");
+   Require(GraphicsMod.ScaleLabel(1.0) == "100% (window size)" && GraphicsMod.ScaleLabel(1.5) == "150% (sharper)" && GraphicsMod.ScaleLabel(0.75) == "75% (faster)", "scale labels");
+
+   string temp = Path.Combine(Path.GetTempPath(), "HyruleOnlineQuality-" + Guid.NewGuid().ToString("N"));
+   try {
+    string instance = Path.Combine(temp, "cemu"), stockFolder = Path.Combine(instance, "graphicPacks", "downloadedGraphicPacks", "BreathOfTheWild", "Graphics");
+    Directory.CreateDirectory(stockFolder);
+    File.WriteAllText(Path.Combine(stockFolder, "rules.txt"), QualityRules.Replace("name = Graphics\n", "name = Graphics\npath = \"The Legend of Zelda: Breath of the Wild/Graphics\"\n"));
+    string settingsFile = Path.Combine(instance, "settings.xml");
+    File.WriteAllText(settingsFile, "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<content>\n  <GraphicPack />\n</content>");
+    Require(GraphicsMod.Read(instance, GraphicsMod.ShadowsCategory).Count == 3 && GraphicsMod.Read(temp, GraphicsMod.ShadowsCategory).Count == 0, "an instance's own pack is read, a missing one gives nothing");
+    var view = ScreenLayout.Plan(LayoutMode.SideBySide, 1.5, 3840, 2160).Players[0];
+    var quality = new GraphicsMod.Quality { Shadows = "Extreme (400%, Unstable)", AntiAliasing = "None" };
+    CemuDisplay.Apply(instance, view, null, quality);
+    var presets = System.Xml.Linq.XDocument.Load(settingsFile).Root.Element("GraphicPack").Element("Entry").Elements("Preset").ToDictionary(p => (string)p.Element("category"), p => (string)p.Element("preset"));
+    Require(presets.Count == 4 && presets["Shadows"] == "Extreme (400%, Unstable)" && presets["Anti-Aliasing"] == "None" && !presets.ContainsKey("Shadow Draw Distance") && presets["Resolution"] == CemuDisplay.ResolutionPreset, "chosen quality presets are written, the rest stay at the pack default");
+    CemuDisplay.Apply(instance, view, null, new GraphicsMod.Quality());
+    Require(System.Xml.Linq.XDocument.Load(settingsFile).Root.Element("GraphicPack").Element("Entry").Elements("Preset").Count() == 2, "a later session without choices clears the earlier ones");
+    CemuDisplay.Apply(instance, view);
+    Require(System.Xml.Linq.XDocument.Load(settingsFile).Root.Element("GraphicPack").Element("Entry").Elements("Preset").Count() == 2, "no quality given writes only the display presets");
+   }
+   finally { if (Directory.Exists(temp)) Directory.Delete(temp, true); }
+  }
+
   static void Motion() {
    const ulong time = 1000000000;
    var motion = new ControllerMotion();
@@ -93,19 +128,19 @@ namespace HyruleOnline {
     Require(halves[0].Y == 0 && halves[0].Height + halves[1].Height == 1081 && halves[1].Y == halves[0].Height && halves[1].Width == 1920, "top and bottom covers the display");
     Require(halves.Length == 2 && ScreenLayout.Resolve(LayoutMode.TopBottom, 3840, 1080) == LayoutMode.TopBottom, "an explicit stacked choice is kept");
     int rw, rh;
-    ScreenLayout.RenderSize(new Area { Width = 1920, Height = 540 }, false, out rw, out rh);
+    ScreenLayout.RenderSize(new Area { Width = 1920, Height = 540 }, 1.0, out rw, out rh);
     Require(rw == 1920 && rh == 540, "balanced renders at window size");
-    ScreenLayout.RenderSize(new Area { Width = 1920, Height = 540 }, true, out rw, out rh);
-    Require(rw == 2880 && rh == 810, "sharp renders at 150 percent");
+    ScreenLayout.RenderSize(new Area { Width = 1920, Height = 540 }, 1.5, out rw, out rh);
+    Require(rw == 2880 && rh == 810, "a 1.5 scale renders at 150 percent");
     Require(ScreenLayout.Parse("TopBottom") == LayoutMode.TopBottom && ScreenLayout.Parse("garbage") == LayoutMode.Auto && ScreenLayout.Parse("7") == LayoutMode.Auto && ScreenLayout.Parse(null) == LayoutMode.Auto, "saved layout parsing falls back to Auto");
     Console.WriteLine("PASS: screen layout.");
 
     var displays = new[] { new[] { 320, 240 }, new[] { 800, 600 }, new[] { 1024, 768 }, new[] { 1280, 720 }, new[] { 1280, 1024 }, new[] { 1366, 768 }, new[] { 1600, 900 }, new[] { 1920, 1080 }, new[] { 1920, 1200 }, new[] { 1921, 1081 },
      new[] { 2560, 1080 }, new[] { 2560, 1440 }, new[] { 3440, 1440 }, new[] { 3840, 1080 }, new[] { 3840, 2160 }, new[] { 5120, 1440 }, new[] { 7680, 2160 }, new[] { 7680, 4320 }, new[] { 1200, 1200 }, new[] { 1080, 1920 }, new[] { 1440, 2560 }, new[] { 2160, 3840 } };
     int plans = 0;
-    foreach (var display in displays) foreach (var mode in new[] { LayoutMode.Auto, LayoutMode.SideBySide, LayoutMode.TopBottom }) foreach (bool sharp in new[] { false, true }) {
-     string name = display[0] + "x" + display[1] + " " + mode + (sharp ? " sharp" : "");
-     var plan = ScreenLayout.Plan(mode, sharp, display[0], display[1]);
+    foreach (var display in displays) foreach (var mode in new[] { LayoutMode.Auto, LayoutMode.SideBySide, LayoutMode.TopBottom }) foreach (double scale in GraphicsMod.Scales) {
+     string name = display[0] + "x" + display[1] + " " + mode + " x" + scale;
+     var plan = ScreenLayout.Plan(mode, scale, display[0], display[1]);
      var a = plan.Players[0].Area; var b = plan.Players[1].Area;
      bool side = plan.Layout == LayoutMode.SideBySide;
      Require(a.X == 0 && a.Y == 0 && (side ? a.Height == display[1] && b.X == a.Width && b.Y == 0 && b.Height == display[1] && a.Width + b.Width == display[0]
@@ -117,18 +152,20 @@ namespace HyruleOnline {
       Require(Math.Abs(renderRatio / windowRatio - 1) < 0.01 + 2.0 / Math.Min(view.RenderWidth, view.RenderHeight), name + ": render has the window shape");
       Require(Math.Abs(ratio / renderRatio - 1) < 0.005 && view.RatioWidth <= 1000 && view.RatioHeight <= 1000 && view.RatioWidth > 0 && view.RatioHeight > 0, name + ": aspect ratio matches the render");
       Require(view.Ultrawide == (renderRatio > 16.0 / 9.0 + 0.01) && view.Square == (renderRatio <= 1.51) && !(view.Ultrawide && view.Square), name + ": HUD flags follow the shape");
-      if (!sharp) Require(view.RenderWidth >= view.Area.Width - 1 && view.RenderWidth <= view.Area.Width && view.RenderHeight >= view.Area.Height - 1 && view.RenderHeight <= view.Area.Height, name + ": balanced renders at window size");
+      double grown = Math.Min(scale, (double)ScreenLayout.MaxRenderSide / Math.Max(view.Area.Width, view.Area.Height));
+      Require(Math.Abs(view.RenderWidth - view.Area.Width * grown) <= 2 && Math.Abs(view.RenderHeight - view.Area.Height * grown) <= 2, name + ": render follows the scale");
+      if (scale == 1.0) Require(view.RenderWidth >= view.Area.Width - 1 && view.RenderWidth <= view.Area.Width && view.RenderHeight >= view.Area.Height - 1 && view.RenderHeight <= view.Area.Height, name + ": balanced renders at window size");
      }
      plans++;
     }
-    var wide = ScreenLayout.Plan(LayoutMode.Auto, false, 5120, 1440).Players[1];
+    var wide = ScreenLayout.Plan(LayoutMode.Auto, 1.0, 5120, 1440).Players[1];
     Require(wide.Area.X == 2560 && wide.RenderWidth == 2560 && wide.RenderHeight == 1440 && wide.RatioWidth == 16 && wide.RatioHeight == 9 && !wide.Ultrawide, "a 32:9 display gives each player a 16:9 game");
-    var stacked = ScreenLayout.Plan(LayoutMode.Auto, false, 1920, 1080).Players[1];
+    var stacked = ScreenLayout.Plan(LayoutMode.Auto, 1.0, 1920, 1080).Players[1];
     Require(stacked.Area.Y == 540 && stacked.RenderWidth == 1920 && stacked.RenderHeight == 540 && stacked.RatioWidth == 32 && stacked.RatioHeight == 9 && stacked.Ultrawide, "a 16:9 display stacks two 32:9 games");
-    var huge = ScreenLayout.Plan(LayoutMode.SideBySide, true, 7680, 4320).Players[0];
-    Require(huge.RenderWidth <= ScreenLayout.MaxRenderSide && huge.RenderHeight <= ScreenLayout.MaxRenderSide, "sharp output on a huge display is capped");
+    var huge = ScreenLayout.Plan(LayoutMode.SideBySide, 2.0, 7680, 4320).Players[0];
+    Require(huge.RenderWidth <= ScreenLayout.MaxRenderSide && huge.RenderHeight <= ScreenLayout.MaxRenderSide, "a doubled render on a huge display is capped");
     bool rejected = false;
-    try { ScreenLayout.Plan(LayoutMode.Auto, false, 0, 0); } catch (ArgumentOutOfRangeException) { rejected = true; }
+    try { ScreenLayout.Plan(LayoutMode.Auto, 1.0, 0, 0); } catch (ArgumentOutOfRangeException) { rejected = true; }
     Require(rejected, "a display that is not ready is rejected");
     Console.WriteLine("PASS: display plans for " + plans + " display, layout and quality combinations.");
 
@@ -161,7 +198,7 @@ namespace HyruleOnline {
      string settingsFile = Path.Combine(instance, "settings.xml");
      File.WriteAllText(settingsFile, "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<content>\n  <GraphicPack>\n    <Entry filename=\"graphicPacks\\downloadedGraphicPacks\\BreathOfTheWild\\Mods\\ExtendedMemory\\rules.txt\" />\n    <Entry filename=\"graphicPacks\\downloadedGraphicPacks\\BreathOfTheWild\\Graphics\\rules.txt\">\n      <Preset><category>Resolution</category><preset>1920x1080</preset></Preset>\n    </Entry>\n  </GraphicPack>\n  <Graphic>\n    <FullscreenScaling>0</FullscreenScaling>\n  </Graphic>\n</content>");
 
-     var view = ScreenLayout.Plan(LayoutMode.TopBottom, false, 1920, 1080).Players[1];
+     var view = ScreenLayout.Plan(LayoutMode.TopBottom, 1.0, 1920, 1080).Players[1];
      CemuDisplay.Apply(instance, view, "120FPS Limit");
      string rules = File.ReadAllText(Path.Combine(instance, CemuDisplay.PackFile));
      Require(rules.Contains("name = Graphics (online display)") && rules.Contains("/Online Display\"") && rules.Contains("$aspectRatioWidth = 32\r\n$aspectRatioHeight = 9\r\n$showUltrawideOptions:int = 1") && rules.Contains("$width = 1920\r\n$height = 540"), "the instance pack carries the window's aspect ratio and resolution");
@@ -176,7 +213,7 @@ namespace HyruleOnline {
      Require(presets.Length == 2 && presets[0] == "Aspect Ratio=Online Display" && presets[1] == "Resolution=Online Resolution", "both online presets are selected");
      Require((string)settings.Element("Graphic").Element("FullscreenScaling") == "1", "the picture keeps its aspect ratio");
 
-     CemuDisplay.Apply(instance, ScreenLayout.Plan(LayoutMode.SideBySide, true, 3840, 2160).Players[0], "60FPS Limit (Default)");
+     CemuDisplay.Apply(instance, ScreenLayout.Plan(LayoutMode.SideBySide, 1.5, 3840, 2160).Players[0], "60FPS Limit (Default)");
      rules = File.ReadAllText(Path.Combine(instance, CemuDisplay.PackFile));
      Require(rules.Contains("$width = 2880\r\n$height = 3240") && !rules.Contains("$width = 1920\r\n$height = 540") && rules.Split(new[] { "name = Online Display" }, StringSplitOptions.None).Length == 2, "a new session replaces the previous values");
      var again = System.Xml.Linq.XDocument.Load(settingsFile).Root.Element("GraphicPack").Elements("Entry");
@@ -190,6 +227,8 @@ namespace HyruleOnline {
     }
     finally { if (Directory.Exists(temp)) Directory.Delete(temp, true); }
     Console.WriteLine("PASS: Cemu display settings.");
+    Graphics();
+    Console.WriteLine("PASS: graphics quality.");
     Motion();
     Console.WriteLine("PASS: controller motion.");
     return 0;

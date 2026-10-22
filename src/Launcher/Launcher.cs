@@ -87,7 +87,8 @@ namespace HyruleOnline {
   readonly bool[] joined = new bool[2];
   readonly HashSet<IntPtr> placed = new HashSet<IntPtr>(), menuHidden = new HashSet<IntPtr>();
   LayoutMode mode = LayoutMode.Auto;
-  bool sharp;
+  double scale = GraphicsMod.DefaultScale;
+  string shadows, shadowDistance, antiAliasing;
   int fpsLimit = FpsMod.AutoFps, displayWidth, displayHeight, displayHz;
   Process script;
   string lastError, failure;
@@ -113,10 +114,18 @@ namespace HyruleOnline {
     C<Button>("Rumble" + (i + 1)).Click += (s, e) => router.TestRumble(player);
    }
    C<Button>("Layout").Click += (s, e) => { mode = mode == LayoutMode.Auto ? LayoutMode.SideBySide : mode == LayoutMode.SideBySide ? LayoutMode.TopBottom : LayoutMode.Auto; ChangedDisplayChoice(); };
-   C<Button>("Quality").Click += (s, e) => { sharp = !sharp; ChangedDisplayChoice(); };
+   C<ComboBox>("ScaleBox").SelectionChanged += (s, e) => {
+    var item = ((ComboBox)s).SelectedItem as ComboBoxItem;
+    if (filling || item == null || !(item.Tag is double)) return;
+    scale = (double)item.Tag;
+    Window.Dispatcher.BeginInvoke(new Action(ChangedDisplayChoice));
+   };
+   WatchQuality("ShadowsBox", name => shadows = name);
+   WatchQuality("ShadowDistanceBox", name => shadowDistance = name);
+   WatchQuality("AntiAliasingBox", name => antiAliasing = name);
    C<ComboBox>("FpsBox").SelectionChanged += (s, e) => {
     var item = ((ComboBox)s).SelectedItem as ComboBoxItem;
-    if (fillingFps || item == null || !(item.Tag is int)) return;
+    if (filling || item == null || !(item.Tag is int)) return;
     fpsLimit = (int)item.Tag;
     Window.Dispatcher.BeginInvoke(new Action(ChangedDisplayChoice));
    };
@@ -180,16 +189,24 @@ namespace HyruleOnline {
     if (!File.Exists(PrefsFile)) return;
     var root = XDocument.Load(PrefsFile).Root;
     mode = ScreenLayout.Parse((string)root.Element("Layout"));
-    sharp = (string)root.Element("Quality") == "Sharp";
+    double saved;
+    // Older preferences only knew a balanced or sharper switch.
+    scale = double.TryParse((string)root.Element("RenderScale"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out saved) ? GraphicsMod.NearestScale(saved)
+     : (string)root.Element("Quality") == "Sharp" ? 1.5 : GraphicsMod.DefaultScale;
+    shadows = Saved(root, "Shadows"); shadowDistance = Saved(root, "ShadowDistance"); antiAliasing = Saved(root, "AntiAliasing");
     int wanted;
     fpsLimit = int.TryParse((string)root.Element("FpsLimit"), out wanted) && wanted > 0 ? wanted : FpsMod.AutoFps;
    }
-   catch (Exception) { mode = LayoutMode.Auto; sharp = false; fpsLimit = FpsMod.AutoFps; }
+   catch (Exception) { mode = LayoutMode.Auto; scale = GraphicsMod.DefaultScale; shadows = shadowDistance = antiAliasing = null; fpsLimit = FpsMod.AutoFps; }
   }
+
+  static string Saved(XElement root, string name) { string value = (string)root.Element(name); return string.IsNullOrEmpty(value) ? null : value; }
 
   void SavePrefs() {
    try {
-    new XDocument(new XElement("Preferences", new XElement("Layout", mode), new XElement("Quality", sharp ? "Sharp" : "Balanced"), new XElement("FpsLimit", fpsLimit == FpsMod.AutoFps ? "Auto" : fpsLimit.ToString()))).Save(PrefsFile);
+    new XDocument(new XElement("Preferences", new XElement("Layout", mode), new XElement("RenderScale", GraphicsMod.NearestScale(scale).ToString(System.Globalization.CultureInfo.InvariantCulture)),
+     new XElement("Shadows", shadows ?? ""), new XElement("ShadowDistance", shadowDistance ?? ""), new XElement("AntiAliasing", antiAliasing ?? ""),
+     new XElement("FpsLimit", fpsLimit == FpsMod.AutoFps ? "Auto" : fpsLimit.ToString()))).Save(PrefsFile);
    }
    catch (Exception error) { Write("Could not save the display settings: " + error.Message); }
   }
@@ -208,13 +225,59 @@ namespace HyruleOnline {
 
   FpsMod.Limit CurrentFps() { return FpsMod.Pick(FpsChoices(), fpsLimit, displayHz); }
 
-  bool fillingFps;
+  bool filling;
+
+  void WatchQuality(string box, Action<string> set) {
+   C<ComboBox>(box).SelectionChanged += (s, e) => {
+    var item = ((ComboBox)s).SelectedItem as ComboBoxItem;
+    if (filling || item == null || !(item.Tag is string)) return;
+    set((string)item.Tag);
+    SavePrefs();
+   };
+  }
+
+  string InstanceFolder { get { return Path.Combine(root, ".tools", "instances", "cemuA"); } }
+
+  void ShowQuality() {
+   filling = true;
+   try {
+    var scaleBox = C<ComboBox>("ScaleBox");
+    scaleBox.Items.Clear();
+    foreach (double option in GraphicsMod.Scales) scaleBox.Items.Add(new ComboBoxItem { Content = GraphicsMod.ScaleLabel(option), Tag = option });
+    scaleBox.SelectedIndex = Array.IndexOf(GraphicsMod.Scales, GraphicsMod.NearestScale(scale));
+    FillQuality("ShadowsBox", GraphicsMod.ShadowsCategory, shadows);
+    FillQuality("ShadowDistanceBox", GraphicsMod.ShadowDistanceCategory, shadowDistance);
+    FillQuality("AntiAliasingBox", GraphicsMod.AntiAliasingCategory, antiAliasing);
+   }
+   finally { filling = false; }
+  }
+
+  void FillQuality(string name, string category, string wanted) {
+   var choices = GraphicsMod.Read(InstanceFolder, category);
+   var box = C<ComboBox>(name);
+   box.Items.Clear();
+   box.IsEnabled = choices.Count > 0;
+   if (choices.Count == 0) { box.Items.Add(new ComboBoxItem { Content = "Not available" }); box.SelectedIndex = 0; return; }
+   var current = GraphicsMod.Pick(choices, wanted);
+   foreach (var choice in choices) box.Items.Add(new ComboBoxItem { Content = choice.Label, ToolTip = choice.Name, Tag = choice.Name });
+   box.SelectedIndex = choices.IndexOf(current);
+  }
+
+  GraphicsMod.Quality CurrentQuality() {
+   Func<string, string, string> pick = (category, wanted) => { var choice = GraphicsMod.Pick(GraphicsMod.Read(InstanceFolder, category), wanted); return choice == null ? null : choice.Name; };
+   return new GraphicsMod.Quality {
+    Scale = GraphicsMod.NearestScale(scale),
+    Shadows = pick(GraphicsMod.ShadowsCategory, shadows),
+    ShadowDistance = pick(GraphicsMod.ShadowDistanceCategory, shadowDistance),
+    AntiAliasing = pick(GraphicsMod.AntiAliasingCategory, antiAliasing)
+   };
+  }
 
   void ShowFpsChoices() {
    var choices = FpsChoices();
    var current = FpsMod.Pick(choices, fpsLimit, displayHz);
    var box = C<ComboBox>("FpsBox");
-   fillingFps = true;
+   filling = true;
    try {
     box.Items.Clear();
     box.IsEnabled = choices.Count > 0;
@@ -223,16 +286,16 @@ namespace HyruleOnline {
     foreach (var choice in choices) box.Items.Add(new ComboBoxItem { Content = choice.Fps + " FPS", Tag = choice.Fps });
     box.SelectedIndex = fpsLimit == FpsMod.AutoFps ? 0 : choices.FindIndex(l => l.Fps == current.Fps) + 1;
    }
-   finally { fillingFps = false; }
+   finally { filling = false; }
   }
   void UpdatePlan() {
    WindowPlacer.PrimaryDisplay(out displayWidth, out displayHeight, out displayHz);
    C<TextBlock>("ScreenInfo").Text = displayWidth + " × " + displayHeight + "  /  " + displayHz + " Hz";
    C<Button>("Layout").Content = "Split: " + (mode == LayoutMode.Auto ? "automatic" : mode == LayoutMode.SideBySide ? "side by side" : "top and bottom");
-   C<Button>("Quality").Content = "Quality: " + (sharp ? "sharper" : "balanced");
    ShowFpsChoices();
+   ShowQuality();
    if (displayWidth < 320 || displayHeight < 240) { C<TextBlock>("LayoutInfo").Text = "The primary display is not ready."; return; }
-   var plan = ScreenLayout.Plan(mode, sharp, displayWidth, displayHeight);
+   var plan = ScreenLayout.Plan(mode, scale, displayWidth, displayHeight);
    bool side = plan.Layout == LayoutMode.SideBySide;
    var first = plan.Players[0];
    C<TextBlock>("LayoutInfo").Text = (side ? "Side by side · P1 left / P2 right" : "Top and bottom · P1 top / P2 bottom") + Environment.NewLine + "Each game renders " + first.RenderWidth + " × " + first.RenderHeight + " " + (CurrentFps() == null ? "" : "at " + CurrentFps().Fps + " FPS");
@@ -248,7 +311,7 @@ namespace HyruleOnline {
   // Each Cemu window is placed once when it first appears, so moving it by hand is not undone.
   void PlaceWindows() {
    if (displayWidth < 320 || displayHeight < 240) return;
-   var areas = ScreenLayout.Plan(mode, sharp, displayWidth, displayHeight).Players;
+   var areas = ScreenLayout.Plan(mode, scale, displayWidth, displayHeight).Players;
    string[] folders = { "\\cemuA\\", "\\cemuB\\" };
    for (int i = 0; i < 2; i++) {
     foreach (var window in WindowPlacer.CemuWindows(folders[i]).Values) {
@@ -268,12 +331,14 @@ namespace HyruleOnline {
   bool PrepareDisplay() {
    try {
     WindowPlacer.PrimaryDisplay(out displayWidth, out displayHeight, out displayHz);
-    var plan = ScreenLayout.Plan(mode, sharp, displayWidth, displayHeight);
+    var plan = ScreenLayout.Plan(mode, scale, displayWidth, displayHeight);
     string[] names = { "cemuA", "cemuB" };
+    var quality = CurrentQuality();
+    Write("Graphics: render " + GraphicsMod.ScaleLabel(quality.Scale) + ", shadows " + quality.Shadows + ", shadow distance " + quality.ShadowDistance + ", anti-aliasing " + quality.AntiAliasing + ".");
     for (int i = 0; i < 2; i++) {
      var view = plan.Players[i];
      var fps = CurrentFps();
-     CemuDisplay.Apply(Path.Combine(root, ".tools", "instances", names[i]), view, fps == null ? null : fps.Preset);
+     CemuDisplay.Apply(Path.Combine(root, ".tools", "instances", names[i]), view, fps == null ? null : fps.Preset, quality);
      Write("Player " + (i + 1) + ": " + view.RenderWidth + " x " + view.RenderHeight + " (aspect " + view.RatioWidth + ":" + view.RatioHeight + ")" + (fps == null ? "." : ", " + fps.Fps + " FPS limit."));
     }
     return true;

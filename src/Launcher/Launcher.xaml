@@ -106,8 +106,21 @@
       </Grid></Border>
       <TextBlock x:Name="LayoutInfo" TextAlignment="Center" Foreground="#A5BAC5" Margin="0,12,0,14"/>
       <Button x:Name="Layout" HorizontalAlignment="Center" Width="380" Content="Split: automatic" Margin="0,0,0,10"/>
-      <Button x:Name="Quality" HorizontalAlignment="Center" Width="380" Content="Quality: balanced" Margin="0,0,0,10"/>
       <ComboBox x:Name="FpsBox" HorizontalAlignment="Center" Width="380" Margin="0,0,0,10"/>
+     </StackPanel>
+    </Border>
+    <TextBlock Text="GRAPHICS" TextAlignment="Center" FontFamily="{DynamicResource TitleFont}" FontStretch="Normal" FontWeight="Normal" FontSize="14" Foreground="#CBBF9F" Margin="0,8,0,12"/>
+    <Border Background="#A0152027" CornerRadius="8" Padding="18" BorderBrush="#3449585A" BorderThickness="1" Margin="0,0,0,12">
+     <StackPanel>
+      <TextBlock x:Name="GraphicsNote" TextAlignment="Center" Foreground="#9EB2BD" FontSize="13" Margin="0,0,0,12" TextWrapping="Wrap" Text="Applied to both games the next time a session starts."/>
+      <TextBlock Text="Render resolution" FontSize="12" Foreground="#78939F" HorizontalAlignment="Center" Width="380"/>
+      <ComboBox x:Name="ScaleBox" HorizontalAlignment="Center" Width="380" Margin="0,4,0,10"/>
+      <TextBlock Text="Shadows" FontSize="12" Foreground="#78939F" HorizontalAlignment="Center" Width="380"/>
+      <ComboBox x:Name="ShadowsBox" HorizontalAlignment="Center" Width="380" Margin="0,4,0,10"/>
+      <TextBlock Text="Shadow draw distance" FontSize="12" Foreground="#78939F" HorizontalAlignment="Center" Width="380"/>
+      <ComboBox x:Name="ShadowDistanceBox" HorizontalAlignment="Center" Width="380" Margin="0,4,0,10"/>
+      <TextBlock Text="Anti-aliasing" FontSize="12" Foreground="#78939F" HorizontalAlignment="Center" Width="380"/>
+      <ComboBox x:Name="AntiAliasingBox" HorizontalAlignment="Center" Width="380" Margin="0,4,0,0"/>
      </StackPanel>
     </Border>
     <TextBlock Text="SESSION" TextAlignment="Center" FontFamily="{DynamicResource TitleFont}" FontStretch="Normal" FontWeight="Normal" FontSize="14" Foreground="#CBBF9F" Margin="0,8,0,12"/>

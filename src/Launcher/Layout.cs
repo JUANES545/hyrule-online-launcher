@@ -38,9 +38,12 @@ namespace HyruleOnline {
 
   public const int MinDisplayWidth = 320, MinDisplayHeight = 240, MaxRenderSide = 8192;
 
-  // Sharp renders at 150% of the window, like the local co-op launcher. Sizes are even and never above MaxRenderSide.
-  public static void RenderSize(Area area, bool sharp, out int width, out int height) {
-   double scale = sharp ? 1.5 : 1.0;
+  public const double MinScale = 0.25, MaxScale = 4;
+
+  // Renders at the given fraction of the window size (1 = the window itself, 1.5 = like the local co-op launcher's sharper mode).
+  // Sizes are even and never above MaxRenderSide.
+  public static void RenderSize(Area area, double scale, out int width, out int height) {
+   if (double.IsNaN(scale) || scale < MinScale || scale > MaxScale) throw new ArgumentOutOfRangeException("scale");
    double fit = Math.Min(1.0, (double)MaxRenderSide / Math.Max(area.Width, area.Height) / scale);
    width = Even(area.Width * scale * fit); height = Even(area.Height * scale * fit);
   }
@@ -57,13 +60,13 @@ namespace HyruleOnline {
    ratioWidth = Math.Max(1, (int)Math.Round(ratioWidth * 1000.0 / largest)); ratioHeight = Math.Max(1, (int)Math.Round(ratioHeight * 1000.0 / largest));
   }
 
-  public static DisplayPlan Plan(LayoutMode mode, bool sharp, int width, int height) {
+  public static DisplayPlan Plan(LayoutMode mode, double scale, int width, int height) {
    if (width < MinDisplayWidth || height < MinDisplayHeight) throw new ArgumentOutOfRangeException("width", "The display is too small or not ready.");
    var areas = Split(mode, width, height);
    var plan = new DisplayPlan { Layout = Resolve(mode, width, height), Players = new PlayerView[2] };
    for (int i = 0; i < 2; i++) {
     var view = new PlayerView { Area = areas[i] };
-    RenderSize(areas[i], sharp, out view.RenderWidth, out view.RenderHeight);
+    RenderSize(areas[i], scale, out view.RenderWidth, out view.RenderHeight);
     AspectRatio(view.RenderWidth, view.RenderHeight, out view.RatioWidth, out view.RatioHeight);
     double ratio = (double)view.RenderWidth / view.RenderHeight;
     view.Ultrawide = ratio > 16.0 / 9.0 + 0.01;

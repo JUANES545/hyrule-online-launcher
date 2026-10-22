@@ -32,7 +32,7 @@ namespace HyruleOnline {
    return text.Append(eol).ToString();
   }
 
-  public static void Apply(string instance, PlayerView view, string fpsPreset = null) {
+  public static void Apply(string instance, PlayerView view, string fpsPreset = null, GraphicsMod.Quality quality = null) {
    string stockFolder = Path.Combine(instance, StockPack);
    string settingsFile = Path.Combine(instance, "settings.xml");
    if (!File.Exists(Path.Combine(stockFolder, "rules.txt"))) throw new FileNotFoundException("The BOTW Graphics pack is missing from " + instance + ".");
@@ -47,10 +47,10 @@ namespace HyruleOnline {
    }
    var utf8 = new UTF8Encoding(false);
    File.WriteAllText(packFile, BuildRules(File.ReadAllText(Path.Combine(stockFolder, "rules.txt")), view), utf8);
-   WriteSettings(settingsFile, view, fpsPreset);
+   WriteSettings(settingsFile, fpsPreset, quality);
   }
 
-  static void WriteSettings(string settingsFile, PlayerView view, string fpsPreset) {
+  static void WriteSettings(string settingsFile, string fpsPreset, GraphicsMod.Quality quality) {
    var document = XDocument.Load(settingsFile);
    var content = document.Root;
    var packs = content.Element("GraphicPack");
@@ -62,6 +62,10 @@ namespace HyruleOnline {
    if (entry == null) { entry = new XElement("Entry", new XAttribute("filename", PackFile)); packs.Add(entry); }
    entry.RemoveNodes();
    entry.Add(Preset("Aspect Ratio", DisplayPreset), Preset("Resolution", ResolutionPreset));
+   if (quality != null) {
+    var chosen = new[] { Tuple.Create(GraphicsMod.ShadowsCategory, quality.Shadows), Tuple.Create(GraphicsMod.ShadowDistanceCategory, quality.ShadowDistance), Tuple.Create(GraphicsMod.AntiAliasingCategory, quality.AntiAliasing) };
+    foreach (var item in chosen) if (!string.IsNullOrEmpty(item.Item2)) entry.Add(Preset(item.Item1, item.Item2));
+   }
 
    if (fpsPreset != null) {
     var fps = packs.Elements("Entry").FirstOrDefault(e => string.Equals((string)e.Attribute("filename"), FpsMod.PackFile, StringComparison.OrdinalIgnoreCase));
