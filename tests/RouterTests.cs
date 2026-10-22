@@ -121,8 +121,22 @@ namespace HyruleOnline {
    var held = buttons.Update((ushort)(PadNav.ButtonA | PadNav.ButtonB), 0, 0, 20);
    Require(!held.Accept && !held.Back, "A and B do not repeat while held");
    var held2 = new PadNav();
-   held2.Update(PadNav.ButtonA, 0, 0, 0);
-   Require(!held2.Update(0, 0, 0, 10).Accept && held2.Update(PadNav.ButtonA, 0, 0, 20).Accept, "releasing and pressing A again counts");
+   bool layout = PadNav.Nintendo;
+   try {
+    PadNav.Nintendo = false;
+    held2.Update(PadNav.ButtonA, 0, 0, 0);
+    Require(!held2.Update(0, 0, 0, 10).Accept && held2.Update(PadNav.ButtonA, 0, 0, 20).Accept, "releasing and pressing the Xbox accept button again counts");
+    var xbox = new PadNav().Update(PadNav.ButtonA, 0, 0, 0);
+    Require(xbox.Accept && !xbox.Back, "the Xbox layout accepts with the bottom button");
+    xbox = new PadNav().Update(PadNav.ButtonB, 0, 0, 0);
+    Require(!xbox.Accept && xbox.Back, "the Xbox layout goes back with the right button");
+    PadNav.Nintendo = true;
+    var nintendo = new PadNav().Update(PadNav.ButtonB, 0, 0, 0);
+    Require(nintendo.Accept && !nintendo.Back, "the Nintendo layout accepts with the right button");
+    nintendo = new PadNav().Update(PadNav.ButtonA, 0, 0, 0);
+    Require(!nintendo.Accept && nintendo.Back, "the Nintendo layout goes back with the bottom button");
+   }
+   finally { PadNav.Nintendo = layout; }
 
    // A 3 x 2 grid of 10 x 10 boxes with 2 px gaps, then one far box.
    var cells = new List<Box>();

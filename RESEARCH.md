@@ -218,7 +218,7 @@ Findings from this machine and the code, and what was built:
   - Left and right only move along the current row, so they no longer jump to an unrelated row; up and down fall back to the nearest box when nothing is straight above or below. An audit of every page's neighbour graph found no unreachable option.
   - With Help open the cursor stays on Help, and B closes it.
   - Not covered: typing text (names, time of day, server command) still needs a keyboard.
-
+- Menu button layout: Graphics > Menu controls picks Nintendo (default: the right button confirms, the bottom one goes back, matching the A/B labels of a Nintendo pad) or Xbox (bottom confirms, right goes back). Buttons are read by position, so a Switch pad that reaches the launcher as a standard pad follows the Nintendo layout without extra code. It changes only the launcher menus and the "assign a controller" press, never the game input, and it never turns Start into Restart session. Verified by unit tests and a virtual pad (bottom does nothing on a closed list, right opens it, bottom closes it). Not verified with a physical Switch pad.
 ## One player (built), three or four players (research, not built)
 
 The launcher and its helpers assume two players in many places, so the answers differ a lot.

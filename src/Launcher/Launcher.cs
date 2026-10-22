@@ -303,7 +303,7 @@ namespace HyruleOnline {
   }
 
   bool AnyDropDownOpen() {
-   foreach (var name in new[] { "FpsBox", "ScaleBox", "ShadowsBox", "ShadowDistanceBox", "AntiAliasingBox", "RulesBox", "SpecialBox", "WeatherBox", "Display1Box", "Display2Box", "Scale1Box", "Scale2Box", "Fps1Box", "Fps2Box", "ApiBox", "UpscaleBox", "DownscaleBox" }) if (C<ComboBox>(name).IsDropDownOpen) return true;
+   foreach (var name in new[] { "FpsBox", "ScaleBox", "ShadowsBox", "ShadowDistanceBox", "AntiAliasingBox", "RulesBox", "SpecialBox", "WeatherBox", "Display1Box", "Display2Box", "Scale1Box", "Scale2Box", "Fps1Box", "Fps2Box", "ApiBox", "UpscaleBox", "DownscaleBox", "PadLayoutBox" }) if (C<ComboBox>(name).IsDropDownOpen) return true;
    return pickerOpen[0] || pickerOpen[1] || cursors.Any(c => c != null && c.Combo != null);
   }
 
@@ -328,6 +328,7 @@ namespace HyruleOnline {
     fpsLimit = int.TryParse((string)root.Element("FpsLimit"), out wanted) && wanted > 0 ? wanted : FpsMod.AutoFps;
     perDisplay = (string)root.Element("Arrangement") == "PerDisplay";
     playerCount = (string)root.Element("Players") == "1" ? 1 : 2;
+    PadNav.Nintendo = (string)root.Element("PadLayout") != "Xbox";
     for (int i = 0; i < 2; i++) {
      displays[i] = Saved(root, "Display" + (i + 1));
      scales[i] = double.TryParse((string)root.Element("Scale" + (i + 1)), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out saved) ? GraphicsMod.NearestScale(saved) : scale;
@@ -342,7 +343,7 @@ namespace HyruleOnline {
    }
    catch (Exception) {
     mode = LayoutMode.Auto; scale = GraphicsMod.DefaultScale; shadows = shadowDistance = antiAliasing = null; advanced = new GraphicsMod.Advanced(); fpsLimit = FpsMod.AutoFps; language = launcherLanguage = "en";
-    perDisplay = false; playerCount = 2;
+    perDisplay = false; playerCount = 2; PadNav.Nintendo = true;
     for (int i = 0; i < 2; i++) { displays[i] = null; scales[i] = GraphicsMod.DefaultScale; fpsLimits[i] = FpsMod.AutoFps; }
    }
   }
@@ -565,7 +566,7 @@ namespace HyruleOnline {
      new XElement("Scale1", GraphicsMod.NearestScale(scales[0]).ToString(System.Globalization.CultureInfo.InvariantCulture)), new XElement("Scale2", GraphicsMod.NearestScale(scales[1]).ToString(System.Globalization.CultureInfo.InvariantCulture)),
      new XElement("Fps1", fpsLimits[0] == FpsMod.AutoFps ? "Auto" : fpsLimits[0].ToString()), new XElement("Fps2", fpsLimits[1] == FpsMod.AutoFps ? "Auto" : fpsLimits[1].ToString()),
      new XElement("Name1", names[0]), new XElement("Model1", models[0]), new XElement("Name2", names[1]), new XElement("Model2", models[1]),
-     new XElement("Language", language), new XElement("LauncherLanguage", launcherLanguage))).Save(PrefsFile);
+     new XElement("Language", language), new XElement("LauncherLanguage", launcherLanguage), new XElement("PadLayout", PadNav.Nintendo ? "Nintendo" : "Xbox"))).Save(PrefsFile);
    }
    catch (Exception error) { Write("Could not save the display settings: " + error.Message); }
   }
@@ -664,9 +665,20 @@ namespace HyruleOnline {
    C<CheckBox>("AsyncBox").IsChecked = advanced.AsyncCompile;
    C<CheckBox>("BarriersBox").IsChecked = advanced.AccurateBarriers;
    C<CheckBox>("BarriersBox").IsEnabled = GraphicsMod.ResolveApi(advanced.Api, vulkanAvailable) == GraphicsMod.VulkanApi;
+   var layout = C<ComboBox>("PadLayoutBox");
+   layout.Items.Clear();
+   layout.Items.Add(new ComboBoxItem { Content = Tr("Nintendo (A right, B bottom)"), Tag = "Nintendo" });
+   layout.Items.Add(new ComboBoxItem { Content = Tr("Xbox (A bottom, B right)"), Tag = "Xbox" });
+   layout.SelectedIndex = PadNav.Nintendo ? 0 : 1;
   }
 
   void WatchAdvanced() {
+   C<ComboBox>("PadLayoutBox").SelectionChanged += (s, e) => {
+    var item = ((ComboBox)s).SelectedItem as ComboBoxItem;
+    if (filling || item == null || !(item.Tag is string)) return;
+    PadNav.Nintendo = (string)item.Tag == "Nintendo";
+    SavePrefs();
+   };
    C<ComboBox>("ApiBox").SelectionChanged += (s, e) => {
     var item = ((ComboBox)s).SelectedItem as ComboBoxItem;
     if (filling || item == null || !(item.Tag is string)) return;
@@ -1122,7 +1134,7 @@ namespace HyruleOnline {
     bool present = slot >= 0 && snapshot.Names[slot] != null;
     var pad = present ? snapshot.Pads[slot] : new PadState();
     C<TextBlock>(key + "Name").Text = present ? snapshot.Names[slot] : Tr("No controller detected");
-    C<TextBlock>(key + "Status").Text = snapshot.Assigning == player ? Tr("Press the bottom face button on a controller to assign it.") : present ? Tr("Connected") : Tr("Waiting for a controller");
+    C<TextBlock>(key + "Status").Text = snapshot.Assigning == player ? Tr("Press A on a controller to assign it.") : present ? Tr("Connected") : Tr("Waiting for a controller");
     C<Button>("Assign" + (player + 1)).Content = Tr(snapshot.Assigning == player ? "Cancel assignment" : "Assign controller");
     Move(C<FrameworkElement>(key + "L"), pad.lx, pad.ly, 20);
     Move(C<FrameworkElement>(key + "R"), pad.rx, pad.ry, 111);

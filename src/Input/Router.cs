@@ -17,7 +17,9 @@ namespace HyruleOnline {
  // Layout: enabled@0, player[2]@4/8, heartbeat@12, states[4]@16+16i, vibration@80+4i, rumbleSeq@96+4i, seqlock@112.
  sealed class Router : IDisposable {
   const string MapName = "Local\\HyruleCoop.Routing.v2";
-  const ushort ButtonA = 0x1000;
+  // Menu button layout, shared with the launcher's pad navigation: the Nintendo layout claims a controller with the right button, Xbox with the bottom one.
+  public static volatile bool NintendoMenus = true;
+  const ushort ButtonBottom = 0x1000, ButtonRight = 0x2000;
   readonly object gate = new object();
   readonly int[] routes = { -1, -1 };
   readonly bool[] connected = new bool[4];
@@ -103,7 +105,8 @@ namespace HyruleOnline {
        for (int i = 0; i < 4; i++) { connected[i] = present[i]; names[i] = Sdl.Names[i]; pads[i] = states[i].pad; motion[i] = Sdl.Motion(i); }
        if (assigning >= 0) {
         for (int slot = 0; slot < 4; slot++) {
-         if (!connected[slot] || (states[slot].pad.buttons & ButtonA) == 0 || (previousButtons[slot] & ButtonA) != 0) continue;
+         ushort accept = NintendoMenus ? ButtonRight : ButtonBottom;
+         if (!connected[slot] || (states[slot].pad.buttons & accept) == 0 || (previousButtons[slot] & accept) != 0) continue;
          Assign(routes, assigning, slot); assigning = -1; break;
         }
        }

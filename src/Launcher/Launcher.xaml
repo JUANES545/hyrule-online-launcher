@@ -252,6 +252,13 @@
       <ComboBox x:Name="AntiAliasingBox" Margin="0,4,0,0" ToolTip="Smooths jagged edges."/>
      </StackPanel>
     </Border>
+    <TextBlock Text="MENU CONTROLS" TextAlignment="Center" FontFamily="{DynamicResource TitleFont}" FontStretch="Normal" FontWeight="Normal" FontSize="14" Foreground="#CBBF9F" Margin="0,16,0,12"/>
+    <Border Background="#A0152027" CornerRadius="8" Padding="28,18" BorderBrush="#3449585A" BorderThickness="1">
+     <StackPanel>
+      <StackPanel Orientation="Horizontal"><TextBlock Text="Controller button layout" FontSize="13" Foreground="#78939F"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="Which button confirms and which one goes back while a controller moves through this launcher. It does not change the controls inside the game."/></StackPanel>
+      <ComboBox x:Name="PadLayoutBox" Margin="0,4,0,0" ToolTip="Which button confirms and which one goes back while a controller moves through this launcher. It does not change the controls inside the game."/>
+     </StackPanel>
+    </Border>
    </StackPanel>
    <StackPanel Grid.Column="1" Margin="14,0,0,0">
     <TextBlock Text="ADVANCED (CEMU)" TextAlignment="Center" FontFamily="{DynamicResource TitleFont}" FontStretch="Normal" FontWeight="Normal" FontSize="14" Foreground="#CBBF9F" Margin="0,0,0,12"/>
