@@ -121,6 +121,14 @@ The Start button runs `Start-Online.ps1 -InputMode Routed -ExternalRouter` (hidd
 
 Both instances on localhost see the other player's Link, and each controller moves only its own Link. Confirmed visually by the user. Still untested: other machines over a VPN, long sessions, armor sync edge cases ("Couldn't find armor address" appears once, then it retries and succeeds).
 
+### Hidden Milk Bar and server
+
+The launcher starts `MBL.DedicatedServer.exe` itself (`ServerHost`, no console window, redirected stdin/stdout) and passes `-ExternalServer` to `Start-Online.ps1`. Its output goes to a "Server console" box in the details panel, with a one-line command box, and a small "Server running" chip sits in the header corner. `Start-Online.ps1` run on its own still starts the server hidden.
+
+Milk Bar Launcher is a WPF window that ignores `-WindowStyle Hidden`, and `SW_HIDE` makes its UI Automation tree unusable (no Connect button). What works: `Connect-MilkBar.ps1` turns the window into a tool window (out of the taskbar and Alt+Tab) and moves it to (-32000, -32000) as soon as it appears. It stays "visible" for UIA, so Connect can still be invoked. Pass `-ShowMilkBar` to `Start-Online.ps1` to keep it on screen when debugging.
+
+Checked on 2026-10-22: both players joined (server log shows players 1 and 2), the Milk Bar and server processes report no main window, and Stop leaves no project process behind. A visual check that nothing flashes on screen is still pending the user's confirmation.
+
 ## Open questions
 
 0. Pipe limit: the launcher creates `languageConnectionPipe` with max 2 instances, which fits exactly two launchers on one PC. The DLL pipe name is fixed, and in the two-instance run both DLLs connected without a visible mix-up, but this was not tested on purpose.

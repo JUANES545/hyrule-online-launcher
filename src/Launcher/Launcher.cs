@@ -82,6 +82,7 @@ namespace HyruleOnline {
   public readonly Window Window;
   readonly string root;
   readonly Router router;
+  readonly ServerHost serverHost = new ServerHost();
   readonly DispatcherTimer timer = new DispatcherTimer();
   readonly bool[] joined = new bool[2];
   readonly HashSet<IntPtr> placed = new HashSet<IntPtr>(), menuHidden = new HashSet<IntPtr>();
@@ -121,6 +122,17 @@ namespace HyruleOnline {
    };
    C<Button>("Help").Click += (s, e) => { var help = C<Border>("HelpPanel"); help.Visibility = help.Visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible; C<ScrollViewer>("ContentScroll").ScrollToTop(); };
    C<Button>("Exit").Click += (s, e) => Window.Close();
+   serverHost.Line += line => Window.Dispatcher.BeginInvoke(new Action(() => {
+    var log = C<TextBox>("ServerLog");
+    log.AppendText(line + Environment.NewLine);
+    log.ScrollToEnd();
+   }));
+   C<TextBox>("ServerCommand").KeyDown += (s, e) => {
+    if (e.Key != Key.Enter) return;
+    var box = (TextBox)s;
+    if (serverHost.Send(box.Text)) box.Clear(); else Write("The server is not running, so the command was not sent.");
+    e.Handled = true;
+   };
    Window.PreviewKeyDown += (s, e) => {
     if (e.Key != Key.Escape) return;
     var help = C<Border>("HelpPanel");
@@ -261,7 +273,17 @@ namespace HyruleOnline {
    C<TextBlock>("Prompt").Text = "";
    Step("Server", "Starting", Busy); Step("A", "Waiting", Idle); Step("B", "Waiting", Idle);
    Write("Starting the session.");
-   script = Scripts.Run(root, "Start-Online.ps1", "-InputMode Routed -ExternalRouter", Line, Error, code => Window.Dispatcher.BeginInvoke(new Action(() => ScriptExited(code))));
+   try {
+    serverHost.Start(Path.Combine(root, ".artifacts", "extract", "milkbar", "DedicatedServer"));
+   }
+   catch (Exception error) {
+    failure = "The dedicated server could not start: " + error.Message;
+    C<TextBlock>("Status").Text = failure;
+    Write(failure);
+    Step("Server", "Stopped", Bad);
+    return;
+   }
+   script = Scripts.Run(root, "Start-Online.ps1", "-InputMode Routed -ExternalRouter -ExternalServer", Line, Error, code => Window.Dispatcher.BeginInvoke(new Action(() => ScriptExited(code))));
    SetButtons();
   }
 
@@ -341,6 +363,8 @@ namespace HyruleOnline {
    }
    if (!a) joined[0] = false;
    if (!b) joined[1] = false;
+   C<System.Windows.Shapes.Shape>("CornerDot").Fill = server ? Good : Idle;
+   C<TextBlock>("CornerServer").Text = server ? "Server running" : "Server stopped";
    if (script == null && !stopping) {
     Step("Server", server ? "Running" : "Stopped", server ? Good : Idle);
     Step("A", a ? (joined[0] ? "Joined the server" : "Game open") : "Stopped", a ? (joined[0] ? Good : Busy) : Idle);

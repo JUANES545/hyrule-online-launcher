@@ -3,6 +3,10 @@ param(
     [ValidateSet('Native', 'Routed')][string]$InputMode = 'Native',
     # The launcher already runs the router in its own process, so do not start InputRouter.exe.
     [switch]$ExternalRouter,
+    # The launcher already started the dedicated server (hidden, so it can show its output).
+    [switch]$ExternalServer,
+    # Show the Milk Bar launcher windows instead of hiding them.
+    [switch]$ShowMilkBar,
     [int]$ContinueTimeoutSeconds = 180
 )
 $ErrorActionPreference = 'Stop'
@@ -94,7 +98,9 @@ function Wait-GameLoaded {
 }
 
 $inputRouter = Join-Path $root '.artifacts\input'
-$running = Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Name -in 'Cemu', 'Milk Bar Launcher', 'MBL.DedicatedServer', 'InputRouter', 'HyruleCoop' }
+$names = 'Cemu', 'Milk Bar Launcher', 'InputRouter', 'HyruleCoop'
+if (-not $ExternalServer) { $names += 'MBL.DedicatedServer' }
+$running = Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Name -in $names }
 if ($running) { throw 'Cemu, a Milk Bar launcher, the server or an input router is already running. Close it before starting an online session.' }
 if ($InputMode -eq 'Routed' -and -not (Test-Path -LiteralPath (Join-Path $inputRouter 'Bridge\xinput1_4.dll'))) { throw 'Run scripts/Build-Input.ps1 first.' }
 foreach ($player in $players) {
@@ -117,14 +123,20 @@ else {
     foreach ($player in $players) { Remove-Item -LiteralPath (Join-Path $player.Cemu 'xinput1_4.dll') -ErrorAction SilentlyContinue }
 }
 
-$server = Start-Process -FilePath (Join-Path $serverDirectory 'MBL.DedicatedServer.exe') -WorkingDirectory $serverDirectory -PassThru
+if ($ExternalServer) {
+    $server = Get-Process -Name 'MBL.DedicatedServer' -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $server) { throw 'The launcher did not start the dedicated server.' }
+}
+else {
+    $server = Start-Process -FilePath (Join-Path $serverDirectory 'MBL.DedicatedServer.exe') -WorkingDirectory $serverDirectory -WindowStyle Hidden -PassThru
+}
 Write-Output "Server started (pid $($server.Id))."
 Start-Sleep -Seconds 5
 
 $sessionStart = Get-Date
 foreach ($player in $players) {
     $started = Get-Date
-    & (Join-Path $PSScriptRoot 'Connect-MilkBar.ps1') -LauncherDirectory $player.Launcher
+    & (Join-Path $PSScriptRoot 'Connect-MilkBar.ps1') -LauncherDirectory $player.Launcher -Show:$ShowMilkBar
     Write-Output "Player $($player.Name): wait for the game, then press Continue in its Cemu window (within ~60 s of the save loading)."
     # The server numbers players in the order their DLLs connect, and every DLL takes whichever launcher pipe is free,
     # so player B starts only after player A is linked. B then loads while the user presses Continue for A.
