@@ -143,15 +143,27 @@
     <Border Background="#A0152027" CornerRadius="8" Padding="18" BorderBrush="#3449585A" BorderThickness="1" Margin="0,0,0,12">
      <StackPanel>
       <TextBlock x:Name="ScreenInfo" TextAlignment="Center" FontSize="23" FontWeight="Normal"/>
-      <TextBlock Text="Primary display · automatic detection" TextAlignment="Center" Foreground="#9EB2BD" FontSize="14" Margin="0,4,0,15"/>
-      <Border Background="#080E13" x:Name="PreviewFrame" CornerRadius="6" Padding="6" Height="192" Width="360" HorizontalAlignment="Center"><Grid x:Name="Preview">
+      <TextBlock x:Name="SplitCaption" Text="Primary display · automatic detection" TextAlignment="Center" Foreground="#9EB2BD" FontSize="14" Margin="0,4,0,15"/>
+      <TextBlock x:Name="SeparateCaption" Text="One display per player · automatic detection" Visibility="Collapsed" TextAlignment="Center" Foreground="#9EB2BD" FontSize="14" Margin="0,4,0,15"/>
+      <Border Background="#080E13" x:Name="PreviewFrame" CornerRadius="6" Padding="6" Height="192" Width="360" HorizontalAlignment="Center"><Grid><Grid x:Name="Preview">
        <Grid.RowDefinitions><RowDefinition/><RowDefinition/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
        <Border x:Name="View1" Background="#A629554C" CornerRadius="3" Margin="3"><Viewbox Stretch="Uniform" StretchDirection="DownOnly" Margin="3" HorizontalAlignment="Center" VerticalAlignment="Center"><StackPanel Orientation="Horizontal"><TextBlock x:Name="P1PreviewLabel" Text="P1" FontSize="24" FontWeight="Bold" Foreground="#7EE9C9" VerticalAlignment="Center"/><Image Source="{StaticResource P1Person}" Width="30" Height="30" Margin="6,0"/></StackPanel></Viewbox></Border>
        <Border x:Name="View2" Background="#A6504631" CornerRadius="3" Margin="3"><Viewbox Stretch="Uniform" StretchDirection="DownOnly" Margin="3" HorizontalAlignment="Center" VerticalAlignment="Center"><StackPanel Orientation="Horizontal"><TextBlock x:Name="P2PreviewLabel" Text="P2" FontSize="24" FontWeight="Bold" Foreground="#E5C384" VerticalAlignment="Center"/><Image Source="{StaticResource P2Person}" Width="30" Height="30" Margin="6,0"/></StackPanel></Viewbox></Border>
-      </Grid></Border>
+      </Grid><Canvas x:Name="MonitorMap" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center" AutomationProperties.Name="Display map"/></Grid></Border>
       <TextBlock x:Name="LayoutInfo" TextAlignment="Center" Foreground="#A5BAC5" Margin="0,12,0,14"/>
+      <Button x:Name="Arrange" HorizontalAlignment="Center" Width="380" Content="Displays: split the primary display" Margin="0,0,0,10" Visibility="Collapsed"/>
       <Button x:Name="Layout" HorizontalAlignment="Center" Width="380" Content="Split: automatic" Margin="0,0,0,10"/>
       <ComboBox x:Name="FpsBox" HorizontalAlignment="Center" Width="380" Margin="0,0,0,10"/>
+      <StackPanel x:Name="SeparatePanel" Visibility="Collapsed">
+       <Grid Margin="0,0,0,8"><Grid.ColumnDefinitions><ColumnDefinition Width="62"/><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="84"/><ColumnDefinition Width="8"/><ColumnDefinition Width="150"/></Grid.ColumnDefinitions>
+        <TextBlock Text="P1" Foreground="#7EE9C9" FontSize="15" FontWeight="Bold" VerticalAlignment="Center" Margin="2,0,0,0"/>
+        <ComboBox x:Name="Display1Box" Grid.Column="1" FontSize="14" Padding="10,5"/>
+        <ComboBox x:Name="Scale1Box" Grid.Column="3" FontSize="14" Padding="10,5" ToolTip="Render resolution"/><ComboBox x:Name="Fps1Box" Grid.Column="5" FontSize="14" Padding="10,5" ToolTip="FPS target"/></Grid>
+       <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="62"/><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="84"/><ColumnDefinition Width="8"/><ColumnDefinition Width="150"/></Grid.ColumnDefinitions>
+        <TextBlock Text="P2" Foreground="#E5C384" FontSize="15" FontWeight="Bold" VerticalAlignment="Center" Margin="2,0,0,0"/>
+        <ComboBox x:Name="Display2Box" Grid.Column="1" FontSize="14" Padding="10,5"/>
+        <ComboBox x:Name="Scale2Box" Grid.Column="3" FontSize="14" Padding="10,5" ToolTip="Render resolution"/><ComboBox x:Name="Fps2Box" Grid.Column="5" FontSize="14" Padding="10,5" ToolTip="FPS target"/></Grid>
+      </StackPanel>
      </StackPanel>
     </Border>
     <TextBlock Text="SESSION" TextAlignment="Center" FontFamily="{DynamicResource TitleFont}" FontStretch="Normal" FontWeight="Normal" FontSize="14" Foreground="#CBBF9F" Margin="0,8,0,12"/>
@@ -180,6 +192,7 @@
       <TextBlock x:Name="GraphicsNote" TextAlignment="Center" Foreground="#9EB2BD" FontSize="14" Margin="0,0,0,16" TextWrapping="Wrap" Text="Applied to both games the next time a session starts."/>
       <TextBlock Text="Render resolution" FontSize="13" Foreground="#78939F"/>
       <ComboBox x:Name="ScaleBox" Margin="0,4,0,14"/>
+      <TextBlock x:Name="GraphicsSeparateNote" Visibility="Collapsed" Foreground="#E0BE75" FontSize="13" TextWrapping="Wrap" Margin="0,-8,0,14" Text="Each player sets this on the Play page while there is one display per player."/>
       <TextBlock Text="Shadows" FontSize="13" Foreground="#78939F"/>
       <ComboBox x:Name="ShadowsBox" Margin="0,4,0,14"/>
       <TextBlock Text="Shadow draw distance" FontSize="13" Foreground="#78939F"/>

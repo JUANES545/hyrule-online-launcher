@@ -187,15 +187,16 @@ A fourth page next to Play, Graphics and Language, aimed at local play but built
 - Checked in a real session in Spanish: both `settings.xml` files got `5` and the game text came up in Spanish. The BCML-merged content only has `Bootup_USen.pack`, so text added by mods can stay in English.
 - One Cemu A crash (exception thrown from `InjectDLL.dll` after both instances were loading) happened in the first Spanish run and did not repeat in the second. Not shown to depend on the language.
 
-## One display per player (proposal, not built)
+## One display per player (built)
 
-Findings from this machine and the code:
+Findings from this machine and the code, and what was built:
 
-- Windows lists two displays here: `\\.\DISPLAY2` primary 5120x1440 @ 240 Hz at 0,0 and `\\.\DISPLAY1` 1920x720 @ 60 Hz at 1602,1440. `EnumDisplaySettings(deviceName, ENUM_CURRENT_SETTINGS)` returns each display's physical size, refresh rate and desktop position, so no new dependency is needed. The launcher already uses it for the primary display (`WindowPlacer.PrimaryDisplay`).
-- Cemu's manifest is `dpiAware True/PM` (per-monitor), so a borderless window placed on another display with physical coordinates should keep its client size. To be confirmed in a real session.
-- `CemuDisplay.Apply` and `FpsMod` already work per instance (view, FPS preset), so the per-display mode only changes how `DisplayPlan` is built: one `PlayerView` per chosen display instead of two halves of the primary one.
-- The FPS list must use the Hz of that player's display (this secondary display would cap its player at 60).
-- Keep the primary-display split as the default: Apollo / Artemis streaming makes a virtual display primary, and displays can appear or disappear between sessions. The per-display option only shows with two or more displays and falls back to the split when a chosen display is gone or both players pick the same one.
+- Windows lists two displays here: `\\.\DISPLAY2` primary 5120x1440 @ 240 Hz at 0,0 and `\\.\DISPLAY1` 1920x720 @ 60 Hz at 1602,1440. `EnumDisplayDevices` plus `EnumDisplaySettings(deviceName, ENUM_CURRENT_SETTINGS)` return each attached display's physical size, refresh rate and desktop position (mirrored copies are skipped), so no new dependency is needed.
+- Cemu's manifest is `dpiAware True/PM` (per-monitor). Confirmed in a real session: with one display per player, Cemu A sat at 0,0 with a 5120x1440 client area on `DISPLAY2` and Cemu B at 1602,1440 with a 1920x720 client area on `DISPLAY1`, matching the log lines.
+- `CemuDisplay.Apply` and `FpsMod` already work per instance, so only the plan changed: `ScreenLayout.PlanSeparate` builds one `PlayerView` per chosen display. Each player has their own render scale and FPS target, and the FPS list uses the refresh rate of that player's display (60 Hz here for the secondary one).
+- The primary-display split stays the default. The "Displays" button only shows with two or more usable displays (at least 320x240), and `ScreenLayout.Pair` falls back to the first free display when a chosen one is gone, and never gives both players the same display. Choosing the other player's display swaps them.
+- The choice is saved in `preferences.xml` (`Arrangement`, `Display1/2`, `Scale1/2`, `Fps1/2`). The launcher re-reads the display list every minute and updates when displays appear or disappear.
+- Not verified: gameplay on the second display (the real session only covered placement, sizes and the log until the first player loaded), more than two displays, and displays with a different DPI scale.
 
 ## Open questions
 

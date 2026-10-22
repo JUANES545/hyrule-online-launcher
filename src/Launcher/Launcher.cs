@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -97,6 +98,14 @@ namespace HyruleOnline {
   static readonly string[] LiveControls = { "SetTime", "SetWeather", "WeatherBox", "TimeBox", "LiveNameTags", "PauseSync", "ResumeSync", "BringP1", "BringP2" };
   List<Character> characters = Characters.Parse(null);
   int fpsLimit = FpsMod.AutoFps, displayWidth, displayHeight, displayHz;
+  // One display per player: the arrangement, and what each player has (display, render scale, FPS target).
+  bool perDisplay, canSeparate;
+  readonly string[] displays = { null, null };
+  readonly double[] scales = { GraphicsMod.DefaultScale, GraphicsMod.DefaultScale };
+  readonly int[] fpsLimits = { FpsMod.AutoFps, FpsMod.AutoFps };
+  List<MonitorInfo> monitors = new List<MonitorInfo>();
+  MonitorInfo[] pair;
+  string monitorKey = "";
   Process script;
   string lastError, failure;
   bool stopping;
@@ -151,6 +160,29 @@ namespace HyruleOnline {
     fpsLimit = (int)item.Tag;
     Window.Dispatcher.BeginInvoke(new Action(ChangedDisplayChoice));
    };
+   C<Button>("Arrange").Click += (s, e) => { perDisplay = !perDisplay; ChangedDisplayChoice(); };
+   for (int i = 0; i < 2; i++) {
+    int player = i;
+    C<ComboBox>("Display" + (i + 1) + "Box").SelectionChanged += (s, e) => {
+     var item = ((ComboBox)s).SelectedItem as ComboBoxItem;
+     if (filling || item == null || !(item.Tag is string)) return;
+     var chosen = ScreenLayout.Assign(monitors, displays[0], displays[1], player, (string)item.Tag);
+     displays[0] = chosen[0]; displays[1] = chosen[1];
+     Window.Dispatcher.BeginInvoke(new Action(ChangedDisplayChoice));
+    };
+    C<ComboBox>("Scale" + (i + 1) + "Box").SelectionChanged += (s, e) => {
+     var item = ((ComboBox)s).SelectedItem as ComboBoxItem;
+     if (filling || item == null || !(item.Tag is double)) return;
+     scales[player] = (double)item.Tag;
+     Window.Dispatcher.BeginInvoke(new Action(ChangedDisplayChoice));
+    };
+    C<ComboBox>("Fps" + (i + 1) + "Box").SelectionChanged += (s, e) => {
+     var item = ((ComboBox)s).SelectedItem as ComboBoxItem;
+     if (filling || item == null || !(item.Tag is int)) return;
+     fpsLimits[player] = (int)item.Tag;
+     Window.Dispatcher.BeginInvoke(new Action(ChangedDisplayChoice));
+    };
+   }
    foreach (var tab in new[] { "TabPlay", "TabGraphics", "TabMultiplayer", "TabLanguage", "TabDetails" }) {
     var button = C<Button>(tab);
     button.Click += (s, e) => ShowPage(int.Parse((string)((Button)s).Tag));
@@ -252,7 +284,7 @@ namespace HyruleOnline {
   }
 
   bool AnyDropDownOpen() {
-   foreach (var name in new[] { "FpsBox", "ScaleBox", "ShadowsBox", "ShadowDistanceBox", "AntiAliasingBox", "P1ModelBox", "P2ModelBox", "RulesBox", "SpecialBox", "WeatherBox" }) if (C<ComboBox>(name).IsDropDownOpen) return true;
+   foreach (var name in new[] { "FpsBox", "ScaleBox", "ShadowsBox", "ShadowDistanceBox", "AntiAliasingBox", "P1ModelBox", "P2ModelBox", "RulesBox", "SpecialBox", "WeatherBox", "Display1Box", "Display2Box", "Scale1Box", "Scale2Box", "Fps1Box", "Fps2Box" }) if (C<ComboBox>(name).IsDropDownOpen) return true;
    return false;
   }
 
@@ -270,6 +302,12 @@ namespace HyruleOnline {
     shadows = Saved(root, "Shadows"); shadowDistance = Saved(root, "ShadowDistance"); antiAliasing = Saved(root, "AntiAliasing");
     int wanted;
     fpsLimit = int.TryParse((string)root.Element("FpsLimit"), out wanted) && wanted > 0 ? wanted : FpsMod.AutoFps;
+    perDisplay = (string)root.Element("Arrangement") == "PerDisplay";
+    for (int i = 0; i < 2; i++) {
+     displays[i] = Saved(root, "Display" + (i + 1));
+     scales[i] = double.TryParse((string)root.Element("Scale" + (i + 1)), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out saved) ? GraphicsMod.NearestScale(saved) : scale;
+     fpsLimits[i] = int.TryParse((string)root.Element("Fps" + (i + 1)), out wanted) && wanted > 0 ? wanted : FpsMod.AutoFps;
+    }
     for (int i = 0; i < 2; i++) {
      names[i] = Characters.CleanName((string)root.Element("Name" + (i + 1)), Characters.DefaultNames[i]);
      models[i] = (string)root.Element("Model" + (i + 1)) ?? "";
@@ -277,7 +315,11 @@ namespace HyruleOnline {
     language = Saved(root, "Language") ?? "en";
     launcherLanguage = Lang.Ui(Saved(root, "LauncherLanguage") ?? "en");
    }
-   catch (Exception) { mode = LayoutMode.Auto; scale = GraphicsMod.DefaultScale; shadows = shadowDistance = antiAliasing = null; fpsLimit = FpsMod.AutoFps; language = launcherLanguage = "en"; }
+   catch (Exception) {
+    mode = LayoutMode.Auto; scale = GraphicsMod.DefaultScale; shadows = shadowDistance = antiAliasing = null; fpsLimit = FpsMod.AutoFps; language = launcherLanguage = "en";
+    perDisplay = false;
+    for (int i = 0; i < 2; i++) { displays[i] = null; scales[i] = GraphicsMod.DefaultScale; fpsLimits[i] = FpsMod.AutoFps; }
+   }
   }
 
   // The name and model of each player sit on that player's card and are written into its Milk Bar settings when a session starts.
@@ -504,6 +546,10 @@ namespace HyruleOnline {
     new XDocument(new XElement("Preferences", new XElement("Layout", mode), new XElement("RenderScale", GraphicsMod.NearestScale(scale).ToString(System.Globalization.CultureInfo.InvariantCulture)),
      new XElement("Shadows", shadows ?? ""), new XElement("ShadowDistance", shadowDistance ?? ""), new XElement("AntiAliasing", antiAliasing ?? ""),
      new XElement("FpsLimit", fpsLimit == FpsMod.AutoFps ? "Auto" : fpsLimit.ToString()),
+     new XElement("Arrangement", perDisplay ? "PerDisplay" : "Split"),
+     new XElement("Display1", displays[0] ?? ""), new XElement("Display2", displays[1] ?? ""),
+     new XElement("Scale1", GraphicsMod.NearestScale(scales[0]).ToString(System.Globalization.CultureInfo.InvariantCulture)), new XElement("Scale2", GraphicsMod.NearestScale(scales[1]).ToString(System.Globalization.CultureInfo.InvariantCulture)),
+     new XElement("Fps1", fpsLimits[0] == FpsMod.AutoFps ? "Auto" : fpsLimits[0].ToString()), new XElement("Fps2", fpsLimits[1] == FpsMod.AutoFps ? "Auto" : fpsLimits[1].ToString()),
      new XElement("Name1", names[0]), new XElement("Model1", models[0]), new XElement("Name2", names[1]), new XElement("Model2", models[1]),
      new XElement("Language", language), new XElement("LauncherLanguage", launcherLanguage))).Save(PrefsFile);
    }
@@ -517,12 +563,36 @@ namespace HyruleOnline {
    PlaceWindows();
   }
 
-  // The offered frame rates are the FPS++ presets that the primary display can actually show.
-  List<FpsMod.Limit> FpsChoices() {
-   return FpsMod.Available(FpsMod.Read(Path.Combine(root, ".tools", "instances", "cemuA")), displayHz);
+  // The offered frame rates are the FPS++ presets that the display (the primary one, or the player's own) can actually show.
+  List<FpsMod.Limit> FpsChoices(int hz) {
+   return FpsMod.Available(FpsMod.Read(Path.Combine(root, ".tools", "instances", "cemuA")), hz);
   }
 
-  FpsMod.Limit CurrentFps() { return FpsMod.Pick(FpsChoices(), fpsLimit, displayHz); }
+  int HzOf(int player) { return pair != null ? pair[player].Hz : displayHz; }
+
+  FpsMod.Limit CurrentFps(int player) { return FpsMod.Pick(FpsChoices(HzOf(player)), pair != null ? fpsLimits[player] : fpsLimit, HzOf(player)); }
+
+  DisplayPlan CurrentPlan() {
+   return pair != null ? ScreenLayout.PlanSeparate(pair[0], scales[0], pair[1], scales[1]) : ScreenLayout.Plan(mode, scale, displayWidth, displayHeight);
+  }
+
+  static string MonitorKey(List<MonitorInfo> list) {
+   return string.Join(";", list.ConvertAll(m => m.Device + "," + m.X + "," + m.Y + "," + m.Width + "x" + m.Height + "@" + m.Hz + (m.Primary ? "p" : "")).ToArray());
+  }
+
+  void RefreshMonitors() {
+   WindowPlacer.PrimaryDisplay(out displayWidth, out displayHeight, out displayHz);
+   monitors = WindowPlacer.Monitors();
+   monitorKey = MonitorKey(monitors);
+   MonitorInfo first, second;
+   canSeparate = ScreenLayout.Pair(monitors, null, null, out first, out second);
+   pair = null;
+   if (perDisplay && ScreenLayout.Pair(monitors, displays[0], displays[1], out first, out second)) pair = new[] { first, second };
+  }
+
+  string MonitorLabel(MonitorInfo monitor) {
+   return Tr("Display {0}", ScreenLayout.DisplayNumber(monitor.Device)) + (monitor.Primary ? " (" + Tr("primary") + ")" : "") + " · " + monitor.Width + " × " + monitor.Height + " · " + monitor.Hz + " Hz";
+  }
 
   bool filling;
 
@@ -537,13 +607,22 @@ namespace HyruleOnline {
 
   string InstanceFolder { get { return Path.Combine(root, ".tools", "instances", "cemuA"); } }
 
+  void FillScales(ComboBox box, double current, bool compact) {
+   box.Items.Clear();
+   foreach (double option in GraphicsMod.Scales) {
+    string label = GraphicsMod.ScaleLabel(option, text => Tr(text));
+    box.Items.Add(new ComboBoxItem { Content = compact ? Math.Round(option * 100).ToString("0", System.Globalization.CultureInfo.InvariantCulture) + "%" : label, ToolTip = label, Tag = option });
+   }
+   box.SelectedIndex = Array.IndexOf(GraphicsMod.Scales, GraphicsMod.NearestScale(current));
+  }
+
   void ShowQuality() {
    filling = true;
    try {
-    var scaleBox = C<ComboBox>("ScaleBox");
-    scaleBox.Items.Clear();
-    foreach (double option in GraphicsMod.Scales) scaleBox.Items.Add(new ComboBoxItem { Content = GraphicsMod.ScaleLabel(option, text => Tr(text)), Tag = option });
-    scaleBox.SelectedIndex = Array.IndexOf(GraphicsMod.Scales, GraphicsMod.NearestScale(scale));
+    FillScales(C<ComboBox>("ScaleBox"), scale, false);
+    for (int i = 0; i < 2; i++) FillScales(C<ComboBox>("Scale" + (i + 1) + "Box"), scales[i], true);
+    C<ComboBox>("ScaleBox").IsEnabled = pair == null;
+    C<TextBlock>("GraphicsSeparateNote").Visibility = pair == null ? Visibility.Collapsed : Visibility.Visible;
     FillQuality("ShadowsBox", GraphicsMod.ShadowsCategory, shadows);
     FillQuality("ShadowDistanceBox", GraphicsMod.ShadowDistanceCategory, shadowDistance);
     FillQuality("AntiAliasingBox", GraphicsMod.AntiAliasingCategory, antiAliasing);
@@ -572,32 +651,46 @@ namespace HyruleOnline {
    };
   }
 
-  void ShowFpsChoices() {
-   var choices = FpsChoices();
-   var current = FpsMod.Pick(choices, fpsLimit, displayHz);
-   var box = C<ComboBox>("FpsBox");
+  void FillFps(ComboBox box, List<FpsMod.Limit> choices, int wanted, int hz, bool compact) {
+   var current = FpsMod.Pick(choices, wanted, hz);
    filling = true;
    try {
     box.Items.Clear();
     box.IsEnabled = choices.Count > 0;
     if (current == null) { box.Items.Add(new ComboBoxItem { Content = Tr("FPS++ is not installed") }); box.SelectedIndex = 0; return; }
-    box.Items.Add(new ComboBoxItem { Content = Tr("FPS target: Auto · {0} FPS", FpsMod.Best(choices, displayHz).Fps), Tag = FpsMod.AutoFps });
+    int best = FpsMod.Best(choices, hz).Fps;
+    box.Items.Add(new ComboBoxItem { Content = compact ? Tr("Auto · {0} FPS", best) : Tr("FPS target: Auto · {0} FPS", best), Tag = FpsMod.AutoFps });
     foreach (var choice in choices) box.Items.Add(new ComboBoxItem { Content = choice.Fps + " FPS", Tag = choice.Fps });
-    box.SelectedIndex = fpsLimit == FpsMod.AutoFps ? 0 : choices.FindIndex(l => l.Fps == current.Fps) + 1;
+    box.SelectedIndex = wanted == FpsMod.AutoFps ? 0 : choices.FindIndex(l => l.Fps == current.Fps) + 1;
    }
    finally { filling = false; }
   }
+
+  void ShowFpsChoices() {
+   FillFps(C<ComboBox>("FpsBox"), FpsChoices(displayHz), fpsLimit, displayHz, false);
+   for (int i = 0; i < 2; i++) {
+    int hz = pair != null ? pair[i].Hz : displayHz;
+    FillFps(C<ComboBox>("Fps" + (i + 1) + "Box"), FpsChoices(hz), fpsLimits[i], hz, true);
+   }
+  }
   void UpdatePlan() {
-   WindowPlacer.PrimaryDisplay(out displayWidth, out displayHeight, out displayHz);
-   C<TextBlock>("ScreenInfo").Text = displayWidth + " × " + displayHeight + "  /  " + displayHz + " Hz";
+   RefreshMonitors();
+   bool separate = pair != null;
+   C<Button>("Arrange").Visibility = canSeparate ? Visibility.Visible : Visibility.Collapsed;
+   C<Button>("Arrange").Content = Tr(separate ? "Displays: one per player" : "Displays: split the primary display");
+   foreach (var name in new[] { "SplitCaption", "Preview", "Layout", "FpsBox" }) C<UIElement>(name).Visibility = separate ? Visibility.Collapsed : Visibility.Visible;
+   foreach (var name in new[] { "SeparateCaption", "MonitorMap", "SeparatePanel" }) C<UIElement>(name).Visibility = separate ? Visibility.Visible : Visibility.Collapsed;
+   C<TextBlock>("ScreenInfo").Text = separate ? pair[0].Width + " × " + pair[0].Height + "  +  " + pair[1].Width + " × " + pair[1].Height : displayWidth + " × " + displayHeight + "  /  " + displayHz + " Hz";
    C<Button>("Layout").Content = Tr(mode == LayoutMode.Auto ? "Split: automatic" : mode == LayoutMode.SideBySide ? "Split: side by side" : "Split: top and bottom");
+   ShowDisplays();
    ShowFpsChoices();
    ShowQuality();
    if (displayWidth < 320 || displayHeight < 240) { C<TextBlock>("LayoutInfo").Text = Tr("The primary display is not ready."); return; }
-   var plan = ScreenLayout.Plan(mode, scale, displayWidth, displayHeight);
+   var plan = CurrentPlan();
+   if (separate) { ShowSeparatePlan(plan); FitPrimary(); return; }
    bool side = plan.Layout == LayoutMode.SideBySide;
    var first = plan.Players[0];
-   var shownFps = CurrentFps();
+   var shownFps = CurrentFps(0);
    C<TextBlock>("LayoutInfo").Text = Tr(side ? "Side by side · P1 left / P2 right" : "Top and bottom · P1 top / P2 bottom") + Environment.NewLine + Tr("Each game renders {0} × {1}", first.RenderWidth, first.RenderHeight) + (shownFps == null ? "" : " " + Tr("at {0} FPS", shownFps.Fps));
    var frame = C<Border>("PreviewFrame");
    double ratio = (double)displayWidth / displayHeight;
@@ -608,10 +701,54 @@ namespace HyruleOnline {
    FitPrimary();
   }
 
+  void ShowDisplays() {
+   filling = true;
+   try {
+    for (int i = 0; i < 2; i++) {
+     var box = C<ComboBox>("Display" + (i + 1) + "Box");
+     box.Items.Clear();
+     foreach (var monitor in monitors.OrderByDescending(m => m.Primary).ThenBy(m => m.X).ThenBy(m => m.Y)) {
+      box.Items.Add(new ComboBoxItem { Content = MonitorLabel(monitor), Tag = monitor.Device });
+      if (pair != null && monitor.Device == pair[i].Device) box.SelectedIndex = box.Items.Count - 1;
+     }
+    }
+   }
+   finally { filling = false; }
+  }
+
+  // The preview maps the displays as Windows lays them out; each player's display is tinted with that player's colour.
+  void ShowSeparatePlan(DisplayPlan plan) {
+   var lines = new List<string>();
+   for (int i = 0; i < 2; i++) {
+    var view = plan.Players[i];
+    var fps = CurrentFps(i);
+    lines.Add(fps == null ? Tr("Player {0}: {1} × {2}", i + 1, view.RenderWidth, view.RenderHeight) : Tr("Player {0}: {1} × {2} at {3} FPS", i + 1, view.RenderWidth, view.RenderHeight, fps.Fps));
+   }
+   C<TextBlock>("LayoutInfo").Text = string.Join(Environment.NewLine, lines.ToArray());
+   var map = C<Canvas>("MonitorMap");
+   map.Children.Clear();
+   int left = monitors.Min(m => m.X), top = monitors.Min(m => m.Y), right = monitors.Max(m => m.X + m.Width), bottom = monitors.Max(m => m.Y + m.Height);
+   var frame = C<Border>("PreviewFrame");
+   double extent = (double)(right - left) / (bottom - top);
+   frame.Width = 360; frame.Height = Math.Max(96, Math.Min(132, 348 / extent + 12));
+   map.Width = 348; map.Height = frame.Height - 12;
+   double zoom = Math.Min(map.Width / (right - left), map.Height / (bottom - top)) * 0.94;
+   double offsetX = (map.Width - (right - left) * zoom) / 2, offsetY = (map.Height - (bottom - top) * zoom) / 2;
+   foreach (var monitor in monitors) {
+    int owner = pair[0].Device == monitor.Device ? 0 : pair[1].Device == monitor.Device ? 1 : -1;
+    var tile = new Border { Width = Math.Max(4, monitor.Width * zoom - 4), Height = Math.Max(4, monitor.Height * zoom - 4), CornerRadius = new CornerRadius(3),
+     Background = Paint(owner == 0 ? "#A629554C" : owner == 1 ? "#A6504631" : "#40303B42"), BorderBrush = Paint(monitor.Primary ? "#D5C396" : "#364E5659"), BorderThickness = new Thickness(1) };
+    tile.Child = new Viewbox { Stretch = Stretch.Uniform, StretchDirection = StretchDirection.DownOnly, Margin = new Thickness(3), Child = new TextBlock {
+     Text = (owner < 0 ? "" : Tr("P" + (owner + 1)) + " · ") + ScreenLayout.DisplayNumber(monitor.Device), FontSize = 24, FontWeight = FontWeights.Bold, Foreground = Paint(owner == 0 ? "#7EE9C9" : owner == 1 ? "#E5C384" : "#78939F") } };
+    Canvas.SetLeft(tile, offsetX + (monitor.X - left) * zoom + 2); Canvas.SetTop(tile, offsetY + (monitor.Y - top) * zoom + 2);
+    map.Children.Add(tile);
+   }
+  }
+
   // Each Cemu window is placed once when it first appears, so moving it by hand is not undone.
   void PlaceWindows() {
    if (displayWidth < 320 || displayHeight < 240) return;
-   var areas = ScreenLayout.Plan(mode, scale, displayWidth, displayHeight).Players;
+   var areas = CurrentPlan().Players;
    string[] folders = { "\\cemuA\\", "\\cemuB\\" };
    for (int i = 0; i < 2; i++) {
     foreach (var window in WindowPlacer.CemuWindows(folders[i]).Values) {
@@ -630,18 +767,19 @@ namespace HyruleOnline {
   // Each instance's settings are written for its own window before Cemu starts, so the game renders in the window's shape.
   bool PrepareDisplay() {
    try {
-    WindowPlacer.PrimaryDisplay(out displayWidth, out displayHeight, out displayHz);
-    var plan = ScreenLayout.Plan(mode, scale, displayWidth, displayHeight);
+    RefreshMonitors();
+    var plan = CurrentPlan();
     string[] names = { "cemuA", "cemuB" };
     var quality = CurrentQuality();
     var gameLanguage = GameLanguages.Find(gameLanguages, language);
-    Write("Graphics: render " + GraphicsMod.ScaleLabel(quality.Scale) + ", shadows " + quality.Shadows + ", shadow distance " + quality.ShadowDistance + ", anti-aliasing " + quality.AntiAliasing + ".");
+    Write("Graphics: " + (pair == null ? "render " + GraphicsMod.ScaleLabel(quality.Scale) + ", " : "") + "shadows " + quality.Shadows + ", shadow distance " + quality.ShadowDistance + ", anti-aliasing " + quality.AntiAliasing + ".");
     Write("Game language: " + gameLanguage.Name + " (Cemu console language " + gameLanguage.Console + ").");
     for (int i = 0; i < 2; i++) {
      var view = plan.Players[i];
-     var fps = CurrentFps();
+     var fps = CurrentFps(i);
      CemuDisplay.Apply(Path.Combine(root, ".tools", "instances", names[i]), view, fps == null ? null : fps.Preset, quality, gameLanguage.Console);
-     Write("Player " + (i + 1) + ": " + view.RenderWidth + " x " + view.RenderHeight + " (aspect " + view.RatioWidth + ":" + view.RatioHeight + ")" + (fps == null ? "." : ", " + fps.Fps + " FPS limit."));
+     Write("Player " + (i + 1) + ": " + view.RenderWidth + " x " + view.RenderHeight + " (aspect " + view.RatioWidth + ":" + view.RatioHeight + ")"
+      + (pair == null ? "" : " on display " + ScreenLayout.DisplayNumber(pair[i].Device) + " at " + pair[i].Hz + " Hz, render " + GraphicsMod.ScaleLabel(scales[i])) + (fps == null ? "." : ", " + fps.Fps + " FPS limit."));
     }
     return true;
    }
@@ -778,7 +916,7 @@ namespace HyruleOnline {
   void RefreshProcesses() {
    int width, height, hz;
    WindowPlacer.PrimaryDisplay(out width, out height, out hz);
-   if (width != displayWidth || height != displayHeight || hz != displayHz) UpdatePlan();
+   if (width != displayWidth || height != displayHeight || hz != displayHz || MonitorKey(WindowPlacer.Monitors()) != monitorKey) UpdatePlan();
    PlaceWindows();
    var owned = Scripts.Owned(root);
    bool server = false, a = false, b = false;

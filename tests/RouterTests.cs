@@ -396,6 +396,45 @@ namespace HyruleOnline {
     Require(rejected, "a display that is not ready is rejected");
     Console.WriteLine("PASS: display plans for " + plans + " display, layout and quality combinations.");
 
+    Func<string, int, int, int, int, int, bool, MonitorInfo> mon = (dev, x, y, w, h, hzv, prim) => new MonitorInfo { Device = dev, X = x, Y = y, Width = w, Height = h, Hz = hzv, Primary = prim };
+    var d2 = mon("\\\\.\\DISPLAY2", 0, 0, 5120, 1440, 240, true);
+    var d1 = mon("\\\\.\\DISPLAY1", 1602, 1440, 1920, 720, 60, false);
+    var d3 = mon("\\\\.\\DISPLAY3", -1920, 100, 1920, 1080, 144, false);
+    var tiny = mon("\\\\.\\DISPLAY4", 5120, 0, 200, 100, 60, false);
+    MonitorInfo p1, p2;
+    Require(!ScreenLayout.Pair(new MonitorInfo[0], null, null, out p1, out p2) && !ScreenLayout.Pair(new[] { d2 }, null, null, out p1, out p2), "fewer than two displays never separate the players");
+    Require(!ScreenLayout.Pair(new[] { d2, tiny }, null, null, out p1, out p2), "a display that is too small does not count");
+    Require(ScreenLayout.Pair(new[] { d1, d2 }, null, null, out p1, out p2) && p1.Device == d2.Device && p2.Device == d1.Device, "with nothing chosen the primary display is player 1");
+    Require(ScreenLayout.Pair(new[] { d1, d2, d3 }, d3.Device, d3.Device, out p1, out p2) && p1.Device == d3.Device && p2.Device == d2.Device, "both players never share a display");
+    Require(ScreenLayout.Pair(new[] { d1, d2 }, "\\\\.\\DISPLAY9", d1.Device, out p1, out p2) && p1.Device == d2.Device && p2.Device == d1.Device, "a display that is gone is replaced by a free one");
+    Require(ScreenLayout.Pair(new[] { d1, d2, d3 }, d1.Device, null, out p1, out p2) && p1.Device == d1.Device && p2.Device == d2.Device, "a free display fills the missing choice");
+    var swapped = ScreenLayout.Assign(new[] { d1, d2 }, d2.Device, d1.Device, 0, d1.Device);
+    Require(swapped[0] == d1.Device && swapped[1] == d2.Device, "choosing the other player's display swaps the two");
+    var moved = ScreenLayout.Assign(new[] { d1, d2, d3 }, d2.Device, d1.Device, 1, d3.Device);
+    Require(moved[0] == d2.Device && moved[1] == d3.Device, "choosing a free display changes only that player");
+    Require(ScreenLayout.DisplayNumber(d2.Device) == 2 && ScreenLayout.DisplayNumber("\\\\.\\DISPLAY12") == 12 && ScreenLayout.DisplayNumber("x") == 0 && ScreenLayout.DisplayNumber(null) == 0, "display numbers are read from the device name");
+
+    int separatePlans = 0;
+    foreach (var first in displays) foreach (var second in displays) foreach (double scale in GraphicsMod.Scales) {
+     string name = first[0] + "x" + first[1] + " + " + second[0] + "x" + second[1] + " x" + scale;
+     var plan = ScreenLayout.PlanSeparate(mon("a", -first[0], -300, first[0], first[1], 60, false), scale, mon("b", 40, 17, second[0], second[1], 144, true), 1.0);
+     Require(plan.Separate && plan.Players.Length == 2, name + ": the plan is separate");
+     Require(plan.Players[0].Area.X == -first[0] && plan.Players[0].Area.Y == -300 && plan.Players[0].Area.Width == first[0] && plan.Players[0].Area.Height == first[1], name + ": player 1 fills its display, even at a negative origin");
+     Require(plan.Players[1].Area.X == 40 && plan.Players[1].Area.Y == 17 && plan.Players[1].Area.Width == second[0] && plan.Players[1].Area.Height == second[1], name + ": player 2 fills its display");
+     for (int i = 0; i < 2; i++) {
+      var view = plan.Players[i];
+      double windowRatio = (double)view.Area.Width / view.Area.Height, renderRatio = (double)view.RenderWidth / view.RenderHeight, ratio = (double)view.RatioWidth / view.RatioHeight;
+      Require(view.RenderWidth % 2 == 0 && view.RenderHeight % 2 == 0 && view.RenderWidth <= ScreenLayout.MaxRenderSide && view.RenderHeight <= ScreenLayout.MaxRenderSide, name + ": render size is even and within the GPU limit");
+      Require(Math.Abs(renderRatio / windowRatio - 1) < 0.01 + 2.0 / Math.Min(view.RenderWidth, view.RenderHeight) && Math.Abs(ratio / renderRatio - 1) < 0.005, name + ": render and aspect ratio match the display");
+     }
+     Require(plan.Players[1].RenderWidth >= second[0] - 1 && plan.Players[1].RenderWidth <= second[0], name + ": each player has their own scale");
+     separatePlans++;
+    }
+    rejected = false;
+    try { ScreenLayout.PlanSeparate(d2, 1.0, tiny, 1.0); } catch (ArgumentOutOfRangeException) { rejected = true; }
+    Require(rejected, "a display that is too small is rejected");
+    Console.WriteLine("PASS: one display per player, " + separatePlans + " display pairs.");
+
     var all = FpsMod.Parse(FpsRules);
     Require(all.Count == 12 && all[0].Fps == 20 && all[11].Fps == 240 && all.Any(l => l.Fps == 60 && l.Preset == "60FPS Limit (Default)"), "the mod's FPS limits are read from its rules, once each, in order");
     Require(!all.Any(l => l.Fps == 244 || l.Fps == 48), "advanced framerate presets are not offered");
@@ -403,6 +442,7 @@ namespace HyruleOnline {
     Require(offered(240) == "30,45,55,60,72,75,90,120,144" && offered(360) == offered(240), "a fast display offers 30 to 144 only");
     Require(offered(120) == "30,45,55,60,72,75,90,120", "a 120 Hz display offers nothing above 120");
     Require(offered(144) == "30,45,55,60,72,75,90,120,144" && offered(100) == "30,45,55,60,72,75,90" && offered(60) == "30,45,55,60", "limits stop at the refresh rate");
+    Require(offered(d2.Hz) == "30,45,55,60,72,75,90,120,144" && offered(d1.Hz) == "30,45,55,60" && offered(d3.Hz) == offered(144), "each display offers FPS limits up to its own refresh rate");
     Require(offered(0) == "30,45,55,60" && offered(1) == "30,45,55,60", "an unknown refresh rate is treated as 60 Hz");
     Require(offered(10) == "30" && offered(20) == "30", "a very slow display still offers the lowest limit");
     Func<int, int> best = hz => FpsMod.Best(FpsMod.Available(all, hz), hz).Fps;
