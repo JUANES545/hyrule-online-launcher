@@ -102,6 +102,7 @@ namespace HyruleOnline {
   int fpsLimit = FpsMod.AutoFps, displayWidth, displayHeight, displayHz;
   // One display per player: the arrangement, and what each player has (display, render scale, FPS target).
   bool perDisplay, canSeparate;
+  int playerCount = 2;
   readonly string[] displays = { null, null };
   readonly double[] scales = { GraphicsMod.DefaultScale, GraphicsMod.DefaultScale };
   readonly int[] fpsLimits = { FpsMod.AutoFps, FpsMod.AutoFps };
@@ -145,6 +146,8 @@ namespace HyruleOnline {
    C<Button>("Start").Click += (s, e) => { if (sessionLive) { restartAfterStop = true; StopSession(); } else StartSession(); };
    C<Button>("Stop").Click += (s, e) => StopSession();
    C<Button>("Swap").Click += (s, e) => router.Swap();
+   C<Button>("Mode1").Click += (s, e) => SetPlayerCount(1);
+   C<Button>("Mode2").Click += (s, e) => SetPlayerCount(2);
    for (int i = 0; i < 2; i++) {
     int player = i;
     C<Button>("Assign" + (i + 1)).Click += (s, e) => { if (router.Snapshot().Assigning == player) router.CancelAssign(); else router.BeginAssign(player); };
@@ -324,6 +327,7 @@ namespace HyruleOnline {
     int wanted;
     fpsLimit = int.TryParse((string)root.Element("FpsLimit"), out wanted) && wanted > 0 ? wanted : FpsMod.AutoFps;
     perDisplay = (string)root.Element("Arrangement") == "PerDisplay";
+    playerCount = (string)root.Element("Players") == "1" ? 1 : 2;
     for (int i = 0; i < 2; i++) {
      displays[i] = Saved(root, "Display" + (i + 1));
      scales[i] = double.TryParse((string)root.Element("Scale" + (i + 1)), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out saved) ? GraphicsMod.NearestScale(saved) : scale;
@@ -338,7 +342,7 @@ namespace HyruleOnline {
    }
    catch (Exception) {
     mode = LayoutMode.Auto; scale = GraphicsMod.DefaultScale; shadows = shadowDistance = antiAliasing = null; advanced = new GraphicsMod.Advanced(); fpsLimit = FpsMod.AutoFps; language = launcherLanguage = "en";
-    perDisplay = false;
+    perDisplay = false; playerCount = 2;
     for (int i = 0; i < 2; i++) { displays[i] = null; scales[i] = GraphicsMod.DefaultScale; fpsLimits[i] = FpsMod.AutoFps; }
    }
   }
@@ -556,7 +560,7 @@ namespace HyruleOnline {
      new XElement("GraphicsApi", advanced.Api), new XElement("VSync", advanced.VSync ? "1" : "0"), new XElement("AsyncCompile", advanced.AsyncCompile ? "1" : "0"),
      new XElement("AccurateBarriers", advanced.AccurateBarriers ? "1" : "0"), new XElement("UpscaleFilter", advanced.Upscale), new XElement("DownscaleFilter", advanced.Downscale),
      new XElement("FpsLimit", fpsLimit == FpsMod.AutoFps ? "Auto" : fpsLimit.ToString()),
-     new XElement("Arrangement", perDisplay ? "PerDisplay" : "Split"),
+     new XElement("Arrangement", perDisplay ? "PerDisplay" : "Split"), new XElement("Players", playerCount),
      new XElement("Display1", displays[0] ?? ""), new XElement("Display2", displays[1] ?? ""),
      new XElement("Scale1", GraphicsMod.NearestScale(scales[0]).ToString(System.Globalization.CultureInfo.InvariantCulture)), new XElement("Scale2", GraphicsMod.NearestScale(scales[1]).ToString(System.Globalization.CultureInfo.InvariantCulture)),
      new XElement("Fps1", fpsLimits[0] == FpsMod.AutoFps ? "Auto" : fpsLimits[0].ToString()), new XElement("Fps2", fpsLimits[1] == FpsMod.AutoFps ? "Auto" : fpsLimits[1].ToString()),
@@ -583,7 +587,8 @@ namespace HyruleOnline {
   FpsMod.Limit CurrentFps(int player) { return FpsMod.Pick(FpsChoices(HzOf(player)), pair != null ? fpsLimits[player] : fpsLimit, HzOf(player)); }
 
   DisplayPlan CurrentPlan() {
-   return pair != null ? ScreenLayout.PlanSeparate(pair[0], scales[0], pair[1], scales[1]) : ScreenLayout.Plan(mode, scale, displayWidth, displayHeight);
+   return pair != null ? ScreenLayout.PlanSeparate(pair[0], scales[0], pair[1], scales[1])
+    : playerCount == 1 ? ScreenLayout.PlanSingle(scale, displayWidth, displayHeight) : ScreenLayout.Plan(mode, scale, displayWidth, displayHeight);
   }
 
   static string MonitorKey(List<MonitorInfo> list) {
@@ -595,9 +600,9 @@ namespace HyruleOnline {
    monitors = WindowPlacer.Monitors();
    monitorKey = MonitorKey(monitors);
    MonitorInfo first, second;
-   canSeparate = ScreenLayout.Pair(monitors, null, null, out first, out second);
+   canSeparate = playerCount == 2 && ScreenLayout.Pair(monitors, null, null, out first, out second);
    pair = null;
-   if (perDisplay && ScreenLayout.Pair(monitors, displays[0], displays[1], out first, out second)) pair = new[] { first, second };
+   if (perDisplay && canSeparate && ScreenLayout.Pair(monitors, displays[0], displays[1], out first, out second)) pair = new[] { first, second };
   }
 
   string MonitorLabel(MonitorInfo monitor) {
@@ -761,10 +766,12 @@ namespace HyruleOnline {
   }
   void UpdatePlan() {
    RefreshMonitors();
+   ShowPlayers();
    bool separate = pair != null;
    C<Button>("Arrange").Visibility = canSeparate ? Visibility.Visible : Visibility.Collapsed;
    C<Button>("Arrange").Content = Tr(separate ? "Displays: one per player" : "Displays: split the primary display");
    foreach (var name in new[] { "SplitCaption", "Preview", "Layout", "FpsBox" }) C<UIElement>(name).Visibility = separate ? Visibility.Collapsed : Visibility.Visible;
+   C<UIElement>("Layout").Visibility = separate || playerCount == 1 ? Visibility.Collapsed : Visibility.Visible;
    foreach (var name in new[] { "SeparateCaption", "MonitorMap", "SeparatePanel" }) C<UIElement>(name).Visibility = separate ? Visibility.Visible : Visibility.Collapsed;
    C<TextBlock>("ScreenInfo").Text = separate ? pair[0].Width + " × " + pair[0].Height + "  +  " + pair[1].Width + " × " + pair[1].Height : displayWidth + " × " + displayHeight + "  /  " + displayHz + " Hz";
    C<Button>("Layout").Content = Tr(mode == LayoutMode.Auto ? "Split: automatic" : mode == LayoutMode.SideBySide ? "Split: side by side" : "Split: top and bottom");
@@ -777,14 +784,39 @@ namespace HyruleOnline {
    bool side = plan.Layout == LayoutMode.SideBySide;
    var first = plan.Players[0];
    var shownFps = CurrentFps(0);
-   C<TextBlock>("LayoutInfo").Text = Tr(side ? "Side by side · P1 left / P2 right" : "Top and bottom · P1 top / P2 bottom") + Environment.NewLine + Tr("Each game renders {0} × {1}", first.RenderWidth, first.RenderHeight) + (shownFps == null ? "" : " " + Tr("at {0} FPS", shownFps.Fps));
+   string shape = playerCount == 1 ? Tr("One player · the whole display") : Tr(side ? "Side by side · P1 left / P2 right" : "Top and bottom · P1 top / P2 bottom");
+   C<TextBlock>("LayoutInfo").Text = shape + Environment.NewLine + Tr("Each game renders {0} × {1}", first.RenderWidth, first.RenderHeight) + (shownFps == null ? "" : " " + Tr("at {0} FPS", shownFps.Fps));
    var frame = C<Border>("PreviewFrame");
    double ratio = (double)displayWidth / displayHeight;
    frame.Width = ratio < 1 ? 118 : Math.Min(360, 210 * ratio); frame.Height = frame.Width / ratio;
    var a = C<Border>("View1"); var b = C<Border>("View2");
+   b.Visibility = playerCount == 1 ? Visibility.Collapsed : Visibility.Visible;
+   if (playerCount == 1) { Grid.SetRow(a, 0); Grid.SetColumn(a, 0); Grid.SetRowSpan(a, 2); Grid.SetColumnSpan(a, 2); FitPrimary(); return; }
    Grid.SetRow(a, 0); Grid.SetColumn(a, 0); Grid.SetRow(b, side ? 0 : 1); Grid.SetColumn(b, side ? 1 : 0);
    Grid.SetRowSpan(a, side ? 2 : 1); Grid.SetRowSpan(b, side ? 2 : 1); Grid.SetColumnSpan(a, side ? 1 : 2); Grid.SetColumnSpan(b, side ? 1 : 2);
    FitPrimary();
+  }
+
+  // One player hides everything that only makes sense with two: the second card, the swap, its preview, its status row and the teleports.
+  void ShowPlayers() {
+   bool two = playerCount == 2;
+   Func<bool, Visibility> show = on => on ? Visibility.Visible : Visibility.Collapsed;
+   foreach (var name in new[] { "P2Card", "Swap", "BLabel", "BDot", "BText", "BringP1", "BringP2" }) C<UIElement>(name).Visibility = show(two);
+   if (!two) SetPicker(1, false);
+   foreach (var entry in new[] { new KeyValuePair<string, int>("Mode1", 1), new KeyValuePair<string, int>("Mode2", 2) }) {
+    var button = C<Button>(entry.Key);
+    bool current = entry.Value == playerCount;
+    button.Background = Paint(current ? "#B03C554B" : "#801B252B");
+    button.BorderBrush = Paint(current ? "#D5C396" : "#364E5659");
+   }
+   UpdatePlayLayout();
+  }
+
+  void SetPlayerCount(int count) {
+   if (count == playerCount) return;
+   playerCount = count;
+   ChangedDisplayChoice();
+   UpdateStart();
   }
 
   void ShowDisplays() {
@@ -836,7 +868,7 @@ namespace HyruleOnline {
    if (displayWidth < 320 || displayHeight < 240) return;
    var areas = CurrentPlan().Players;
    string[] folders = { "\\cemuA\\", "\\cemuB\\" };
-   for (int i = 0; i < 2; i++) {
+   for (int i = 0; i < areas.Length; i++) {
     foreach (var window in WindowPlacer.CemuWindows(folders[i]).Values) {
      if (!placed.Add(window)) {
       if (WindowPlacer.HideMenu(window) && menuHidden.Add(window)) Write("Cemu " + (i == 0 ? "A" : "B") + ": hid the menu bar that Cemu restored.");
@@ -863,7 +895,7 @@ namespace HyruleOnline {
     Write("Cemu: " + api + (advanced.Api == GraphicsMod.AutoApi ? " (automatic)" : "") + ", VSync " + (advanced.VSync ? "on" : "off") + ", async shader compile " + (advanced.AsyncCompile ? "on" : "off")
      + ", upscale " + GraphicsMod.Filters[advanced.Upscale] + ", downscale " + GraphicsMod.Filters[advanced.Downscale] + (api == GraphicsMod.VulkanApi ? ", accurate barriers " + (advanced.AccurateBarriers ? "on" : "off") : "") + ".");
     Write("Game language: " + gameLanguage.Name + " (Cemu console language " + gameLanguage.Console + ").");
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < plan.Players.Length; i++) {
      var view = plan.Players[i];
      var fps = CurrentFps(i);
      CemuDisplay.Apply(Path.Combine(root, ".tools", "instances", names[i]), view, fps == null ? null : fps.Preset, quality, gameLanguage.Console, advanced, vulkanAvailable);
@@ -898,7 +930,7 @@ namespace HyruleOnline {
   }
 
   void ApplyPlayers() {
-   for (int i = 0; i < 2; i++) {
+   for (int i = 0; i < playerCount; i++) {
     var character = Characters.Find(characters, models[i]);
     names[i] = Characters.CleanName(C<TextBox>("P" + (i + 1) + "NameBox").Text, Characters.DefaultNames[i]);
     string bcml = Path.Combine(root, ".tools", "localappdata", i == 0 ? "bcml" : "bcml-b", "settings.json");
@@ -923,8 +955,8 @@ namespace HyruleOnline {
    appliedSignature = Signature();
    Write("World rules: " + rules.Name + ", " + ServerRules.SpecialNames[rules.Special] + ".");
    ShowNameTags(true);
-   Step("Server", "Starting", Busy); Step("A", "Waiting", Idle); Step("B", "Waiting", Idle);
-   Write("Starting the session.");
+   Step("Server", "Starting", Busy); Step("A", "Waiting", Idle); Step("B", playerCount == 2 ? "Waiting" : "Stopped", Idle);
+   Write(playerCount == 1 ? "Starting a one player session." : "Starting the session.");
    try {
     serverHost.Start(Path.Combine(root, ".artifacts", "extract", "milkbar", "DedicatedServer"));
    }
@@ -933,7 +965,7 @@ namespace HyruleOnline {
     Step("Server", "Stopped", Bad);
     return;
    }
-   script = Scripts.Run(root, "Start-Online.ps1", "-InputMode Routed -ExternalRouter -ExternalServer", Line, Error, code => Window.Dispatcher.BeginInvoke(new Action(() => ScriptExited(code))));
+   script = Scripts.Run(root, "Start-Online.ps1", "-InputMode Routed -ExternalRouter -ExternalServer -PlayerCount " + playerCount, Line, Error, code => Window.Dispatcher.BeginInvoke(new Action(() => ScriptExited(code))));
    SetButtons();
   }
 
@@ -947,15 +979,16 @@ namespace HyruleOnline {
    else if ((match = Regex.Match(text, "^Player ([AB]): wait")).Success) {
     string name = match.Groups[1].Value;
     Step(name, "Waiting for Continue", Busy);
-    SetPrompt(name == "A" ? "Cemu A: wait for the main menu, then press Continue within about a minute. Player 2 starts when player 1 has finished loading." : "Cemu B: wait for the main menu, then press Continue. If player 1 is not in yet, press Continue there too.");
+    SetPrompt(name == "A" ? playerCount == 1 ? "Cemu A: wait for the main menu, then press Continue within about a minute." : "Cemu A: wait for the main menu, then press Continue within about a minute. Player 2 starts when player 1 has finished loading." : "Cemu B: wait for the main menu, then press Continue. If player 1 is not in yet, press Continue there too.");
    }
-   else if ((match = Regex.Match(text, "^(\\d) of 2 players joined")).Success) {
-    // The shared log does not say which player joined, so the steps change only when both are in.
-    if (match.Groups[1].Value == "1") SetPrompt("One player joined. Press Continue in the other Cemu window.");
+   else if ((match = Regex.Match(text, "^(\\d) of (\\d) players joined")).Success) {
+    // The shared log does not say which player joined, so the steps change only when everyone is in.
+    if (match.Groups[1].Value == "1" && match.Groups[2].Value == "2") SetPrompt("One player joined. Press Continue in the other Cemu window.");
    }
-   else if (text.StartsWith("Both players are connected")) {
-    joined[0] = joined[1] = true;
-    Step("A", "Joined the server", Good); Step("B", "Joined the server", Good);
+   else if (text.StartsWith("All players are connected")) {
+    joined[0] = true; joined[1] = playerCount == 2;
+    Step("A", "Joined the server", Good);
+    if (playerCount == 2) Step("B", "Joined the server", Good);
     SetPrompt(""); SetStatus("Session running.");
    }
   }
@@ -989,10 +1022,10 @@ namespace HyruleOnline {
   string Signature() {
    Func<double, string> size = v => GraphicsMod.NearestScale(v).ToString(System.Globalization.CultureInfo.InvariantCulture);
    var parts = new List<object> { shadows, shadowDistance, antiAliasing, advanced.Api, advanced.VSync, advanced.AsyncCompile, advanced.AccurateBarriers, advanced.Upscale, advanced.Downscale, language,
-    rules.Special, rules.Enemies, rules.Quests, rules.Koroks, rules.Towers, rules.Shrines, rules.Locations, rules.DivineBeasts, pair != null };
-   for (int i = 0; i < 2; i++) parts.AddRange(new object[] { Characters.CleanName(C<TextBox>("P" + (i + 1) + "NameBox").Text, Characters.DefaultNames[i]), models[i] });
+    rules.Special, rules.Enemies, rules.Quests, rules.Koroks, rules.Towers, rules.Shrines, rules.Locations, rules.DivineBeasts, pair != null, playerCount };
+   for (int i = 0; i < playerCount; i++) parts.AddRange(new object[] { Characters.CleanName(C<TextBox>("P" + (i + 1) + "NameBox").Text, Characters.DefaultNames[i]), models[i] });
    if (pair != null) for (int i = 0; i < 2; i++) parts.AddRange(new object[] { displays[i], size(scales[i]), fpsLimits[i] });
-   else parts.AddRange(new object[] { mode, size(scale), fpsLimit });
+   else parts.AddRange(new object[] { playerCount == 2 ? mode.ToString() : "", size(scale), fpsLimit });
    return string.Join("|", parts.Select(p => p == null ? "" : p.ToString()).ToArray());
   }
 
@@ -1068,7 +1101,7 @@ namespace HyruleOnline {
   void EnableAppearance(bool enabled) {
    foreach (var name in new[] { "P1NameBox", "P2NameBox" }) C<TextBox>(name).IsEnabled = enabled;
    foreach (var name in new[] { "RulesBox", "SpecialBox" }) C<ComboBox>(name).IsEnabled = enabled;
-   foreach (var name in new[] { "P1AvatarButton", "P2AvatarButton" }) C<Button>(name).IsEnabled = enabled;
+   foreach (var name in new[] { "P1AvatarButton", "P2AvatarButton", "Mode1", "Mode2" }) C<Button>(name).IsEnabled = enabled;
    if (!enabled) ClosePickers();
    foreach (var name in RuleBoxes) C<CheckBox>(name).IsEnabled = enabled;
   }

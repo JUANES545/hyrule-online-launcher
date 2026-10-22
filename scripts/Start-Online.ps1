@@ -7,6 +7,8 @@ param(
     [switch]$ExternalServer,
     # Show the Milk Bar launcher windows instead of hiding them.
     [switch]$ShowMilkBar,
+    # One player starts only Cemu A; two players also start Cemu B.
+    [ValidateRange(1, 2)][int]$PlayerCount = 2,
     [int]$ContinueTimeoutSeconds = 180
 )
 $ErrorActionPreference = 'Stop'
@@ -14,10 +16,10 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $extract = Join-Path $root '.artifacts\extract'
 $serverDirectory = Join-Path $extract 'milkbar\DedicatedServer'
-$players = @(
+$players = @(@(
     @{ Name = 'A'; Slot = 0; Cemu = Join-Path $root '.tools\instances\cemuA'; Launcher = Join-Path $extract 'milkbar' },
     @{ Name = 'B'; Slot = 1; Cemu = Join-Path $root '.tools\instances\cemuB'; Launcher = Join-Path $extract 'milkbarB' }
-)
+) | Select-Object -First $PlayerCount)
 $gameLog = Join-Path $env:APPDATA 'BOTWM\LatestLog.txt'
 
 # Same Pro Controller bindings as the local co-op launcher (Configure-Cemu.ps1).
@@ -143,7 +145,7 @@ foreach ($player in $players) {
     if (-not (Wait-LogLine -Pattern 'Assigned to player' -Since $started -TimeoutSeconds 90)) {
         throw "Player $($player.Name) did not reach the server. Check $gameLog."
     }
-    if ($player.Name -eq 'A') {
+    if ($player.Name -eq 'A' -and $PlayerCount -gt 1) {
         Write-Output 'Player B starts as soon as player A has finished loading.'
         $loading = Get-Date
         if (Wait-GameLoaded -Folder $player.Cemu -TimeoutSeconds 300) { Write-Output "Player A finished loading after $([int]((Get-Date) - $loading).TotalSeconds) s." }
@@ -154,14 +156,14 @@ foreach ($player in $players) {
 # Both DLLs write to the same log and its lines do not say which player they belong to, so count the joins.
 $deadline = (Get-Date).AddSeconds($ContinueTimeoutSeconds)
 $seen = 0
-while ($seen -lt 2) {
+while ($seen -lt $PlayerCount) {
     foreach ($player in $players) {
         if (-not (Get-CemuProcess -Folder $player.Cemu)) { throw "Cemu $($player.Name) closed before the session was ready. Check $gameLog." }
     }
     $count = Get-LogCount -Pattern 'Displayed "Joined server' -Since $sessionStart
-    if ($count -gt $seen) { $seen = $count; Write-Output "$seen of 2 players joined." }
-    if ($seen -ge 2) { break }
-    if ((Get-Date) -gt $deadline) { throw "Only $seen of 2 players joined within $ContinueTimeoutSeconds s. Check $gameLog." }
+    if ($count -gt $seen) { $seen = $count;     Write-Output "$seen of $PlayerCount players joined." }
+        if ($seen -ge $PlayerCount) { break }
+        if ((Get-Date) -gt $deadline) { throw "Only $seen of $PlayerCount players joined within $ContinueTimeoutSeconds s. Check $gameLog." }
     Start-Sleep -Seconds 2
 }
-Write-Output 'Both players are connected.'
+    Write-Output 'All players are connected.'

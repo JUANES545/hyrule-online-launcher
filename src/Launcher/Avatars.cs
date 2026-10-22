@@ -128,15 +128,15 @@ namespace HyruleOnline {
 
   // While anyone is choosing, the display column gives way and the two cards sit side by side so both mosaics fit at once.
   void UpdatePlayLayout() {
-   bool choosing = pickerOpen[0] || pickerOpen[1], side = choosing && !stackedLayout;
+   bool choosing = pickerOpen[0] || pickerOpen[1], side = choosing && !stackedLayout && playerCount == 2;
    var first = C<Border>("P1Card"); var second = C<Border>("P2Card");
    Grid.SetRow(second, side ? 0 : 1); Grid.SetColumn(second, side ? 1 : 0);
    Grid.SetColumnSpan(first, side ? 1 : 2); Grid.SetColumnSpan(second, side ? 1 : 2);
    first.Margin = side ? new Thickness(0, 0, 6, 8) : new Thickness(0, 0, 0, 8);
    second.Margin = side ? new Thickness(6, 0, 0, 8) : new Thickness(0, 0, 0, 8);
-   Grid.SetColumnSpan(C<StackPanel>("Players"), side ? 2 : 1);
+   Grid.SetColumnSpan(C<StackPanel>("Players"), side || choosing && playerCount == 1 ? 2 : 1);
    C<StackPanel>("DisplayPanel").Visibility = choosing ? Visibility.Collapsed : Visibility.Visible;
-   C<StackPanel>("Players").Margin = side ? new Thickness(0) : stackedLayout ? new Thickness(0, 0, 0, 18) : new Thickness(0, 0, 28, 0);
+   C<StackPanel>("Players").Margin = side || choosing && playerCount == 1 ? new Thickness(0) : stackedLayout ? new Thickness(0, 0, 0, 18) : new Thickness(0, 0, 28, 0);
   }
  }
 }

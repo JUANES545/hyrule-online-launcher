@@ -67,7 +67,7 @@ namespace HyruleOnline {
 
   int OwnerOf(int slot, RouterSnapshot snapshot) {
    if (page != 0) return 2;
-   return snapshot.Routes[0] == slot ? 0 : snapshot.Routes[1] == slot ? 1 : 2;
+   return snapshot.Routes[0] == slot ? 0 : playerCount == 2 && snapshot.Routes[1] == slot ? 1 : 2;
   }
 
   // Reads every pad once per tick, then lets each cursor act on what its pads did.

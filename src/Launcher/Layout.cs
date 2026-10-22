@@ -71,6 +71,12 @@ namespace HyruleOnline {
    return plan;
   }
 
+  // One player: the game takes the whole display.
+  public static DisplayPlan PlanSingle(double scale, int width, int height) {
+   if (width < MinDisplayWidth || height < MinDisplayHeight) throw new ArgumentOutOfRangeException("width", "The display is too small or not ready.");
+   return new DisplayPlan { Layout = LayoutMode.Auto, Players = new[] { View(new Area { X = 0, Y = 0, Width = width, Height = height }, scale) } };
+  }
+
   public static PlayerView View(Area area, double scale) {
    var view = new PlayerView { Area = area };
    RenderSize(area, scale, out view.RenderWidth, out view.RenderHeight);

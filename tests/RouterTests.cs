@@ -440,6 +440,13 @@ namespace HyruleOnline {
     bool rejected = false;
     try { ScreenLayout.Plan(LayoutMode.Auto, 1.0, 0, 0); } catch (ArgumentOutOfRangeException) { rejected = true; }
     Require(rejected, "a display that is not ready is rejected");
+    var alone = ScreenLayout.PlanSingle(1.0, 2560, 1440);
+    Require(alone.Players.Length == 1 && alone.Players[0].Area.X == 0 && alone.Players[0].Area.Width == 2560 && alone.Players[0].Area.Height == 1440 && alone.Players[0].RenderWidth == 2560 && alone.Players[0].RatioWidth == 16 && alone.Players[0].RatioHeight == 9 && !alone.Separate, "one player gets the whole display");
+    var aloneWide = ScreenLayout.PlanSingle(1.0, 5120, 1440).Players[0];
+    Require(aloneWide.RatioWidth == 32 && aloneWide.RatioHeight == 9 && aloneWide.Ultrawide, "one player on a 32:9 display plays in 32:9");
+    rejected = false;
+    try { ScreenLayout.PlanSingle(1.0, 0, 0); } catch (ArgumentOutOfRangeException) { rejected = true; }
+    Require(rejected, "a single player plan rejects a display that is not ready");
     Console.WriteLine("PASS: display plans for " + plans + " display, layout and quality combinations.");
 
     Func<string, int, int, int, int, int, bool, MonitorInfo> mon = (dev, x, y, w, h, hzv, prim) => new MonitorInfo { Device = dev, X = x, Y = y, Width = w, Height = h, Hz = hzv, Primary = prim };
