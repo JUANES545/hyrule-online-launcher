@@ -78,7 +78,7 @@ namespace HyruleOnline {
   }
  }
 
- sealed class Launcher {
+ sealed partial class Launcher {
   static readonly Brush Idle = Paint("#4B5A60"), Busy = Paint("#E0BE75"), Good = Paint("#63E0BD"), Bad = Paint("#E06C6C");
   public readonly Window Window;
   readonly string root;
@@ -131,6 +131,7 @@ namespace HyruleOnline {
    translator.Capture(Window);
    ReadPrefs();
    characters = Characters.Read(Path.Combine(root, ".artifacts", "extract", "milkbar", "Milk Bar Launcher.dll"));
+   bustData = Characters.ReadBusts(Path.Combine(root, ".artifacts", "extract", "milkbar", "Milk Bar Launcher.dll"));
    gameLanguages = GameLanguages.Scan(GameLanguages.ContentFolder(Path.Combine(root, ".tools", "localappdata", "bcml", "settings.json")));
    language = GameLanguages.Find(gameLanguages, language).Code;
    LoadRules();
@@ -159,6 +160,8 @@ namespace HyruleOnline {
    WatchAdvanced();
    WireHints("GraphicsPage", "GraphicsHint");
    WireHints("MultiplayerPage", "MultiplayerHint");
+   BuildCursors();
+   LoadPadScript();
    C<ComboBox>("FpsBox").SelectionChanged += (s, e) => {
     var item = ((ComboBox)s).SelectedItem as ComboBoxItem;
     if (filling || item == null || !(item.Tag is int)) return;
@@ -216,6 +219,7 @@ namespace HyruleOnline {
     if (e.Key != Key.Escape) return;
     var help = C<Border>("HelpPanel");
     if (router.Snapshot().Assigning >= 0) router.CancelAssign();
+    else if (ClosePickers()) { }
     else if (help.Visibility == Visibility.Visible) help.Visibility = Visibility.Collapsed;
     else if (GameOpen()) Window.WindowState = WindowState.Minimized;
     else Window.Close();
@@ -255,7 +259,8 @@ namespace HyruleOnline {
    shell.Width = fit.Width; shell.Height = fit.Height;
    Grid.SetColumn(C<StackPanel>("DisplayPanel"), fit.Stacked ? 0 : 1); Grid.SetRow(C<StackPanel>("DisplayPanel"), fit.Stacked ? 1 : 0);
    C<Grid>("PlayPage").ColumnDefinitions[1].Width = fit.Stacked ? new GridLength(0) : new GridLength(0.9, GridUnitType.Star);
-   C<StackPanel>("Players").Margin = fit.Stacked ? new Thickness(0, 0, 0, 18) : new Thickness(0, 0, 28, 0);
+   stackedLayout = fit.Stacked;
+   UpdatePlayLayout();
    C<Grid>("MultiplayerPage").ColumnDefinitions[1].Width = fit.Stacked ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
    Grid.SetColumn(C<StackPanel>("LivePanel"), fit.Stacked ? 0 : 1); Grid.SetRow(C<StackPanel>("LivePanel"), fit.Stacked ? 1 : 0);
    C<StackPanel>("RulesPanel").Margin = fit.Stacked ? new Thickness(0, 0, 0, 18) : new Thickness(0, 0, 14, 0);
@@ -267,6 +272,8 @@ namespace HyruleOnline {
   ushort[] previousButtons = new ushort[4];
 
   void ShowPage(int index) {
+   ClosePickers();
+   ResetCursors();
    page = PageNav.Move(0, index, PageNames.Length);
    for (int i = 0; i < PageNames.Length; i++) {
     bool current = i == page;
@@ -289,8 +296,8 @@ namespace HyruleOnline {
   }
 
   bool AnyDropDownOpen() {
-   foreach (var name in new[] { "FpsBox", "ScaleBox", "ShadowsBox", "ShadowDistanceBox", "AntiAliasingBox", "P1ModelBox", "P2ModelBox", "RulesBox", "SpecialBox", "WeatherBox", "Display1Box", "Display2Box", "Scale1Box", "Scale2Box", "Fps1Box", "Fps2Box", "ApiBox", "UpscaleBox", "DownscaleBox" }) if (C<ComboBox>(name).IsDropDownOpen) return true;
-   return false;
+   foreach (var name in new[] { "FpsBox", "ScaleBox", "ShadowsBox", "ShadowDistanceBox", "AntiAliasingBox", "RulesBox", "SpecialBox", "WeatherBox", "Display1Box", "Display2Box", "Scale1Box", "Scale2Box", "Fps1Box", "Fps2Box", "ApiBox", "UpscaleBox", "DownscaleBox" }) if (C<ComboBox>(name).IsDropDownOpen) return true;
+   return pickerOpen[0] || pickerOpen[1] || cursors.Any(c => c != null && c.Combo != null);
   }
 
   static string PrefsFile { get { return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "preferences.xml"); } }
@@ -332,10 +339,9 @@ namespace HyruleOnline {
    }
   }
 
-  // The name and model of each player sit on that player's card and are written into its Milk Bar settings when a session starts.
+  // The name and avatar of each player sit on that player's card and are written into its Milk Bar settings when a session starts.
   void WatchPlayer(int player) {
    var nameBox = C<TextBox>("P" + (player + 1) + "NameBox");
-   var modelBox = C<ComboBox>("P" + (player + 1) + "ModelBox");
    nameBox.Text = names[player];
    nameBox.PreviewTextInput += (s, e) => { if (!Characters.IsNameText(e.Text)) e.Handled = true; };
    DataObject.AddPastingHandler(nameBox, (s, e) => {
@@ -347,23 +353,7 @@ namespace HyruleOnline {
     nameBox.Text = names[player];
     SavePrefs();
    };
-   modelBox.SelectionChanged += (s, e) => {
-    var item = modelBox.SelectedItem as ComboBoxItem;
-    if (filling || item == null) return;
-    models[player] = (string)item.Tag;
-    SavePrefs();
-   };
-  }
-
-  void FillModels(int player) {
-   var modelBox = C<ComboBox>("P" + (player + 1) + "ModelBox");
-   filling = true;
-   try {
-    modelBox.Items.Clear();
-    foreach (var character in characters) modelBox.Items.Add(new ComboBoxItem { Content = character.Label, Tag = character.Model });
-    modelBox.SelectedIndex = characters.IndexOf(Characters.Find(characters, models[player]));
-   }
-   finally { filling = false; }
+   BuildPicker(player);
   }
 
   string ServerFolder { get { return Path.Combine(root, ".artifacts", "extract", "milkbar", "DedicatedServer"); } }
@@ -489,7 +479,6 @@ namespace HyruleOnline {
    Lang.Current = launcherLanguage;
    translator.Apply();
    C<TextBlock>("HelpText").Text = Lang.Help();
-   FillModels(0); FillModels(1);
    filling = true;
    try { ShowAdvanced(); } finally { filling = false; }
    ResetHints();
@@ -1038,7 +1027,9 @@ namespace HyruleOnline {
 
   void EnableAppearance(bool enabled) {
    foreach (var name in new[] { "P1NameBox", "P2NameBox" }) C<TextBox>(name).IsEnabled = enabled;
-   foreach (var name in new[] { "P1ModelBox", "P2ModelBox", "RulesBox", "SpecialBox" }) C<ComboBox>(name).IsEnabled = enabled;
+   foreach (var name in new[] { "RulesBox", "SpecialBox" }) C<ComboBox>(name).IsEnabled = enabled;
+   foreach (var name in new[] { "P1AvatarButton", "P2AvatarButton" }) C<Button>(name).IsEnabled = enabled;
+   if (!enabled) ClosePickers();
    foreach (var name in RuleBoxes) C<CheckBox>(name).IsEnabled = enabled;
   }
 
@@ -1051,6 +1042,7 @@ namespace HyruleOnline {
   void Tick() {
    var snapshot = router.Snapshot();
    NavigateWithPads(snapshot);
+   DrivePads(snapshot);
    for (int player = 0; player < 2; player++) {
     string key = "P" + (player + 1);
     int slot = snapshot.Routes[player];

@@ -102,6 +102,41 @@ namespace HyruleOnline {
    Console.WriteLine("PASS: window fitting for " + shells + " window sizes and page navigation.");
   }
 
+  static void PadMenus() {
+   var pad = new PadNav();
+   var idle = pad.Update(0, 0, 0, 0);
+   Require(idle.Direction == -1 && !idle.Accept && !idle.Back, "an idle pad does nothing");
+   Require(pad.Update(PadNav.DpadDown, 0, 0, 10).Direction == 1, "the D-pad moves once on press");
+   Require(pad.Update(PadNav.DpadDown, 0, 0, 100).Direction == -1, "a held direction waits before repeating");
+   Require(pad.Update(PadNav.DpadDown, 0, 0, 10 + PadNav.FirstRepeat).Direction == 1, "a held direction repeats after the delay");
+   Require(pad.Update(PadNav.DpadDown, 0, 0, 10 + PadNav.FirstRepeat + 50).Direction == -1 && pad.Update(PadNav.DpadDown, 0, 0, 10 + PadNav.FirstRepeat + PadNav.NextRepeat).Direction == 1, "repeats come faster than the first one");
+   pad.Update(0, 0, 0, 2000);
+   Require(pad.Update(0, 0, 30000, 2010).Direction == 0 && pad.Update(0, 0, 0, 2020).Direction == -1, "the stick pushed up moves up");
+   Require(PadNav.Direction(0, 0, -30000) == 1 && PadNav.Direction(0, -30000, 100) == 2 && PadNav.Direction(0, 30000, 100) == 3, "the stick covers the four directions");
+   Require(PadNav.Direction(0, 8000, 8000) == -1 && PadNav.Direction(PadNav.DpadLeft, 0, 30000) == 2, "a small stick push is ignored and the D-pad wins");
+   Require(PadNav.Direction(0, 30000, 20000) == 3 && PadNav.Direction(0, 20000, -30000) == 1, "the stronger axis decides");
+   var buttons = new PadNav();
+   var first = buttons.Update((ushort)(PadNav.ButtonA | PadNav.ButtonB), 0, 0, 0);
+   Require(first.Accept && first.Back, "A and B report on press");
+   var held = buttons.Update((ushort)(PadNav.ButtonA | PadNav.ButtonB), 0, 0, 20);
+   Require(!held.Accept && !held.Back, "A and B do not repeat while held");
+   var held2 = new PadNav();
+   held2.Update(PadNav.ButtonA, 0, 0, 0);
+   Require(!held2.Update(0, 0, 0, 10).Accept && held2.Update(PadNav.ButtonA, 0, 0, 20).Accept, "releasing and pressing A again counts");
+
+   // A 3 x 2 grid of 10 x 10 boxes with 2 px gaps, then one far box.
+   var cells = new List<Box>();
+   for (int row = 0; row < 2; row++) for (int column = 0; column < 3; column++) cells.Add(new Box(column * 12, row * 12, 10, 10));
+   Require(Spatial.Pick(cells[0], cells, 3) == 1 && Spatial.Pick(cells[1], cells, 3) == 2 && Spatial.Pick(cells[2], cells, 3) == -1, "right walks along the row and stops at the end");
+   Require(Spatial.Pick(cells[4], cells, 2) == 3 && Spatial.Pick(cells[3], cells, 2) == -1, "left walks back");
+   Require(Spatial.Pick(cells[1], cells, 1) == 4 && Spatial.Pick(cells[4], cells, 0) == 1 && Spatial.Pick(cells[1], cells, 0) == -1, "down and up stay in the same column");
+   var uneven = new List<Box> { new Box(0, 0, 100, 10), new Box(0, 20, 40, 10), new Box(60, 20, 40, 10), new Box(300, 20, 10, 10) };
+   Require(Spatial.Pick(uneven[0], uneven, 1) == 1, "down from a wide box picks the nearest lined up one");
+   Require(Spatial.Pick(uneven[2], uneven, 3) == 3 && Spatial.Pick(uneven[1], uneven, 3) == 2, "a far box is still reachable when nothing is closer");
+   Require(Spatial.Pick(cells[0], new List<Box>(), 1) == -1 && Spatial.Pick(cells[0], cells, -1) == -1, "no candidate gives no move");
+   Console.WriteLine("PASS: controller menu movement.");
+  }
+
   static void Players() {
    const string json = "[{\"Name\":\"Urbosa\",\"Folder\":\"Npc_Gerudo_Hero\"},{\"Name\":\"Revali\",\"Folder\":\"Npc_Rito_Hero\"},{\"Name\":\"Hudson\",\"Folder\":\"Npc_Hylia_Carpenter_001\"},{\"Name\":\"Hudson\",\"Folder\":\"Npc_Hylia_Carpenter_001_Wedding\"},{\"Name\":\"Hat\",\"Folder\":\"Armor_Hat\"}]";
    var list = Characters.Parse(json);
@@ -115,6 +150,8 @@ namespace HyruleOnline {
    Require(Characters.CleanName("Pedro", "x") == "Pedro" && Characters.CleanName("  a;b|c  d ", "x") == "abc d" && Characters.CleanName(";;", "Link") == "Link" && Characters.CleanName(null, "Link") == "Link", "names keep only safe characters");
    Require(Characters.CleanName("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "x").Length == Characters.MaxName && Characters.IsNameText("Player 1") && !Characters.IsNameText("a;b"), "names are limited in length");
    Require(Characters.DefaultNames[0] == "Link" && Characters.DefaultNames[1] == "Pedro", "default names");
+   Require(Characters.AvatarKey(list[0]) == "link" && Characters.AvatarKey(list[1]) == "gerudo_hero" && Characters.AvatarKey(list[3]) == "hylia_carpenter_001_wedding", "the bust name follows the model folder");
+   Require(Characters.ReadBusts("missing.dll").Count == 0, "without the Milk Bar launcher there are no busts");
    var link = Characters.ModelJson(list[0]);
    Require(link.Contains("\"ModelIndex\":0") && link.Contains("\"Type\":0") && link.Contains("\"IsArmorSync\":true"), "Link keeps armor sync");
    Require(Characters.ModelJson(list[1]).Contains("\"Model\":\"Npc_Gerudo_Hero\"") && Characters.ModelJson(list[1]).Contains("\"Type\":1") && Characters.ModelJson(list[1]).Contains("\"ModelIndex\":3"), "an NPC is a custom model");
@@ -513,6 +550,7 @@ namespace HyruleOnline {
     Motion();
     Console.WriteLine("PASS: controller motion.");
     Navigation();
+    PadMenus();
     Players();
     ServerRulesTest();
     Languages(args.Length > 0 ? args[0] : Directory.GetCurrentDirectory());

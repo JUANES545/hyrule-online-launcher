@@ -29,6 +29,7 @@
     <Border x:Name="Row" Background="Transparent" Padding="{TemplateBinding Padding}"><ContentPresenter HorizontalAlignment="Center"/></Border>
     <ControlTemplate.Triggers>
      <Trigger Property="IsHighlighted" Value="True"><Setter TargetName="Row" Property="Background" Value="#B0354549"/></Trigger>
+     <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Row" Property="Background" Value="#B0354549"/></Trigger>
      <Trigger Property="IsSelected" Value="True"><Setter Property="Foreground" Value="#F3E7C3"/></Trigger>
     </ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
   </Style>
@@ -48,6 +49,28 @@
    </Grid>
    <ControlTemplate.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.4"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
   </Style>
+  <Style x:Key="AvatarSlot" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+   <Setter Property="Margin" Value="0"/><Setter Property="Padding" Value="8,0"/><Setter Property="Height" Value="40"/><Setter Property="FontSize" Value="16"/>
+   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
+    <Border x:Name="Chrome" CornerRadius="5" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}">
+     <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+    </Border><ControlTemplate.Triggers>
+     <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="Background" Value="#B0354549"/></Trigger>
+     <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="#E1CFA1"/></Trigger>
+     <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.4"/></Trigger>
+    </ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+  </Style>
+  <Style x:Key="AvatarTile" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+   <Setter Property="Margin" Value="3"/><Setter Property="Padding" Value="0"/><Setter Property="Height" Value="86"/><Setter Property="Background" Value="#E00F171C"/>
+   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
+    <Border x:Name="Chrome" CornerRadius="6" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
+     <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+    </Border><ControlTemplate.Triggers>
+     <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="Background" Value="#E0354549"/></Trigger>
+     <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.4"/></Trigger>
+    </ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+  </Style>
+  <PathGeometry x:Key="CrownShape" Figures="M 1,14 L 0,3 L 5,8 L 9,0 L 13,8 L 18,3 L 17,14 Z"/>
   <Style x:Key="TabButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
    <Setter Property="FontStyle" Value="Normal"/><Setter Property="FontFamily" Value="{DynamicResource TitleFont}"/><Setter Property="FontSize" Value="16"/><Setter Property="Padding" Value="18,7"/><Setter Property="Margin" Value="3,0"/>
   </Style>
@@ -109,37 +132,55 @@
    <Grid.ColumnDefinitions><ColumnDefinition Width="1.1*"/><ColumnDefinition Width="0.9*"/></Grid.ColumnDefinitions>
    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
    <StackPanel x:Name="Players" Margin="0,0,20,0">
-    <TextBlock Text="CONTROLLERS" TextAlignment="Center" FontFamily="{DynamicResource TitleFont}" FontStretch="Normal" FontWeight="Normal" FontSize="14" Foreground="#CBBF9F" Margin="0,0,0,12"/>
-    <Border Background="#A0152027" CornerRadius="8" Padding="16,14" BorderBrush="#3449585A" BorderThickness="1" Margin="0,0,0,10">
+    <TextBlock Text="CONTROLLERS" TextAlignment="Center" FontFamily="{DynamicResource TitleFont}" FontStretch="Normal" FontWeight="Normal"     FontSize="14" Foreground="#CBBF9F" Margin="0,0,0,8"/>
+    <Grid x:Name="Cards">
+    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+    <Border x:Name="P1Card" Grid.ColumnSpan="2" Background="#A0152027" CornerRadius="8" Padding="16,10" BorderBrush="#557EE9C9" BorderThickness="2" Margin="0,0,0,8">
      <StackPanel>
-      <Grid><TextBlock Text="Player 1" FontFamily="{DynamicResource TitleFont}" FontStretch="Normal" FontSize="23"/><TextBlock x:Name="P1Status" HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="#63E0BD" FontSize="14"/></Grid>
-      <TextBlock x:Name="P1Name" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" Foreground="#A5BAC5" FontSize="14" Margin="0,2,0,10"/>
-      <Grid Margin="0,0,0,12"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-       <StackPanel><TextBlock Text="NAME" FontSize="11" Foreground="#78939F" Margin="2,0,0,3"/><TextBox x:Name="P1NameBox" Style="{StaticResource NameBox}" AutomationProperties.Name="Player 1 name"/></StackPanel>
-       <StackPanel Grid.Column="2"><TextBlock Text="MODEL" FontSize="11" Foreground="#78939F" Margin="2,0,0,3"/><ComboBox x:Name="P1ModelBox" FontSize="16" Padding="12,6" AutomationProperties.Name="Player 1 model"/></StackPanel>
+      <Grid><StackPanel Orientation="Horizontal"><TextBlock Text="Player 1" Foreground="#7EE9C9" FontFamily="{DynamicResource TitleFont}" FontStretch="Normal" FontSize="23"/><Path x:Name="P1Crown" Data="{StaticResource CrownShape}" Fill="#E8C75A" Width="18" Height="14" Margin="9,0,0,5" VerticalAlignment="Center" ToolTip="Player 1" AutomationProperties.Name="Player 1"/></StackPanel><TextBlock x:Name="P1Status" HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="#63E0BD" FontSize="14"/></Grid>
+      <StackPanel x:Name="P1Main">
+      <TextBlock x:Name="P1Name" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"       Foreground="#A5BAC5" FontSize="14" Margin="0,0,0,6"/>
+            <Grid Margin="0,0,0,8"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+       <StackPanel><TextBlock Text="NAME" FontSize="11" Foreground="#78939F" Margin="2,0,0,3"/><TextBox x:Name="P1NameBox" Style="{StaticResource NameBox}" Height="40" AutomationProperties.Name="Player 1 name"/></StackPanel>
+       <StackPanel Grid.Column="2"><TextBlock Text="AVATAR" FontSize="11" Foreground="#78939F" Margin="2,0,0,3"/><Button x:Name="P1AvatarButton" Style="{StaticResource AvatarSlot}" ToolTip="Choose the avatar for player 1" AutomationProperties.Name="Player 1 avatar"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><Image x:Name="P1AvatarImage" Width="30" Height="30" Margin="0,0,8,0" RenderOptions.BitmapScalingMode="HighQuality"/><TextBlock x:Name="P1AvatarName" Grid.Column="1" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Padding="0"/><Path Grid.Column="2" Data="M 0,0 L 5,5 L 10,0" Stroke="#A5BAC5" StrokeThickness="2" VerticalAlignment="Center" Margin="8,0,2,0"/></Grid></Button></StackPanel>
       </Grid>
       <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="*"/><ColumnDefinition Width="76"/></Grid.ColumnDefinitions>
        <Canvas Height="60" Width="175" HorizontalAlignment="Left"><Ellipse Width="58" Height="58" Canvas.Left="0" Canvas.Top="0" Fill="#0B141B" Stroke="#304752"/><Ellipse Width="58" Height="58" Canvas.Left="91" Canvas.Top="0" Fill="#0B141B" Stroke="#304752"/><Ellipse x:Name="P1L" Width="18" Height="18" Fill="#63E0BD" Canvas.Left="20" Canvas.Top="20"/><Ellipse x:Name="P1R" Width="18" Height="18" Fill="#E0BE75" Canvas.Left="111" Canvas.Top="20"/></Canvas>
        <StackPanel Grid.Column="1"><TextBlock Text="LT / RT" FontSize="12" Foreground="#78939F"/><ProgressBar x:Name="P1LT" Maximum="255" Margin="0,8,0,10"/><ProgressBar x:Name="P1RT" Maximum="255"/></StackPanel><Viewbox Grid.Column="2" Width="64" Height="60" HorizontalAlignment="Right" IsHitTestVisible="False"><Canvas x:Name="P1Motion" Width="64" Height="60" AutomationProperties.Name="Player 1 motion sensor"><Ellipse x:Name="P1MotionRing" Width="54" Height="54" Canvas.Left="5" Canvas.Top="3" Stroke="#304752" StrokeThickness="2"/><Image x:Name="P1MotionDevice" Width="34" Height="24" Canvas.Left="15" Canvas.Top="18" Source="{StaticResource MotionDeviceImage}" RenderTransformOrigin="0.5,0.5" AutomationProperties.Name="Player 1 motion sensor" AutomationProperties.ItemStatus="Unavailable"><Image.RenderTransform><RotateTransform/></Image.RenderTransform></Image><Ellipse x:Name="P1MotionDot" Width="8" Height="8" Canvas.Left="28" Canvas.Top="26" Fill="#7EE9C9" Visibility="Collapsed"/><Path x:Name="P1MotionSlash" Data="M 16,44 L 48,16" Stroke="#78939F" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/></Canvas></Viewbox>
       </Grid>
-      <WrapPanel HorizontalAlignment="Center" Margin="0,8,0,0"><Button x:Name="Assign1" Width="200" Content="Assign controller"/><Button x:Name="Rumble1" Width="200" Content="Test vibration"/></WrapPanel>
+      <WrapPanel HorizontalAlignment="Center" Margin="0,4,0,0"><Button x:Name="Assign1" Width="200" Content="Assign controller"/><Button x:Name="Rumble1" Width="200" Content="Test vibration"/></WrapPanel>
+      </StackPanel>
+      <StackPanel x:Name="P1Picker" Visibility="Collapsed" Margin="0,10,0,0">
+       <Grid Margin="0,0,0,8"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Text="Choose your avatar" Foreground="#7EE9C9" FontSize="16"/><TextBlock x:Name="P1PickerName" Grid.Column="1" HorizontalAlignment="Right" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Margin="12,0,0,0" FontSize="16"/></Grid>
+       <UniformGrid x:Name="P1AvatarGrid" Columns="7"/>
+       <TextBlock Text="D-pad: move   A: select   B: back" TextAlignment="Center" Foreground="#78939F" FontSize="12" Margin="0,8,0,0"/>
+      </StackPanel>
      </StackPanel>
     </Border>
-    <Border Background="#A0152027" CornerRadius="8" Padding="16,14" BorderBrush="#3449585A" BorderThickness="1" Margin="0,0,0,10">
+    <Border x:Name="P2Card" Grid.Row="1" Grid.ColumnSpan="2" Background="#A0152027" CornerRadius="8" Padding="16,10" BorderBrush="#55E5C384" BorderThickness="2" Margin="0,0,0,8">
      <StackPanel>
-      <Grid><TextBlock Text="Player 2" FontFamily="{DynamicResource TitleFont}" FontStretch="Normal" FontSize="23"/><TextBlock x:Name="P2Status" HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="#63E0BD" FontSize="14"/></Grid>
-      <TextBlock x:Name="P2Name" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" Foreground="#A5BAC5" FontSize="14" Margin="0,2,0,10"/>
-      <Grid Margin="0,0,0,12"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-       <StackPanel><TextBlock Text="NAME" FontSize="11" Foreground="#78939F" Margin="2,0,0,3"/><TextBox x:Name="P2NameBox" Style="{StaticResource NameBox}" AutomationProperties.Name="Player 2 name"/></StackPanel>
-       <StackPanel Grid.Column="2"><TextBlock Text="MODEL" FontSize="11" Foreground="#78939F" Margin="2,0,0,3"/><ComboBox x:Name="P2ModelBox" FontSize="16" Padding="12,6" AutomationProperties.Name="Player 2 model"/></StackPanel>
+      <Grid><TextBlock Text="Player 2" Foreground="#E5C384" FontFamily="{DynamicResource TitleFont}" FontStretch="Normal" FontSize="23"/><TextBlock x:Name="P2Status" HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="#63E0BD" FontSize="14"/></Grid>
+      <StackPanel x:Name="P2Main">
+      <TextBlock x:Name="P2Name" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"       Foreground="#A5BAC5" FontSize="14" Margin="0,0,0,6"/>
+            <Grid Margin="0,0,0,8"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+       <StackPanel><TextBlock Text="NAME" FontSize="11" Foreground="#78939F" Margin="2,0,0,3"/><TextBox x:Name="P2NameBox" Style="{StaticResource NameBox}" Height="40" AutomationProperties.Name="Player 2 name"/></StackPanel>
+       <StackPanel Grid.Column="2"><TextBlock Text="AVATAR" FontSize="11" Foreground="#78939F" Margin="2,0,0,3"/><Button x:Name="P2AvatarButton" Style="{StaticResource AvatarSlot}" ToolTip="Choose the avatar for player 2" AutomationProperties.Name="Player 2 avatar"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><Image x:Name="P2AvatarImage" Width="30" Height="30" Margin="0,0,8,0" RenderOptions.BitmapScalingMode="HighQuality"/><TextBlock x:Name="P2AvatarName" Grid.Column="1" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Padding="0"/><Path Grid.Column="2" Data="M 0,0 L 5,5 L 10,0" Stroke="#A5BAC5" StrokeThickness="2" VerticalAlignment="Center" Margin="8,0,2,0"/></Grid></Button></StackPanel>
       </Grid>
       <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="*"/><ColumnDefinition Width="76"/></Grid.ColumnDefinitions>
        <Canvas Height="60" Width="175" HorizontalAlignment="Left"><Ellipse Width="58" Height="58" Canvas.Left="0" Canvas.Top="0" Fill="#0B141B" Stroke="#304752"/><Ellipse Width="58" Height="58" Canvas.Left="91" Canvas.Top="0" Fill="#0B141B" Stroke="#304752"/><Ellipse x:Name="P2L" Width="18" Height="18" Fill="#63E0BD" Canvas.Left="20" Canvas.Top="20"/><Ellipse x:Name="P2R" Width="18" Height="18" Fill="#E0BE75" Canvas.Left="111" Canvas.Top="20"/></Canvas>
        <StackPanel Grid.Column="1"><TextBlock Text="LT / RT" FontSize="12" Foreground="#78939F"/><ProgressBar x:Name="P2LT" Maximum="255" Margin="0,8,0,10"/><ProgressBar x:Name="P2RT" Maximum="255"/></StackPanel><Viewbox Grid.Column="2" Width="64" Height="60" HorizontalAlignment="Right" IsHitTestVisible="False"><Canvas x:Name="P2Motion" Width="64" Height="60" AutomationProperties.Name="Player 2 motion sensor"><Ellipse x:Name="P2MotionRing" Width="54" Height="54" Canvas.Left="5" Canvas.Top="3" Stroke="#304752" StrokeThickness="2"/><Image x:Name="P2MotionDevice" Width="34" Height="24" Canvas.Left="15" Canvas.Top="18" Source="{StaticResource MotionDeviceImage}" RenderTransformOrigin="0.5,0.5" AutomationProperties.Name="Player 2 motion sensor" AutomationProperties.ItemStatus="Unavailable"><Image.RenderTransform><RotateTransform/></Image.RenderTransform></Image><Ellipse x:Name="P2MotionDot" Width="8" Height="8" Canvas.Left="28" Canvas.Top="26" Fill="#E5C384" Visibility="Collapsed"/><Path x:Name="P2MotionSlash" Data="M 16,44 L 48,16" Stroke="#78939F" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/></Canvas></Viewbox>
       </Grid>
-      <WrapPanel HorizontalAlignment="Center" Margin="0,8,0,0"><Button x:Name="Assign2" Width="200" Content="Assign controller"/><Button x:Name="Rumble2" Width="200" Content="Test vibration"/></WrapPanel>
+      <WrapPanel HorizontalAlignment="Center" Margin="0,4,0,0"><Button x:Name="Assign2" Width="200" Content="Assign controller"/><Button x:Name="Rumble2" Width="200" Content="Test vibration"/></WrapPanel>
+      </StackPanel>
+      <StackPanel x:Name="P2Picker" Visibility="Collapsed" Margin="0,10,0,0">
+       <Grid Margin="0,0,0,8"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Text="Choose your avatar" Foreground="#E5C384" FontSize="16"/><TextBlock x:Name="P2PickerName" Grid.Column="1" HorizontalAlignment="Right" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Margin="12,0,0,0" FontSize="16"/></Grid>
+       <UniformGrid x:Name="P2AvatarGrid" Columns="7"/>
+       <TextBlock Text="D-pad: move   A: select   B: back" TextAlignment="Center" Foreground="#78939F" FontSize="12" Margin="0,8,0,0"/>
+      </StackPanel>
      </StackPanel>
     </Border>
+    </Grid>
     <Button x:Name="Swap" Content="⇄  Swap players" HorizontalAlignment="Center" MinWidth="300"/>
    </StackPanel>
    <StackPanel x:Name="DisplayPanel" Grid.Column="1">
@@ -320,5 +361,6 @@
   <Border Background="#80212E2D" CornerRadius="5" Padding="14" Margin="0,8,0,12"><TextBlock x:Name="Status" TextAlignment="Center" Text="Ready." Foreground="#AEE2D2"/></Border>
   <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"><Button x:Name="Start" Content="START SESSION" MinWidth="300" FontFamily="{DynamicResource TitleFont}" FontStretch="Normal" FontStyle="Normal" Background="#B03C554B" BorderBrush="#D5C396" FontSize="20" Padding="40,15"/><Button x:Name="Stop" Content="Stop session" MinWidth="180" Padding="20,16"/><Button x:Name="Exit" Content="Exit" MinWidth="150" Padding="20,16"/></StackPanel>
  </StackPanel>
+ <Canvas x:Name="CursorLayer" Grid.RowSpan="4" IsHitTestVisible="False" Panel.ZIndex="100"/>
  </Grid></Viewbox></Grid>
 </Window>

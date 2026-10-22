@@ -204,7 +204,14 @@ Findings from this machine and the code, and what was built:
 - Auto resolves to Vulkan when `vulkan-1.dll` loads and to OpenGL otherwise. It does not benchmark the GPU. Vulkan is disabled in the list when the DLL is missing, and accurate barriers only apply to Vulkan.
 - Checked in a real session on this machine: with the preference forced to OpenGL, Cemu A's log shows "Init OpenGL graphics backend" and `settings.xml` holds `api 0`, `AsyncCompile true`, filters 3 and 1. The default run earlier logged "Init Vulkan graphics backend" on the RTX 5070 Ti. The session was stopped right after Cemu A started, so OpenGL gameplay was not checked.
 - Caution: the earlier isolated-install notes say an OpenGL first boot with an empty shader cache hung on the loading screen, and the shader cache is separate per API. Changing the API may force a long shader rebuild on the next start, which also delays player B in the staggered start. The UI warns about it in soft words; this has not been measured.
-- Hints: every Graphics and Multiplayer option has a tooltip and an info dot. A hint bar under the options shows the same text on mouse hover or keyboard focus. The launcher has no gamepad focus navigation yet (only LB/RB page switching), so a controller cannot move the focus to an option until that exists.
+- Hints: every Graphics and Multiplayer option has a tooltip and an info dot. A hint bar under the options shows the same text on mouse hover, keyboard focus or when a controller cursor lands on the option.
+
+## Avatar picker and controller navigation (built)
+
+- Avatar images are the mod's own busts: the Milk Bar DLL embeds `images/bust/*.png` (transparent, one style, face visible). The launcher reads them at run time from the installed DLL; none are copied into the repository. They were used instead of images from the internet because of copyright and the rule against committing mod assets.
+- On Play, the avatar slot of each card opens a mosaic (7 columns) with the name under each image. Both cards can be open together and the two players choose at the same time. Wide windows show them side by side; portrait windows keep them stacked.
+- Controller cursors: the controller routed to a player drives that player's cursor (green P1, orange P2); every other controller, and every controller on the other pages, shares a white cursor. D-pad or left stick moves by screen position, A presses/toggles/opens a list, B goes back or closes. LB/RB still switch pages (blocked while a list or mosaic is open). The cursor does nothing unless the launcher is the active window, and is paused while a controller is being assigned (B cancels the assignment).
+- Verified: pure logic by `Test.ps1` (repeat, dead zone, nearest-control picking) and a scripted run (`HYRULE_PAD_SCRIPT`, simulated presses) that opens both mosaics, picks avatars, changes a list value with the cursor and flips pages at 1920x1080, 1280x720 and 800x1000. Not verified: a real physical controller, and names cannot be typed with a pad (the name box only takes keyboard text).
 
 ## One, three or four players (research, not built)
 

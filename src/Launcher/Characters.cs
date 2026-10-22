@@ -60,6 +60,36 @@ namespace HyruleOnline {
    catch (Exception) { return Parse(null); }
   }
 
+  // Name of the bust picture the Milk Bar launcher ships for a character: "link", or the folder without "Npc_" in lower case.
+  public static string AvatarKey(Character character) {
+   if (character.IsLink) return "link";
+   string folder = character.Model ?? "";
+   if (folder.StartsWith("Npc_", StringComparison.OrdinalIgnoreCase)) folder = folder.Substring(4);
+   return folder.ToLowerInvariant();
+  }
+
+  // The bust pictures are read from the Milk Bar launcher's own resources at run time; nothing is copied into this project.
+  public static Dictionary<string, byte[]> ReadBusts(string launcherDll) {
+   var busts = new Dictionary<string, byte[]>();
+   try {
+    if (!File.Exists(launcherDll)) return busts;
+    var assembly = Assembly.Load(File.ReadAllBytes(launcherDll));
+    foreach (string resource in assembly.GetManifestResourceNames().Where(n => n.EndsWith(".g.resources", StringComparison.OrdinalIgnoreCase))) {
+     using (var stream = assembly.GetManifestResourceStream(resource))
+     using (var reader = new System.Resources.ResourceReader(stream)) {
+      foreach (System.Collections.DictionaryEntry entry in reader) {
+       string key = ((string)entry.Key).Replace('\\', '/').ToLowerInvariant();
+       var data = entry.Value as Stream;
+       if (data == null || !key.StartsWith("images/bust/") || !key.EndsWith(".png")) continue;
+       using (var copy = new MemoryStream()) { data.CopyTo(copy); busts[key.Substring(12, key.Length - 16)] = copy.ToArray(); }
+      }
+     }
+    }
+   }
+   catch (Exception) { }
+   return busts;
+  }
+
   public static Character Find(IList<Character> all, string model) {
    return all.FirstOrDefault(c => c.Model == model) ?? all[0];
   }
