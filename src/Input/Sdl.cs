@@ -26,8 +26,25 @@ namespace HyruleOnline {
   [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] [return: MarshalAs(UnmanagedType.I1)] static extern bool SDL_GetGamepadButton(IntPtr pad, int button);
   [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] [return: MarshalAs(UnmanagedType.I1)] static extern bool SDL_RumbleGamepad(IntPtr pad, ushort low, ushort high, uint duration);
 
+  [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] static extern ulong SDL_GetTicksNS();
+  [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] [return: MarshalAs(UnmanagedType.I1)] static extern bool SDL_GamepadHasSensor(IntPtr pad, int sensor);
+  [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] [return: MarshalAs(UnmanagedType.I1)] static extern bool SDL_SetGamepadSensorEnabled(IntPtr pad, int sensor, [MarshalAs(UnmanagedType.I1)] bool enabled);
+  [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] static extern int SDL_PeepEvents([Out] SensorEvent[] events, int count, int action, uint first, uint last);
+
+  [StructLayout(LayoutKind.Explicit, Size = 128)] struct SensorEvent {
+   [FieldOffset(0)] public uint type;
+   [FieldOffset(8)] public ulong timestamp;
+   [FieldOffset(16)] public uint device;
+   [FieldOffset(20)] public int sensor;
+   [FieldOffset(24)] public float x;
+   [FieldOffset(28)] public float y;
+   [FieldOffset(32)] public float z;
+  }
+
   static readonly uint[] ids = new uint[4];
   static readonly IntPtr[] handles = new IntPtr[4];
+  static readonly ControllerMotion[] motion = { new ControllerMotion(), new ControllerMotion(), new ControllerMotion(), new ControllerMotion() };
+  static readonly SensorEvent[] events = new SensorEvent[64];
   public static readonly string[] Names = new string[4];
 
   static string Utf8(IntPtr value) {
@@ -40,6 +57,7 @@ namespace HyruleOnline {
    string folder = AppDomain.CurrentDomain.BaseDirectory;
    if (File.Exists(Path.Combine(folder, "xinput1_4.dll"))) throw new Exception("The bridge must not sit beside the router, where SDL could load it as system input.");
    SDL_SetHint("SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS", "1");
+   SDL_SetHint("SDL_JOYSTICK_ENHANCED_REPORTS", "1");
    if (!SDL_Init(0x2000)) throw new Exception("SDL could not initialize controllers: " + Utf8(SDL_GetError()));
    var database = Path.Combine(folder, "gamecontrollerdb.txt");
    if (SDL_AddGamepadMappingsFromFile(Encoding.UTF8.GetBytes(database + "\0")) < 0) throw new Exception("Could not load gamecontrollerdb.txt: " + Utf8(SDL_GetError()));
@@ -56,14 +74,34 @@ namespace HyruleOnline {
     for (int i = 0; i < count; i++) current[i] = unchecked((uint)Marshal.ReadInt32(memory, i * 4));
     for (int i = 0; i < 4; i++) if (handles[i] != IntPtr.Zero && Array.IndexOf(current, ids[i]) < 0) {
      SDL_CloseGamepad(handles[i]); handles[i] = IntPtr.Zero; ids[i] = 0; Names[i] = null;
+     motion[i].Configure(false, false);
     }
     foreach (uint id in current) {
      if (Array.IndexOf(ids, id) >= 0) continue;
      int slot = Array.FindIndex(handles, h => h == IntPtr.Zero); if (slot < 0) break;
      var handle = SDL_OpenGamepad(id); if (handle == IntPtr.Zero) continue;
      ids[slot] = id; handles[slot] = handle; Names[slot] = Utf8(SDL_GetGamepadName(handle));
+     bool accel = SDL_GamepadHasSensor(handle, 1) && SDL_SetGamepadSensorEnabled(handle, 1, true);
+     bool gyro = SDL_GamepadHasSensor(handle, 2) && SDL_SetGamepadSensorEnabled(handle, 2, true);
+     motion[slot].Configure(accel, gyro);
     }
    } finally { SDL_free(memory); }
+   // Buttons are polled, so drain the joystick and gamepad events here: unused axis events must not starve the sensor reports.
+   for (int batch = 0; batch < 4; batch++) {
+    int read = SDL_PeepEvents(events, events.Length, 2, 0x600, 0x65b);
+    if (read <= 0) break;
+    ulong now = SDL_GetTicksNS();
+    for (int index = 0; index < read; index++) {
+     if (events[index].type != 0x659) continue;
+     var value = events[index]; int slot = Array.IndexOf(ids, value.device);
+     if (slot >= 0 && handles[slot] != IntPtr.Zero) motion[slot].Accept(value.sensor, value.x, value.y, value.z, value.timestamp, now);
+    }
+    if (read < events.Length) break;
+   }
+  }
+
+  public static MotionReading Motion(int slot) {
+   return slot >= 0 && slot < 4 && handles[slot] != IntPtr.Zero ? motion[slot].Read(SDL_GetTicksNS()) : new MotionReading();
   }
 
   public static short InvertY(short value) { return (short)Math.Max(short.MinValue, Math.Min(short.MaxValue, -(int)value)); }

@@ -16,6 +16,31 @@ namespace HyruleOnline {
    }
   }
 
+  static void Motion() {
+   const ulong time = 1000000000;
+   var motion = new ControllerMotion();
+   Require(motion.Read(1).Status == MotionStatus.Unavailable, "a pad without sensors is unavailable");
+   Require(!motion.Accept(1, 1, 2, 3, 1, 1), "reports from a sensor the pad lacks are ignored");
+   motion.Configure(true, true); Require(motion.Read(1).Status == MotionStatus.Waiting, "sensors without reports are waiting");
+   Require(!motion.Accept(1, 0, 0, 0, time, time), "an all-zero acceleration is not a report");
+   Require(motion.Accept(1, 0, 9.80665f, 0, time, time) && motion.Accept(2, 0, 0, 0, time, time), "sensor reports are accepted");
+   var reading = motion.Read(time);
+   Require(reading.Status == MotionStatus.Active && reading.AccelFresh && reading.GyroFresh && reading.TiltX == 0 && reading.TiltY == 0, "the first pose is the rest pose");
+   Require(!motion.Accept(1, 1, 2, 3, time, time), "a repeated timestamp is rejected");
+   Require(!motion.Accept(1, 1, 2, 3, 0, time) && !motion.Accept(1, 1, 2, 3, time + 1, time), "missing and future timestamps are rejected");
+   Require(!motion.Accept(2, float.NaN, 0, 0, time + 1, time + 1) && !motion.Accept(1, 0, float.PositiveInfinity, 0, time + 1, time + 1), "non-finite reports are rejected");
+   Require(!motion.Accept(1, 201, 0, 0, time + 1, time + 1) && !motion.Accept(2, 0, 101, 0, time + 1, time + 1), "implausible reports are rejected");
+   Require(motion.Accept(1, 9.80665f, 0, 9.80665f, time + 10000000, time + 10000000) && motion.Accept(2, 0, 0, 2, time + 10000000, time + 10000000), "tilt and roll are accepted");
+   reading = motion.Read(time + 10000000);
+   Require(reading.TiltX > .99 && reading.TiltY < -.99 && reading.TiltZ > .99 && reading.Angle > 0 && reading.Activity > 0, "the reading follows three acceleration axes and the gyro");
+   Require(motion.Accept(2, 0, 0, 100, time + 20000000, time + 20000000) && motion.Accept(2, 0, 0, 100, time + 70000000, time + 70000000) && motion.Accept(2, 0, 0, 100, time + 120000000, time + 120000000), "fast spin is accepted");
+   Require(motion.Read(time + 120000000).Angle == 35, "the angle is limited to 35 degrees");
+   reading = motion.Read(time + 120000000 + ControllerMotion.FreshNanoseconds + 1);
+   Require(reading.Status == MotionStatus.Stale && !reading.AccelFresh && reading.TiltX == 0 && reading.Angle == 0, "old reports clear the reading");
+   Require(motion.Accept(1, 3, 4, 5, time + 2000000000, time + 2000000000) && motion.Read(time + 2000000000).TiltX == 0, "resuming sets a new rest pose");
+   motion.Configure(false, false); Require(motion.Read(time).Status == MotionStatus.Unavailable, "disconnecting clears the state");
+  }
+
   static void Require(bool ok, string message) { if (!ok) throw new Exception("TEST: " + message); }
 
   static int[] Reconcile(int[] routes, params bool[] connected) { Router.Reconcile(routes, connected); return routes; }
@@ -165,6 +190,8 @@ namespace HyruleOnline {
     }
     finally { if (Directory.Exists(temp)) Directory.Delete(temp, true); }
     Console.WriteLine("PASS: Cemu display settings.");
+    Motion();
+    Console.WriteLine("PASS: controller motion.");
     return 0;
    }
    catch (Exception error) { Console.Error.WriteLine(error.Message); return 1; }

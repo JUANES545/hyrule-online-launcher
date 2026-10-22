@@ -39,7 +39,7 @@ if (-not (Test-Path -LiteralPath (Join-Path $framework 'csc.exe'))) { throw '.NE
 if (Get-Process -Name InputRouter -ErrorAction SilentlyContinue) { throw 'Close InputRouter before rebuilding.' }
 
 New-Item -ItemType Directory -Force -Path (Join-Path $output 'Bridge') | Out-Null
-& (Join-Path $framework 'csc.exe') /nologo /target:exe /platform:x64 /optimize+ "/out:$(Join-Path $output 'InputRouter.exe')" (Join-Path $root 'src\InputRouter\InputRouter.cs') (Join-Path $root 'src\Input\Router.cs') (Join-Path $root 'src\Input\Sdl.cs')
+& (Join-Path $framework 'csc.exe') /nologo /target:exe /platform:x64 /optimize+ "/out:$(Join-Path $output 'InputRouter.exe')" (Join-Path $root 'src\InputRouter\InputRouter.cs') (Join-Path $root 'src\Input\Router.cs') (Join-Path $root 'src\Input\Sdl.cs') (Join-Path $root 'src\Input\ControllerMotion.cs')
 if ($LASTEXITCODE -ne 0) { throw 'Input router compilation failed.' }
 & $ZigPath cc -target x86_64-windows-gnu -O2 -shared -Wno-dll-attribute-on-redeclaration (Join-Path $root 'src\InputBridge\xinput_bridge.c') -o (Join-Path $output 'Bridge\xinput1_4.dll')
 if ($LASTEXITCODE -ne 0) { throw 'Input bridge compilation failed.' }

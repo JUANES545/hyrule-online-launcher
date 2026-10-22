@@ -8,6 +8,7 @@ namespace HyruleOnline {
   public readonly int[] Routes = new int[2];
   public readonly string[] Names = new string[4];
   public readonly PadState[] Pads = new PadState[4];
+  public readonly MotionReading[] Motion = new MotionReading[4];
   public int Assigning = -1;
  }
 
@@ -22,6 +23,7 @@ namespace HyruleOnline {
   readonly bool[] connected = new bool[4];
   readonly string[] names = new string[4];
   readonly PadState[] pads = new PadState[4];
+  readonly MotionReading[] motion = new MotionReading[4];
   readonly bool[] testRequested = new bool[2];
   int assigning = -1;
   Thread thread;
@@ -62,6 +64,7 @@ namespace HyruleOnline {
     Array.Copy(routes, snapshot.Routes, 2);
     Array.Copy(names, snapshot.Names, 4);
     Array.Copy(pads, snapshot.Pads, 4);
+    Array.Copy(motion, snapshot.Motion, 4);
     snapshot.Assigning = assigning;
    }
    return snapshot;
@@ -97,7 +100,7 @@ namespace HyruleOnline {
       for (int i = 0; i < 4; i++) { present[i] = Sdl.Present(i); if (present[i]) states[i] = Sdl.Read(i); }
       int[] current;
       lock (gate) {
-       for (int i = 0; i < 4; i++) { connected[i] = present[i]; names[i] = Sdl.Names[i]; pads[i] = states[i].pad; }
+       for (int i = 0; i < 4; i++) { connected[i] = present[i]; names[i] = Sdl.Names[i]; pads[i] = states[i].pad; motion[i] = Sdl.Motion(i); }
        if (assigning >= 0) {
         for (int slot = 0; slot < 4; slot++) {
          if (!connected[slot] || (states[slot].pad.buttons & ButtonA) == 0 || (previousButtons[slot] & ButtonA) != 0) continue;

@@ -427,8 +427,27 @@ namespace HyruleOnline {
     Move(C<FrameworkElement>(key + "R"), pad.rx, pad.ry, 111);
     C<ProgressBar>(key + "LT").Value = pad.lt;
     C<ProgressBar>(key + "RT").Value = pad.rt;
+    DrawMotion(key, present ? snapshot.Motion[slot] : new MotionReading());
    }
    if (++ticks % 60 == 0) RefreshProcesses();
+  }
+
+  // The glyph shows a pad that has motion sensors: the body rolls with the gyro and tilt, the dot follows the acceleration.
+  void DrawMotion(string key, MotionReading reading) {
+   bool active = reading.Status == MotionStatus.Active;
+   var accent = (Brush)Window.Resources[key + "MotionAccent"];
+   var device = C<Image>(key + "MotionDevice"); var ring = C<System.Windows.Shapes.Ellipse>(key + "MotionRing"); var dot = C<System.Windows.Shapes.Ellipse>(key + "MotionDot");
+   C<Canvas>(key + "Motion").Opacity = active ? 1 : reading.Status == MotionStatus.Unavailable ? .35 : .6;
+   System.Windows.Automation.AutomationProperties.SetItemStatus(device, reading.Status.ToString());
+   C<System.Windows.Shapes.Path>(key + "MotionSlash").Visibility = reading.Status == MotionStatus.Unavailable ? Visibility.Visible : Visibility.Collapsed;
+   ring.Stroke = active ? accent : (Brush)Window.Resources["MotionMuted"];
+   ring.StrokeDashArray = reading.AccelFresh && reading.GyroFresh ? null : (DoubleCollection)Window.Resources["MotionDash"];
+   device.Source = (ImageSource)Window.Resources[active ? key + "MotionDeviceImage" : "MotionDeviceImage"];
+   ((RotateTransform)device.RenderTransform).Angle = active ? reading.Angle + reading.TiltX * 15 : 0;
+   dot.Visibility = active ? Visibility.Visible : Visibility.Collapsed;
+   dot.Width = dot.Height = 8 + (active ? reading.TiltZ * 2 : 0);
+   dot.Opacity = .55 + reading.Activity * .45;
+   Canvas.SetLeft(dot, 32 + reading.TiltX * 10 - dot.Width / 2); Canvas.SetTop(dot, 30 - reading.TiltY * 6 - dot.Height / 2);
   }
 
   static void Move(FrameworkElement stick, short x, short y, double left) {

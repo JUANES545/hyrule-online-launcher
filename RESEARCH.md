@@ -135,6 +135,11 @@ Frame rate is not a Milk Bar feature: it is the Cemu graphic pack FPS++ (`Mods\F
 
 Checked on 2026-10-22 with 120 selected on a 240 Hz display: Cemu A showed about 100 FPS while B was loading, and both instances about 82 and 119 FPS once running. Not checked: the known MBL softlock when leaving Vah Medoh with FPS++, and long sessions at high rates.
 
+### Controller motion display (DualSense)
+
+Each player card shows a small glyph for the motion sensors of its controller, ported from the local co-op launcher. `Sdl` sets `SDL_JOYSTICK_ENHANCED_REPORTS`, enables the accelerometer and gyroscope when the pad has them, and drains the sensor events on the router thread; `ControllerMotion` turns them into a `MotionReading` (tilt in g relative to the pose when motion started, a gyro angle limited to 35 degrees, activity 0..1) that travels in the `RouterSnapshot` next to the pad state. The glyph follows the player's route, so it moves with the controller when players are swapped or reassigned. A crossed-out glyph means the pad has no sensors (XInput pads, for example); a dashed ring means only one of the two sensors reports. This is a display only: the readings are not sent to Cemu (the old DSU server was not ported).
+
+Checked with the unit tests (`controller motion`) and by starting the launcher with two XInput pads, which show the crossed-out glyph. Not checked: a real DualSense, which still needs the user to connect one and move it.
 ## Open questions
 
 0. Pipe limit: the launcher creates `languageConnectionPipe` with max 2 instances, which fits exactly two launchers on one PC. The DLL pipe name is fixed, and in the two-instance run both DLLs connected without a visible mix-up, but this was not tested on purpose.
