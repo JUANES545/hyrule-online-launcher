@@ -78,6 +78,8 @@ BCML's merged output is incomplete for this mod. Compare the mod's own packs aga
 - `Actor\ActorInfo.product.sbyml` was missing entirely, so the game did not know `Jugador1..32`. Rebuilt from the vanilla update file plus the 39 added actors and 2 partial diffs in the mod's `logs\actorinfo.yml` (merged by name hash, 7973 actors). After that the log shows "Spawned player N" and the remote Link appears.
 - `Pack\TitleBG.pack` event flows (see above).
 
+`scripts/Patch-Mod.ps1` reapplies all of this, plus the 32 `Jugador*.sbactorpack` files, to `merged\content` and to every instance graphic pack that is not a junction to it (`scripts/patch_mod.py`, run with the project's Python and `oead`). It reads only the mod's own packs and `logs\actorinfo.yml` and the vanilla `ActorInfo.product.sbyml` from an instance's `mlc01`. It is idempotent (writes only on a difference, atomically), refuses to run while a project Cemu is open, and `-Check` reports what is missing and exits 1 without writing. Run it after any BCML merge or clean install. Verified by putting the BCML export (`mods\9999_BCML`) back into `merged` and cemuB's pack, deleting `ActorInfo`, then patching: `-Check` went from 6 pending files to clean, and `ActorInfo` and `GameRomCamera` came out byte-identical to the hand-patched ones. `TitleBG.pack` is identical entry by entry except `Armor_Default_Extra_00/01` and `GameROMPlayer`, which the Milk Bar launcher rewrites on every Connect (player model selection).
+
 ### Input separation
 
 - Both Cemu copies shipped the same XInput profile (uuid 0), so both Links moved with one controller. With two physical controllers, cemuB uses the same profile with `<uuid>1</uuid>`.
