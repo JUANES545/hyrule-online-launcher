@@ -258,7 +258,8 @@ Each player's screen can be turned a quarter turn clockwise per click (0, 90, 18
 - `RotationMod` writes a small FX shader, a preset and a managed `ReShade.ini` into the player's Cemu folder, and removes only its own files when the rotation goes back to 0. It refuses to touch a ReShade setup it did not create.
 - `Start-Online.ps1` sets `VK_IMPLICIT_LAYER_PATH` per player right before starting that player's Milk Bar launcher, so only turned players load the layer.
 - For 90 and 270 degrees the game renders the swapped shape (the window area is unchanged) and the shader rotates the picture back into the window.
-- Unit tests cover the plans and the file deployment. Not verified: ReShade loading in these Cemu instances, the shader compiling, Cemu stretching its output to the window, the visual result, and navigating the buttons with a real pad.
+- Unit tests cover the plans and the file deployment. ReShade rewrites its ini on exit and drops comments, so `RotationMod` recognises its own setup by the preset path, not by a comment (the first version refused to start a second session because of this).
+- **Verified (2026-10-22, session with player 1 turned 90 degrees):** ReShade 6.5.1 loaded in Cemu A only, the shader compiled, the game rendered 1266 x 1170 in a 1170 x 1266 window, and a screenshot of the title screen shows player 1's picture turned a quarter turn clockwise with no visible stretching, next to player 2's upright picture. When the displays changed during the session the launcher showed player 1 at 1440 x 5120 on the 5120 x 1440 display. Not verified: 180 and 270 degrees visually, the buttons with a real pad, and gameplay while turned.
 
 ## Milk Bar "Unexpected character encountered ... line 2, position 3" (cause found, 2026-10-23)
 

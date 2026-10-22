@@ -571,6 +571,10 @@ namespace HyruleOnline {
      Require(RotationMod.Managed(cemu) && File.Exists(Path.Combine(cemu, "ReShade64.dll")) && File.Exists(Path.Combine(cemu, "ReShade64.json")) && preset.Contains("HyruleRotation=1") && preset.Contains("Techniques=HyruleRotate@HyruleRotate.fx"), "a turned player gets the layer, the shader and a preset");
      Require(File.ReadAllText(Path.Combine(cemu, "hyrule-rotation", "HyruleRotate.fx")).Contains("uniform int HyruleRotation") && File.ReadAllText(Path.Combine(cemu, "ReShade.ini")).Contains("KeyOverlay=0,0,0,0"), "the effect and an overlay-free ReShade configuration are written");
      RotationMod.Apply(cemu, 270, layer);
+     File.WriteAllText(Path.Combine(cemu, "ReShade.ini"), File.ReadAllText(Path.Combine(cemu, "ReShade.ini")).Replace(RotationMod.Marker + "\r\n", ""));
+     Require(RotationMod.Managed(cemu), "ReShade dropping the comment does not make the setup look foreign");
+     RotationMod.Apply(cemu, 90, layer);
+     RotationMod.Apply(cemu, 270, layer);
      Require(File.ReadAllText(Path.Combine(cemu, "hyrule-rotation", "HyruleRotate.ini")).Contains("HyruleRotation=3"), "the turn is updated in place");
      RotationMod.Apply(cemu, 0, layer);
      Require(!RotationMod.Managed(cemu) && !File.Exists(Path.Combine(cemu, "ReShade64.dll")) && !File.Exists(Path.Combine(cemu, "ReShade64.json")) && !Directory.Exists(Path.Combine(cemu, "hyrule-rotation")) && File.Exists(Path.Combine(cemu, "Cemu.exe")), "turning back removes every file the launcher wrote and nothing else");

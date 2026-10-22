@@ -41,9 +41,10 @@ namespace HyruleOnline {
    return Marker + "\r\nTechniques=HyruleRotate@" + ShaderFile + "\r\nTechniqueSorting=HyruleRotate@" + ShaderFile + "\r\n\r\n[" + ShaderFile + "]\r\nHyruleRotation=" + ScreenLayout.CleanRotation(degrees) / 90 + "\r\n";
   }
 
+  // ReShade rewrites its ini on exit and drops comments, so ownership is the preset path only this class writes.
   public static bool Managed(string instance) {
    string config = Path.Combine(instance, ConfigFile);
-   return File.Exists(config) && File.ReadAllText(config).StartsWith(Marker, StringComparison.Ordinal);
+   return File.Exists(config) && File.ReadAllText(config).Contains("StartupPresetPath=.\\" + Folder + "\\" + PresetFile);
   }
 
   public static bool LayerReady(string source) {
