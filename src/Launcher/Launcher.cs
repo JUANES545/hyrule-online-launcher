@@ -101,7 +101,7 @@ namespace HyruleOnline {
   string lastError, failure;
   bool stopping;
   int ticks;
-  string language = "en";
+  string language = "en", launcherLanguage = "en";
   List<GameLanguage> gameLanguages = new List<GameLanguage> { GameLanguages.English };
   readonly Translator translator = new Translator();
   readonly Dictionary<string, KeyValuePair<string, Brush>> steps = new Dictionary<string, KeyValuePair<string, Brush>>();
@@ -274,8 +274,9 @@ namespace HyruleOnline {
      models[i] = (string)root.Element("Model" + (i + 1)) ?? "";
     }
     language = Saved(root, "Language") ?? "en";
+    launcherLanguage = Lang.Ui(Saved(root, "LauncherLanguage") ?? "en");
    }
-   catch (Exception) { mode = LayoutMode.Auto; scale = GraphicsMod.DefaultScale; shadows = shadowDistance = antiAliasing = null; fpsLimit = FpsMod.AutoFps; language = "en"; }
+   catch (Exception) { mode = LayoutMode.Auto; scale = GraphicsMod.DefaultScale; shadows = shadowDistance = antiAliasing = null; fpsLimit = FpsMod.AutoFps; language = launcherLanguage = "en"; }
   }
 
   // The name and model of each player sit on that player's card and are written into its Milk Bar settings when a session starts.
@@ -432,7 +433,7 @@ namespace HyruleOnline {
 
   // Switches the launcher text to the chosen language and redraws everything the code writes itself.
   void ApplyLanguage() {
-   Lang.Current = Lang.Ui(language);
+   Lang.Current = launcherLanguage;
    translator.Apply();
    C<TextBlock>("HelpText").Text = Lang.Help();
    FillModels(0); FillModels(1);
@@ -444,28 +445,45 @@ namespace HyruleOnline {
    if (Window.IsLoaded) { UpdatePlan(); RefreshProcesses(); }
   }
 
+  Button LanguageButton(string name, string code, bool current, string idPrefix, Action choose) {
+   var button = new Button { Content = name, FontSize = 18, Margin = new Thickness(0, 0, 8, 8), HorizontalAlignment = HorizontalAlignment.Stretch,
+    Background = Paint(current ? "#B03C554B" : "#801B252B"), BorderBrush = Paint(current ? "#D5C396" : "#364E5659") };
+   System.Windows.Automation.AutomationProperties.SetAutomationId(button, idPrefix + code);
+   System.Windows.Automation.AutomationProperties.SetItemStatus(button, current ? "Selected" : "");
+   button.Click += (s, e) => choose();
+   return button;
+  }
+
   void FillLanguages() {
-   var list = C<StackPanel>("LanguageList");
+   var launcher = C<Panel>("LauncherLanguageList");
+   launcher.Children.Clear();
+   foreach (string code in Lang.Supported) {
+    string chosen = code;
+    launcher.Children.Add(LanguageButton(GameLanguages.Names[code], code, code == launcherLanguage, "Launcher_", () => ChooseLauncherLanguage(chosen)));
+   }
+   var list = C<Panel>("LanguageList");
    list.Children.Clear();
    foreach (var item in gameLanguages) {
-    string code = item.Code;
-    bool current = code == language;
-    var button = new Button { Content = item.Name, FontSize = 21, Margin = new Thickness(0, 0, 0, 10), HorizontalAlignment = HorizontalAlignment.Stretch,
-     Background = Paint(current ? "#B03C554B" : "#801B252B"), BorderBrush = Paint(current ? "#D5C396" : "#364E5659") };
-    System.Windows.Automation.AutomationProperties.SetAutomationId(button, "Language_" + code);
-    System.Windows.Automation.AutomationProperties.SetItemStatus(button, current ? "Selected" : "");
-    button.Click += (s, e) => ChooseLanguage(code);
-    list.Children.Add(button);
+    string chosen = item.Code;
+    list.Children.Add(LanguageButton(item.Name, chosen, chosen == language, "Language_", () => ChooseLanguage(chosen)));
    }
   }
 
-  // The game language is written into both Cemu settings when a session starts; the launcher changes at once.
+  // The game language is written into both Cemu settings when a session starts.
   void ChooseLanguage(string code) {
    if (code == language) return;
    language = code;
    SavePrefs();
+   FillLanguages();
+   Write("Game language: " + GameLanguages.Find(gameLanguages, code).Name + ".");
+  }
+
+  void ChooseLauncherLanguage(string code) {
+   if (code == launcherLanguage) return;
+   launcherLanguage = code;
+   SavePrefs();
    ApplyLanguage();
-   Write("Language: " + GameLanguages.Find(gameLanguages, code).Name + ".");
+   Write("Launcher language: " + GameLanguages.Names[code] + ".");
   }
 
   void SetStatus(string english, params object[] args) {
@@ -486,7 +504,7 @@ namespace HyruleOnline {
      new XElement("Shadows", shadows ?? ""), new XElement("ShadowDistance", shadowDistance ?? ""), new XElement("AntiAliasing", antiAliasing ?? ""),
      new XElement("FpsLimit", fpsLimit == FpsMod.AutoFps ? "Auto" : fpsLimit.ToString()),
      new XElement("Name1", names[0]), new XElement("Model1", models[0]), new XElement("Name2", names[1]), new XElement("Model2", models[1]),
-     new XElement("Language", language))).Save(PrefsFile);
+     new XElement("Language", language), new XElement("LauncherLanguage", launcherLanguage))).Save(PrefsFile);
    }
    catch (Exception error) { Write("Could not save the display settings: " + error.Message); }
   }

@@ -182,7 +182,8 @@ A fourth page next to Play, Graphics and Language, aimed at local play but built
 
 - The game is the US version. `content\Pack` has `Bootup_USen.pack`, `Bootup_USes.pack` and `Bootup_USfr.pack`, so the launcher offers English, Español (Latinoamérica) and Français (Canada). The list comes from a scan of those packs (read-only, through `game_dir` in the project's BCML settings), so other regions list their own languages.
 - The game language is Cemu's `<console_language>` in `settings.xml` (direct child of `<content>`): 0 ja, 1 en, 2 fr, 3 de, 4 it, 5 es, 6 zh, 7 ko, 8 nl, 9 pt, 10 ru, 11 Traditional Chinese. `<language>` is Cemu's own menu language and is left alone. Both instances get the value each time a session starts.
-- The launcher text follows the same choice for English, Spanish and French; any other game language shows the launcher in English. Log lines and the mod's own graphics pack labels stay English.
+- The launcher language is separate from the game language. The Language page has a Launcher row (English, Español, Français; English by default, saved as `LauncherLanguage` in `preferences.xml`) that changes the launcher text at once, and a Game list that only writes Cemu's setting. Any combination works, for example a Spanish launcher with an English game. Older preferences without `LauncherLanguage` start in English.
+- Log lines and the mod's own graphics pack labels stay English.
 - Checked in a real session in Spanish: both `settings.xml` files got `5` and the game text came up in Spanish. The BCML-merged content only has `Bootup_USen.pack`, so text added by mods can stay in English.
 - One Cemu A crash (exception thrown from `InjectDLL.dll` after both instances were loading) happened in the first Spanish run and did not repeat in the second. Not shown to depend on the language.
 
