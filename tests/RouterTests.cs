@@ -76,6 +76,32 @@ namespace HyruleOnline {
    motion.Configure(false, false); Require(motion.Read(time).Status == MotionStatus.Unavailable, "disconnecting clears the state");
   }
 
+  static void Navigation() {
+   int shells = 0;
+   foreach (int width in new[] { 320, 640, 800, 1024, 1280, 1366, 1600, 1920, 2560, 3440, 3840, 5120, 7680 })
+    foreach (int height in new[] { 240, 480, 600, 720, 768, 900, 1080, 1200, 1440, 1600, 2160, 3840 }) {
+     double aspect = (double)width / height;
+     var fit = ShellFit.For(width, height);
+     string name = width + "x" + height;
+     Require(fit.Stacked == (aspect < ShellFit.StackBelow), "stacking follows the window shape at " + name);
+     Require(fit.Width >= (fit.Stacked ? ShellFit.StackWidth : ShellFit.MinWideWidth) && fit.Height >= (fit.Stacked ? ShellFit.StackHeight : ShellFit.WideHeight), "the canvas never gets smaller than the content at " + name);
+     double scale = fit.Scale(width, height);
+     Require(scale > 0 && fit.Width * scale <= width + 1e-6 && fit.Height * scale <= height + 1e-6, "the canvas fits inside the window at " + name);
+     Require(Math.Abs(fit.Width * scale - width) < 1e-6 || Math.Abs(fit.Height * scale - height) < 1e-6, "the canvas fills one side of the window at " + name);
+     if (!fit.Stacked && aspect * ShellFit.WideHeight <= ShellFit.MaxWideWidth || fit.Stacked && ShellFit.StackWidth / aspect >= ShellFit.StackHeight)
+      Require(Math.Abs(fit.Width / fit.Height - aspect) < 1e-9, "the canvas follows the window shape at " + name);
+     shells++;
+    }
+   var ultrawide = ShellFit.For(5120, 1440);
+   Require(ultrawide.Width == ShellFit.MaxWideWidth && ultrawide.Height == ShellFit.WideHeight && !ultrawide.Stacked, "an ultrawide window keeps a centred canvas of limited width");
+   Require(ShellFit.For(0, 0).Width > 0 && ShellFit.For(-5, 10).Height > 0, "an empty window still gets a canvas");
+   Require(PageNav.Step(0, PageNav.RightBumper) == 1 && PageNav.Step(0, PageNav.LeftBumper) == -1, "RB goes forward and LB goes back");
+   Require(PageNav.Step(PageNav.RightBumper, PageNav.RightBumper) == 0 && PageNav.Step(PageNav.LeftBumper, 0) == 0, "a held or released bumper does nothing");
+   Require(PageNav.Step(PageNav.LeftBumper, (ushort)(PageNav.LeftBumper | PageNav.RightBumper)) == 1 && PageNav.Step(0, 0x1000) == 0, "only a new bumper press counts");
+   Require(PageNav.Move(0, 1, 3) == 1 && PageNav.Move(2, 1, 3) == 0 && PageNav.Move(0, -1, 3) == 2 && PageNav.Move(1, -1, 3) == 0 && PageNav.Move(5, 0, 0) == 0, "pages wrap around");
+   Console.WriteLine("PASS: window fitting for " + shells + " window sizes and page navigation.");
+  }
+
   static void Require(bool ok, string message) { if (!ok) throw new Exception("TEST: " + message); }
 
   static int[] Reconcile(int[] routes, params bool[] connected) { Router.Reconcile(routes, connected); return routes; }
@@ -231,6 +257,7 @@ namespace HyruleOnline {
     Console.WriteLine("PASS: graphics quality.");
     Motion();
     Console.WriteLine("PASS: controller motion.");
+    Navigation();
     return 0;
    }
    catch (Exception error) { Console.Error.WriteLine(error.Message); return 1; }

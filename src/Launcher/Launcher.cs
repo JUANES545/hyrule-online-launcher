@@ -129,12 +129,11 @@ namespace HyruleOnline {
     fpsLimit = (int)item.Tag;
     Window.Dispatcher.BeginInvoke(new Action(ChangedDisplayChoice));
    };
-   C<Button>("Details").Click += (s, e) => {
-    var panel = C<Border>("DetailsPanel");
-    panel.Visibility = panel.Visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;
-    if (panel.Visibility == Visibility.Visible) C<ScrollViewer>("ContentScroll").ScrollToBottom(); else C<ScrollViewer>("ContentScroll").ScrollToTop();
-   };
-   C<Button>("Help").Click += (s, e) => { var help = C<Border>("HelpPanel"); help.Visibility = help.Visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible; C<ScrollViewer>("ContentScroll").ScrollToTop(); };
+   foreach (var tab in new[] { "TabPlay", "TabGraphics", "TabDetails" }) {
+    var button = C<Button>(tab);
+    button.Click += (s, e) => ShowPage(int.Parse((string)((Button)s).Tag));
+   }
+   C<Button>("Help").Click += (s, e) => { var help = C<Border>("HelpPanel"); help.Visibility = help.Visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible; };
    C<Button>("Exit").Click += (s, e) => Window.Close();
    serverHost.Line += line => Window.Dispatcher.BeginInvoke(new Action(() => {
     var log = C<TextBox>("ServerLog");
@@ -148,6 +147,11 @@ namespace HyruleOnline {
     e.Handled = true;
    };
    Window.PreviewKeyDown += (s, e) => {
+    if (e.Key == Key.Tab && (Keyboard.Modifiers & ModifierKeys.Control) != 0) {
+     ShowPage(PageNav.Move(page, (Keyboard.Modifiers & ModifierKeys.Shift) != 0 ? -1 : 1, PageNames.Length));
+     e.Handled = true;
+     return;
+    }
     if (e.Key != Key.Escape) return;
     var help = C<Border>("HelpPanel");
     if (router.Snapshot().Assigning >= 0) router.CancelAssign();
@@ -156,7 +160,8 @@ namespace HyruleOnline {
     e.Handled = true;
    };
    Window.Closing += OnClosing;
-   Window.Loaded += (s, e) => { FitPrimary(); UpdatePlan(); RefreshProcesses(); C<Button>("Start").Focus(); timer.Start(); };
+   Window.SizeChanged += (s, e) => FitShell();
+   Window.Loaded += (s, e) => { FitPrimary(); ShowPage(0); UpdatePlan(); RefreshProcesses(); C<Button>("Start").Focus(); timer.Start(); };
    timer.Interval = TimeSpan.FromMilliseconds(33);
    timer.Tick += (s, e) => Tick();
   }
@@ -169,17 +174,57 @@ namespace HyruleOnline {
    Window.Resources["LogoFont"] = new FontFamily(directory, "./#Cinzel Decorative");
   }
 
-  // The launcher covers the primary display, like the local co-op launcher, and switches to a stacked layout on tall displays.
+  // The launcher covers the primary display, like the local co-op launcher. HYRULE_LAUNCHER_SIZE=WIDTHxHEIGHT opens a smaller window for layout checks.
   void FitPrimary() {
    Window.WindowState = WindowState.Normal;
    Window.Left = 0; Window.Top = 0;
    Window.Width = SystemParameters.PrimaryScreenWidth; Window.Height = SystemParameters.PrimaryScreenHeight;
-   bool narrow = (double)displayWidth / Math.Max(1, displayHeight) < 1.1;
+   var parts = (Environment.GetEnvironmentVariable("HYRULE_LAUNCHER_SIZE") ?? "").Split('x');
+   int width, height;
+   if (parts.Length == 2 && int.TryParse(parts[0], out width) && int.TryParse(parts[1], out height) && width >= 200 && height >= 200) { Window.Width = width; Window.Height = height; }
+   FitShell();
+  }
+
+  // Sizes the design canvas to the window shape and stacks the display column under the players on tall windows.
+  void FitShell() {
+   if (C<Grid>("Shell") == null) return;
+   var fit = ShellFit.For(Window.ActualWidth > 0 ? Window.ActualWidth : Window.Width, Window.ActualHeight > 0 ? Window.ActualHeight : Window.Height);
    var shell = C<Grid>("Shell");
-   shell.Width = narrow ? 720 : 1280; shell.Height = narrow ? 1840 : 1100;
-   Grid.SetColumn(C<StackPanel>("DisplayPanel"), narrow ? 0 : 1); Grid.SetRow(C<StackPanel>("DisplayPanel"), narrow ? 1 : 0);
-   C<Grid>("MainGrid").ColumnDefinitions[1].Width = narrow ? new GridLength(0) : new GridLength(0.9, GridUnitType.Star);
-   C<StackPanel>("Players").Margin = narrow ? new Thickness(0, 0, 0, 18) : new Thickness(0, 0, 28, 0);
+   shell.Width = fit.Width; shell.Height = fit.Height;
+   Grid.SetColumn(C<StackPanel>("DisplayPanel"), fit.Stacked ? 0 : 1); Grid.SetRow(C<StackPanel>("DisplayPanel"), fit.Stacked ? 1 : 0);
+   C<Grid>("PlayPage").ColumnDefinitions[1].Width = fit.Stacked ? new GridLength(0) : new GridLength(0.9, GridUnitType.Star);
+   C<StackPanel>("Players").Margin = fit.Stacked ? new Thickness(0, 0, 0, 18) : new Thickness(0, 0, 28, 0);
+  }
+
+  static readonly string[] PageNames = { "Play", "Graphics", "Details" };
+  int page;
+  ushort[] previousButtons = new ushort[4];
+
+  void ShowPage(int index) {
+   page = PageNav.Move(0, index, PageNames.Length);
+   for (int i = 0; i < PageNames.Length; i++) {
+    bool current = i == page;
+    C<FrameworkElement>(PageNames[i] + "Page").Visibility = current ? Visibility.Visible : Visibility.Collapsed;
+    var tab = C<Button>("Tab" + PageNames[i]);
+    tab.Background = Paint(current ? "#B03C554B" : "#801B252B");
+    tab.BorderBrush = Paint(current ? "#D5C396" : "#364E5659");
+   }
+  }
+
+  // LB and RB on any controller flip the page, but only while the launcher itself is in front, so they never fight with the games.
+  void NavigateWithPads(RouterSnapshot snapshot) {
+   int step = 0;
+   for (int slot = 0; slot < 4; slot++) {
+    ushort buttons = snapshot.Names[slot] != null ? snapshot.Pads[slot].buttons : (ushort)0;
+    if (step == 0) step = PageNav.Step(previousButtons[slot], buttons);
+    previousButtons[slot] = buttons;
+   }
+   if (step != 0 && Window.IsActive && !AnyDropDownOpen()) ShowPage(PageNav.Move(page, step, PageNames.Length));
+  }
+
+  bool AnyDropDownOpen() {
+   foreach (var name in new[] { "FpsBox", "ScaleBox", "ShadowsBox", "ShadowDistanceBox", "AntiAliasingBox" }) if (C<ComboBox>(name).IsDropDownOpen) return true;
+   return false;
   }
 
   static string PrefsFile { get { return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "preferences.xml"); } }
@@ -480,6 +525,7 @@ namespace HyruleOnline {
 
   void Tick() {
    var snapshot = router.Snapshot();
+   NavigateWithPads(snapshot);
    for (int player = 0; player < 2; player++) {
     string key = "P" + (player + 1);
     int slot = snapshot.Routes[player];

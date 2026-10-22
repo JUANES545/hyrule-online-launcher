@@ -151,6 +151,16 @@ The launcher replaces the old balanced/sharp toggle with options read from the s
 
 Checked: tests, UI layout, and a short real session with 150% / Shadows High / Very High distance / AA None. Both `settings.xml` files got the presets. Visual quality in game is not confirmed yet.
 
+## Pages and window fitting
+
+The launcher no longer scrolls. It has three pages (Play, Graphics, Details) shown one at a time, so new settings get their own page instead of crowding one view.
+
+- Navigation: LB / RB on any controller, Ctrl+Tab / Ctrl+Shift+Tab, or the tabs. Pages wrap around. LB / RB icons flank the tabs. Controller paging only works while the launcher window is in front and no dropdown is open, so it never fights with the games.
+- Fitting: the UI is drawn on a design canvas that a Viewbox scales to the window. `ShellFit` picks the canvas from the window shape: wide windows get a wider canvas up to 1760 units and the content is centred, narrower windows get a taller canvas, and tall windows stack the display column under the players. Tests cover 156 window sizes.
+- `HYRULE_LAUNCHER_SIZE=WIDTHxHEIGHT` opens a smaller window for layout checks (the default is the primary display).
+
+Checked: tests, and screenshots at 1920x1080, 1280x720, 1024x600, 3440x1440, a tall 900x1400 window and the 5120x1440 display, plus Ctrl+Tab. LB / RB with a physical pad is not confirmed yet.
+
 ## Open questions
 
 0. Pipe limit: the launcher creates `languageConnectionPipe` with max 2 instances, which fits exactly two launchers on one PC. The DLL pipe name is fixed, and in the two-instance run both DLLs connected without a visible mix-up, but this was not tested on purpose.
