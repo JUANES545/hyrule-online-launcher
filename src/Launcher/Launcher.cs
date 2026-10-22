@@ -84,7 +84,7 @@ namespace HyruleOnline {
   readonly Router router;
   readonly DispatcherTimer timer = new DispatcherTimer();
   readonly bool[] joined = new bool[2];
-  readonly HashSet<IntPtr> placed = new HashSet<IntPtr>();
+  readonly HashSet<IntPtr> placed = new HashSet<IntPtr>(), menuHidden = new HashSet<IntPtr>();
   LayoutMode mode = LayoutMode.Auto;
   bool sharp;
   int fpsLimit = 60, displayWidth, displayHeight, displayHz;
@@ -190,11 +190,10 @@ namespace HyruleOnline {
    C<Button>("Quality").Content = "Quality: " + (sharp ? "sharper" : "balanced");
    C<Button>("FpsLimit").Content = "FPS target: " + fpsLimit;
    if (displayWidth < 320 || displayHeight < 240) { C<TextBlock>("LayoutInfo").Text = "The primary display is not ready."; return; }
-   bool side = ScreenLayout.Resolve(mode, displayWidth, displayHeight) == LayoutMode.SideBySide;
-   var areas = ScreenLayout.Split(mode, displayWidth, displayHeight);
-   int w1, h1;
-   ScreenLayout.RenderSize(areas[0], sharp, out w1, out h1);
-   C<TextBlock>("LayoutInfo").Text = (side ? "Side by side · P1 left / P2 right" : "Top and bottom · P1 top / P2 bottom") + Environment.NewLine + "Each game renders " + w1 + " × " + h1 + " at " + ScreenLayout.FrameRate(displayHz, fpsLimit) + " FPS";
+   var plan = ScreenLayout.Plan(mode, sharp, displayWidth, displayHeight);
+   bool side = plan.Layout == LayoutMode.SideBySide;
+   var first = plan.Players[0];
+   C<TextBlock>("LayoutInfo").Text = (side ? "Side by side · P1 left / P2 right" : "Top and bottom · P1 top / P2 bottom") + Environment.NewLine + "Each game renders " + first.RenderWidth + " × " + first.RenderHeight + " at " + ScreenLayout.FrameRate(displayHz, fpsLimit) + " FPS";
    var frame = C<Border>("PreviewFrame");
    double ratio = (double)displayWidth / displayHeight;
    frame.Width = ratio < 1 ? 118 : Math.Min(360, 210 * ratio); frame.Height = frame.Width / ratio;
@@ -207,14 +206,40 @@ namespace HyruleOnline {
   // Each Cemu window is placed once when it first appears, so moving it by hand is not undone.
   void PlaceWindows() {
    if (displayWidth < 320 || displayHeight < 240) return;
-   var areas = ScreenLayout.Split(mode, displayWidth, displayHeight);
+   var areas = ScreenLayout.Plan(mode, sharp, displayWidth, displayHeight).Players;
    string[] folders = { "\\cemuA\\", "\\cemuB\\" };
    for (int i = 0; i < 2; i++) {
     foreach (var window in WindowPlacer.CemuWindows(folders[i]).Values) {
-     if (!placed.Add(window)) continue;
-     WindowPlacer.Place(window, areas[i]);
-     Write("Cemu " + (i == 0 ? "A" : "B") + " placed at " + areas[i].X + "," + areas[i].Y + " (" + areas[i].Width + " x " + areas[i].Height + ").");
+     if (!placed.Add(window)) {
+      if (WindowPlacer.HideMenu(window) && menuHidden.Add(window)) Write("Cemu " + (i == 0 ? "A" : "B") + ": hid the menu bar that Cemu restored.");
+      continue;
+     }
+     int clientWidth, clientHeight;
+     var area = areas[i].Area;
+     WindowPlacer.Place(window, area, out clientWidth, out clientHeight);
+     Write("Cemu " + (i == 0 ? "A" : "B") + " placed at " + area.X + "," + area.Y + " (" + area.Width + " x " + area.Height + "); the game area is " + clientWidth + " x " + clientHeight + ".");
     }
+   }
+  }
+
+  // Each instance's settings are written for its own window before Cemu starts, so the game renders in the window's shape.
+  bool PrepareDisplay() {
+   try {
+    WindowPlacer.PrimaryDisplay(out displayWidth, out displayHeight, out displayHz);
+    var plan = ScreenLayout.Plan(mode, sharp, displayWidth, displayHeight);
+    string[] names = { "cemuA", "cemuB" };
+    for (int i = 0; i < 2; i++) {
+     var view = plan.Players[i];
+     CemuDisplay.Apply(Path.Combine(root, ".tools", "instances", names[i]), view);
+     Write("Player " + (i + 1) + ": " + view.RenderWidth + " x " + view.RenderHeight + " (aspect " + view.RatioWidth + ":" + view.RatioHeight + ").");
+    }
+    return true;
+   }
+   catch (Exception error) {
+    failure = "The display settings could not be prepared: " + error.Message;
+    C<TextBlock>("Status").Text = failure;
+    Write(failure);
+    return false;
    }
   }
 
@@ -231,6 +256,7 @@ namespace HyruleOnline {
 
   void StartSession() {
    failure = null; lastError = null; joined[0] = joined[1] = false;
+   if (Scripts.Owned(root).Count == 0 && !PrepareDisplay()) return;
    C<TextBlock>("Status").Text = "Starting...";
    C<TextBlock>("Prompt").Text = "";
    Step("Server", "Starting", Busy); Step("A", "Waiting", Idle); Step("B", "Waiting", Idle);

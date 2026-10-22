@@ -9,6 +9,11 @@ namespace HyruleOnline {
 
  struct Area { public int X, Y, Width, Height; }
 
+ // What one Cemu window needs: where it sits and what the game renders and assumes about its shape.
+ struct PlayerView { public Area Area; public int RenderWidth, RenderHeight, RatioWidth, RatioHeight; public bool Ultrawide, Square; }
+
+ sealed class DisplayPlan { public LayoutMode Layout; public PlayerView[] Players; }
+
  // Splits the primary display between the two Cemu windows. Same Auto rule as the local co-op launcher:
  // a wide display (2:1 or more) goes side by side, anything else is stacked.
  static class ScreenLayout {
@@ -31,11 +36,41 @@ namespace HyruleOnline {
    return Enum.TryParse(text == null ? "" : text.Trim(), true, out mode) && Enum.IsDefined(typeof(LayoutMode), mode) ? mode : LayoutMode.Auto;
   }
 
-  // Sharp renders at 150% of the window, like the local co-op launcher.
+  public const int MinDisplayWidth = 320, MinDisplayHeight = 240, MaxRenderSide = 8192;
+
+  // Sharp renders at 150% of the window, like the local co-op launcher. Sizes are even and never above MaxRenderSide.
   public static void RenderSize(Area area, bool sharp, out int width, out int height) {
-   width = area.Width; height = area.Height;
-   if (!sharp) return;
-   width = (int)Math.Round(width * 1.5 / 2) * 2; height = (int)Math.Round(height * 1.5 / 2) * 2;
+   double scale = sharp ? 1.5 : 1.0;
+   double fit = Math.Min(1.0, (double)MaxRenderSide / Math.Max(area.Width, area.Height) / scale);
+   width = Even(area.Width * scale * fit); height = Even(area.Height * scale * fit);
+  }
+
+  static int Even(double value) { return Math.Max(2, (int)Math.Floor(value / 2 + 1e-9) * 2); }
+
+  // The aspect ratio the BOTW graphic pack gets for a render size, reduced and kept small enough for the pack.
+  public static void AspectRatio(int width, int height, out int ratioWidth, out int ratioHeight) {
+   int a = width, b = height;
+   while (b != 0) { int rest = a % b; a = b; b = rest; }
+   ratioWidth = width / a; ratioHeight = height / a;
+   int largest = Math.Max(ratioWidth, ratioHeight);
+   if (largest <= 1000) return;
+   ratioWidth = Math.Max(1, (int)Math.Round(ratioWidth * 1000.0 / largest)); ratioHeight = Math.Max(1, (int)Math.Round(ratioHeight * 1000.0 / largest));
+  }
+
+  public static DisplayPlan Plan(LayoutMode mode, bool sharp, int width, int height) {
+   if (width < MinDisplayWidth || height < MinDisplayHeight) throw new ArgumentOutOfRangeException("width", "The display is too small or not ready.");
+   var areas = Split(mode, width, height);
+   var plan = new DisplayPlan { Layout = Resolve(mode, width, height), Players = new PlayerView[2] };
+   for (int i = 0; i < 2; i++) {
+    var view = new PlayerView { Area = areas[i] };
+    RenderSize(areas[i], sharp, out view.RenderWidth, out view.RenderHeight);
+    AspectRatio(view.RenderWidth, view.RenderHeight, out view.RatioWidth, out view.RatioHeight);
+    double ratio = (double)view.RenderWidth / view.RenderHeight;
+    view.Ultrawide = ratio > 16.0 / 9.0 + 0.01;
+    view.Square = ratio <= 1.5 + 0.01;
+    plan.Players[i] = view;
+   }
+   return plan;
   }
 
   public static int FrameRate(int hz, int limit) {
@@ -77,11 +112,31 @@ namespace HyruleOnline {
    }
   }
 
-  public static void Place(IntPtr window, Area area) {
+  [DllImport("user32.dll")] static extern bool SetMenu(IntPtr window, IntPtr menu);
+  [DllImport("user32.dll")] static extern bool GetClientRect(IntPtr window, out Rect rect);
+  [StructLayout(LayoutKind.Sequential)] struct Rect { public int Left, Top, Right, Bottom; }
+
+  [DllImport("user32.dll")] static extern IntPtr GetMenu(IntPtr window);
+  [DllImport("user32.dll")] static extern bool DrawMenuBar(IntPtr window);
+
+  // Cemu puts its menu bar back when the game loads, which would shave 20 pixels off the picture.
+  public static bool HideMenu(IntPtr window) {
+   if (GetMenu(window) == IntPtr.Zero) return false;
+   SetMenu(window, IntPtr.Zero);
+   DrawMenuBar(window);
+   return true;
+  }
+
+  // Removes the title bar, border and menu bar, then reports the client size so the caller can check that the game fills the area.
+  public static void Place(IntPtr window, Area area, out int clientWidth, out int clientHeight) {
    ShowWindow(window, SwRestore);
    int style = GetWindowLong(window, GwlStyle);
    SetWindowLong(window, GwlStyle, style & ~(WsCaption | WsThickFrame | WsSysMenu));
+   SetMenu(window, IntPtr.Zero);
    SetWindowPos(window, IntPtr.Zero, area.X, area.Y, area.Width, area.Height, SwpNoZOrder | SwpFrameChanged | SwpShowWindow);
+   Rect client;
+   GetClientRect(window, out client);
+   clientWidth = client.Right - client.Left; clientHeight = client.Bottom - client.Top;
   }
 
   // Main window handles of the Cemu instances that run from the given instance folder, keyed by process id.
