@@ -108,7 +108,7 @@ namespace HyruleOnline {
    Require(list.Count == 4 && list[0].IsLink && list[0].Model == Character.LinkModel && list[0].Index == 0, "Link comes first");
    Require(list[1].Index == 3 && list[1].Model == "Npc_Gerudo_Hero" && list[3].Index == 6, "NPC models follow the Milk Bar numbering, after Bumii and Environmental");
    Require(list[2].Label == "Hudson" && list[3].Label == "Hudson (Wedding)", "repeated names stay distinguishable");
-   Require(!list[1].Experimental && list[1].Display == "Urbosa" && list[2].Experimental && list[2].Display == "Hudson (experimental)" && !list[0].Experimental, "only tested models are not experimental");
+   Require(!list[1].Experimental && list[1].Display == "Urbosa" && list[2].Experimental && list[2].Display == "Hudson" && !list[0].Experimental, "only tested models are flagged experimental and the list shows plain names");
    Require(!list.Any(c => c.Model == "Npc_Rito_Hero"), "a model that hangs the game is not offered");
    Require(Characters.Parse("").Count == 1 && Characters.Parse(null)[0].IsLink, "without the mod's list only Link is offered");
    Require(Characters.Find(list, "Npc_Gerudo_Hero") == list[1] && Characters.Find(list, "").IsLink && Characters.Find(list, "Npc_Rito_Hero").IsLink, "a saved model that is gone falls back to Link");

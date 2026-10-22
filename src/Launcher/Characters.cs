@@ -18,14 +18,14 @@ namespace HyruleOnline {
   public bool IsLink { get { return Index == 0; } }
   public string Label;
   public bool Experimental;
-  public string Display { get { return Experimental ? Label + " (experimental)" : Label; } }
+  public string Display { get { return Label; } }
  }
 
  static class Characters {
   public const string ResourceName = "Breath_of_the_Wild_Multiplayer.Resources.NpcData.json";
   public const int MaxName = 16;
   public static readonly string[] DefaultNames = { "Link", "Pedro" };
-  // Models seen working as the local player in a real session; every other NPC is untested and shown as experimental.
+  // Models seen working as the local player in a real session; every other NPC is untested and flagged Experimental (tracked here, not shown in the UI).
   static readonly string[] Verified = { "Npc_Gerudo_Hero" };
   // Revali hung the loading screen when used as the local player, so it is not offered.
   static readonly string[] Broken = { "Npc_Rito_Hero" };

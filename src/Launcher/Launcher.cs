@@ -294,7 +294,7 @@ namespace HyruleOnline {
    filling = true;
    try {
     modelBox.Items.Clear();
-    foreach (var character in characters) modelBox.Items.Add(new ComboBoxItem { Content = character.Experimental ? character.Label + " " + Tr("(experimental)") : character.Label, Tag = character.Model });
+    foreach (var character in characters) modelBox.Items.Add(new ComboBoxItem { Content = character.Label, Tag = character.Model });
     modelBox.SelectedIndex = characters.IndexOf(Characters.Find(characters, models[player]));
    }
    finally { filling = false; }

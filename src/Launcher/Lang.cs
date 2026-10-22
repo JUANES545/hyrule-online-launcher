@@ -75,7 +75,6 @@ namespace HyruleOnline {
    new[] { "Press the bottom face button on a controller to assign it.", "Pulsa el botón inferior de un mando para asignarlo.", "Appuyez sur le bouton du bas d'une manette pour l'assigner." },
    new[] { "Connected", "Conectado", "Connecté" },
    new[] { "Waiting for a controller", "Esperando un mando", "En attente d'une manette" },
-   new[] { "(experimental)", "(experimental)", "(expérimental)" },
    new[] { "Split: automatic", "División: automática", "Division : automatique" },
    new[] { "Split: side by side", "División: lado a lado", "Division : côte à côte" },
    new[] { "Split: top and bottom", "División: arriba y abajo", "Division : haut et bas" },
