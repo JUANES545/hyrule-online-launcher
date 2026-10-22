@@ -187,6 +187,16 @@ A fourth page next to Play, Graphics and Language, aimed at local play but built
 - Checked in a real session in Spanish: both `settings.xml` files got `5` and the game text came up in Spanish. The BCML-merged content only has `Bootup_USen.pack`, so text added by mods can stay in English.
 - One Cemu A crash (exception thrown from `InjectDLL.dll` after both instances were loading) happened in the first Spanish run and did not repeat in the second. Not shown to depend on the language.
 
+## One display per player (proposal, not built)
+
+Findings from this machine and the code:
+
+- Windows lists two displays here: `\\.\DISPLAY2` primary 5120x1440 @ 240 Hz at 0,0 and `\\.\DISPLAY1` 1920x720 @ 60 Hz at 1602,1440. `EnumDisplaySettings(deviceName, ENUM_CURRENT_SETTINGS)` returns each display's physical size, refresh rate and desktop position, so no new dependency is needed. The launcher already uses it for the primary display (`WindowPlacer.PrimaryDisplay`).
+- Cemu's manifest is `dpiAware True/PM` (per-monitor), so a borderless window placed on another display with physical coordinates should keep its client size. To be confirmed in a real session.
+- `CemuDisplay.Apply` and `FpsMod` already work per instance (view, FPS preset), so the per-display mode only changes how `DisplayPlan` is built: one `PlayerView` per chosen display instead of two halves of the primary one.
+- The FPS list must use the Hz of that player's display (this secondary display would cap its player at 60).
+- Keep the primary-display split as the default: Apollo / Artemis streaming makes a virtual display primary, and displays can appear or disappear between sessions. The per-display option only shows with two or more displays and falls back to the split when a chosen display is gone or both players pick the same one.
+
 ## Open questions
 
 0. Pipe limit: the launcher creates `languageConnectionPipe` with max 2 instances, which fits exactly two launchers on one PC. The DLL pipe name is fixed, and in the two-instance run both DLLs connected without a visible mix-up, but this was not tested on purpose.
