@@ -129,6 +129,12 @@ Milk Bar Launcher is a WPF window that ignores `-WindowStyle Hidden`, and `SW_HI
 
 Checked on 2026-10-22: both players joined (server log shows players 1 and 2), the Milk Bar and server processes report no main window, and Stop leaves no project process behind. A visual check that nothing flashes on screen is still pending the user's confirmation.
 
+### FPS target from the mod
+
+Frame rate is not a Milk Bar feature: it is the Cemu graphic pack FPS++ (`Mods\FPS++`), which was not enabled before, so the game ran at 30 FPS. `FpsMod` reads the "FPS Limit" presets of Normal Settings from the instance's own `rules.txt` (20, 30, 45, 55, 60, 72, 75, 90, 120, 144, 165, 240 for v6; the Advanced-only rates are not offered), and the launcher shows only those at or below the primary display's refresh rate (60 is assumed when Windows reports 0 or 1). The choice is saved as a wish in `preferences.xml`; if a display cannot show it, the next lower offered rate is used, and the wish is kept for a faster display. Each session writes the `FPS++` entry (Mode = Normal Settings, FPS Limit = preset name) into both instances' `settings.xml`.
+
+Checked on 2026-10-22 with 120 selected on a 240 Hz display: Cemu A showed about 100 FPS while B was loading, and both instances about 82 and 119 FPS once running. Not checked: the known MBL softlock when leaving Vah Medoh with FPS++, and long sessions at high rates.
+
 ## Open questions
 
 0. Pipe limit: the launcher creates `languageConnectionPipe` with max 2 instances, which fits exactly two launchers on one PC. The DLL pipe name is fixed, and in the two-instance run both DLLs connected without a visible mix-up, but this was not tested on purpose.

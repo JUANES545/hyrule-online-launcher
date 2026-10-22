@@ -114,7 +114,6 @@ namespace HyruleOnline {
    }
    C<Button>("Layout").Click += (s, e) => { mode = mode == LayoutMode.Auto ? LayoutMode.SideBySide : mode == LayoutMode.SideBySide ? LayoutMode.TopBottom : LayoutMode.Auto; ChangedDisplayChoice(); };
    C<Button>("Quality").Click += (s, e) => { sharp = !sharp; ChangedDisplayChoice(); };
-   C<Button>("FpsLimit").Click += (s, e) => { fpsLimit = fpsLimit == 60 ? 90 : 60; ChangedDisplayChoice(); };
    C<Button>("Details").Click += (s, e) => {
     var panel = C<Border>("DetailsPanel");
     panel.Visibility = panel.Visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;
@@ -176,9 +175,10 @@ namespace HyruleOnline {
     var root = XDocument.Load(PrefsFile).Root;
     mode = ScreenLayout.Parse((string)root.Element("Layout"));
     sharp = (string)root.Element("Quality") == "Sharp";
-    fpsLimit = (string)root.Element("FpsLimit") == "90" ? 90 : 60;
+    int wanted;
+    fpsLimit = int.TryParse((string)root.Element("FpsLimit"), out wanted) && wanted > 0 ? wanted : FpsMod.DefaultFps;
    }
-   catch (Exception) { mode = LayoutMode.Auto; sharp = false; fpsLimit = 60; }
+   catch (Exception) { mode = LayoutMode.Auto; sharp = false; fpsLimit = FpsMod.DefaultFps; }
   }
 
   void SavePrefs() {
@@ -195,17 +195,39 @@ namespace HyruleOnline {
    PlaceWindows();
   }
 
+  // The offered frame rates are the FPS++ presets that the primary display can actually show.
+  List<FpsMod.Limit> FpsChoices() {
+   return FpsMod.Available(FpsMod.Read(Path.Combine(root, ".tools", "instances", "cemuA")), displayHz);
+  }
+
+  FpsMod.Limit CurrentFps() { return FpsMod.Choose(FpsChoices(), fpsLimit); }
+
+  void ShowFpsChoices() {
+   var choices = FpsChoices();
+   var current = FpsMod.Choose(choices, fpsLimit);
+   var panel = C<WrapPanel>("FpsOptions");
+   panel.Children.Clear();
+   C<TextBlock>("FpsTitle").Text = choices.Count == 0 ? "FPS target · FPS++ is not installed" : "FPS target · up to " + displayHz + " Hz";
+   foreach (var choice in choices) {
+    int fps = choice.Fps;
+    var button = new Button { Content = fps.ToString(), Width = 58, Padding = new Thickness(0, 5, 0, 5), Margin = new Thickness(3, 0, 3, 6), FontSize = 16, FontStyle = FontStyles.Normal, Focusable = true };
+    if (current != null && fps == current.Fps) { button.BorderBrush = Paint("#E1CFA1"); button.Background = Paint("#B0354542"); button.Foreground = Paint("#F3E7C3"); }
+    button.Click += (s, e) => { fpsLimit = fps; ChangedDisplayChoice(); };
+    panel.Children.Add(button);
+   }
+  }
+
   void UpdatePlan() {
    WindowPlacer.PrimaryDisplay(out displayWidth, out displayHeight, out displayHz);
    C<TextBlock>("ScreenInfo").Text = displayWidth + " × " + displayHeight + "  /  " + displayHz + " Hz";
    C<Button>("Layout").Content = "Split: " + (mode == LayoutMode.Auto ? "automatic" : mode == LayoutMode.SideBySide ? "side by side" : "top and bottom");
    C<Button>("Quality").Content = "Quality: " + (sharp ? "sharper" : "balanced");
-   C<Button>("FpsLimit").Content = "FPS target: " + fpsLimit;
+   ShowFpsChoices();
    if (displayWidth < 320 || displayHeight < 240) { C<TextBlock>("LayoutInfo").Text = "The primary display is not ready."; return; }
    var plan = ScreenLayout.Plan(mode, sharp, displayWidth, displayHeight);
    bool side = plan.Layout == LayoutMode.SideBySide;
    var first = plan.Players[0];
-   C<TextBlock>("LayoutInfo").Text = (side ? "Side by side · P1 left / P2 right" : "Top and bottom · P1 top / P2 bottom") + Environment.NewLine + "Each game renders " + first.RenderWidth + " × " + first.RenderHeight + " at " + ScreenLayout.FrameRate(displayHz, fpsLimit) + " FPS";
+   C<TextBlock>("LayoutInfo").Text = (side ? "Side by side · P1 left / P2 right" : "Top and bottom · P1 top / P2 bottom") + Environment.NewLine + "Each game renders " + first.RenderWidth + " × " + first.RenderHeight + " " + (CurrentFps() == null ? "" : "at " + CurrentFps().Fps + " FPS");
    var frame = C<Border>("PreviewFrame");
    double ratio = (double)displayWidth / displayHeight;
    frame.Width = ratio < 1 ? 118 : Math.Min(360, 210 * ratio); frame.Height = frame.Width / ratio;
@@ -242,8 +264,9 @@ namespace HyruleOnline {
     string[] names = { "cemuA", "cemuB" };
     for (int i = 0; i < 2; i++) {
      var view = plan.Players[i];
-     CemuDisplay.Apply(Path.Combine(root, ".tools", "instances", names[i]), view);
-     Write("Player " + (i + 1) + ": " + view.RenderWidth + " x " + view.RenderHeight + " (aspect " + view.RatioWidth + ":" + view.RatioHeight + ").");
+     var fps = CurrentFps();
+     CemuDisplay.Apply(Path.Combine(root, ".tools", "instances", names[i]), view, fps == null ? null : fps.Preset);
+     Write("Player " + (i + 1) + ": " + view.RenderWidth + " x " + view.RenderHeight + " (aspect " + view.RatioWidth + ":" + view.RatioHeight + ")" + (fps == null ? "." : ", " + fps.Fps + " FPS limit."));
     }
     return true;
    }

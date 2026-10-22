@@ -32,7 +32,7 @@ namespace HyruleOnline {
    return text.Append(eol).ToString();
   }
 
-  public static void Apply(string instance, PlayerView view) {
+  public static void Apply(string instance, PlayerView view, string fpsPreset = null) {
    string stockFolder = Path.Combine(instance, StockPack);
    string settingsFile = Path.Combine(instance, "settings.xml");
    if (!File.Exists(Path.Combine(stockFolder, "rules.txt"))) throw new FileNotFoundException("The BOTW Graphics pack is missing from " + instance + ".");
@@ -47,10 +47,10 @@ namespace HyruleOnline {
    }
    var utf8 = new UTF8Encoding(false);
    File.WriteAllText(packFile, BuildRules(File.ReadAllText(Path.Combine(stockFolder, "rules.txt")), view), utf8);
-   WriteSettings(settingsFile, view);
+   WriteSettings(settingsFile, view, fpsPreset);
   }
 
-  static void WriteSettings(string settingsFile, PlayerView view) {
+  static void WriteSettings(string settingsFile, PlayerView view, string fpsPreset) {
    var document = XDocument.Load(settingsFile);
    var content = document.Root;
    var packs = content.Element("GraphicPack");
@@ -62,6 +62,13 @@ namespace HyruleOnline {
    if (entry == null) { entry = new XElement("Entry", new XAttribute("filename", PackFile)); packs.Add(entry); }
    entry.RemoveNodes();
    entry.Add(Preset("Aspect Ratio", DisplayPreset), Preset("Resolution", ResolutionPreset));
+
+   if (fpsPreset != null) {
+    var fps = packs.Elements("Entry").FirstOrDefault(e => string.Equals((string)e.Attribute("filename"), FpsMod.PackFile, StringComparison.OrdinalIgnoreCase));
+    if (fps == null) { fps = new XElement("Entry", new XAttribute("filename", FpsMod.PackFile)); packs.Add(fps); }
+    fps.RemoveNodes();
+    fps.Add(Preset(FpsMod.ModeCategory, FpsMod.NormalMode), Preset(FpsMod.LimitCategory, fpsPreset));
+   }
 
    var graphic = content.Element("Graphic");
    if (graphic == null) { graphic = new XElement("Graphic"); content.Add(graphic); }

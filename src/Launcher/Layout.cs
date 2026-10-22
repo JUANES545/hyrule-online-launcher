@@ -73,11 +73,6 @@ namespace HyruleOnline {
    return plan;
   }
 
-  public static int FrameRate(int hz, int limit) {
-   if (limit != 60 && limit != 90) throw new ArgumentOutOfRangeException("limit", "Choose 60 or 90 FPS.");
-   int cap = Math.Min(Math.Max(hz, 20), limit);
-   return new[] { 90, 60, 55, 48, 40, 33, 30, 20 }.First(fps => fps <= cap);
-  }
  }
 
  [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)] struct DevMode {

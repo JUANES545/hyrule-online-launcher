@@ -16,7 +16,7 @@ $source = Join-Path $root 'src'
     "/reference:$(Join-Path $framework 'WPF\PresentationFramework.dll')" `
     "/reference:$(Join-Path $framework 'WPF\PresentationCore.dll')" `
     "/reference:$(Join-Path $framework 'WPF\WindowsBase.dll')" /reference:System.Xaml.dll /reference:System.Xml.Linq.dll `
-    (Join-Path $source 'Launcher\Launcher.cs') (Join-Path $source 'Launcher\Layout.cs') (Join-Path $source 'Launcher\CemuDisplay.cs') (Join-Path $source 'Launcher\ServerHost.cs') (Join-Path $source 'Input\Router.cs') (Join-Path $source 'Input\Sdl.cs')
+    (Join-Path $source 'Launcher\Launcher.cs') (Join-Path $source 'Launcher\Layout.cs') (Join-Path $source 'Launcher\CemuDisplay.cs') (Join-Path $source 'Launcher\FpsMod.cs') (Join-Path $source 'Launcher\ServerHost.cs') (Join-Path $source 'Input\Router.cs') (Join-Path $source 'Input\Sdl.cs')
 if ($LASTEXITCODE -ne 0) { throw 'Launcher compilation failed.' }
 foreach ($name in 'SDL3.dll', 'gamecontrollerdb.txt', 'GameControllerDB-LICENSE.txt', 'SDL-LICENSE.txt') {
     Copy-Item -LiteralPath (Join-Path $input $name) -Destination $output -Force

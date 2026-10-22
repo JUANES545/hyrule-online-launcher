@@ -1,9 +1,21 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
 namespace HyruleOnline {
  static class RouterTests {
+  static string FpsRules {
+   get {
+    var text = new System.Text.StringBuilder("[Definition]\r\nname = FPS++\r\nversion = 6\r\n\r\n[Default]\r\n$fpsLimitNormal = 60\r\n\r\n[Preset]\r\nname = Normal Settings\r\ncategory = Mode\r\ndefault = 1\r\n$advancedMode:int = 0\r\n");
+    foreach (int fps in new[] { 240, 165, 144, 120, 90, 75, 72, 60, 55, 45, 30, 20 })
+     text.Append("\r\n[Preset]\r\nname = ").Append(fps).Append("FPS Limit").Append(fps == 60 ? " (Default)" : "").Append("\r\ncategory = FPS Limit\r\ncondition = $advancedMode == 0\r\n$fpsLimitNormal = ").Append(fps).Append("\r\n$keepVsync:int = 0\r\n");
+    foreach (int fps in new[] { 244, 48 })
+     text.Append("\r\n[Preset]\r\nname = ").Append(fps).Append("FPS (ideal)\r\ncategory = Framerate Limit\r\ncondition = $advancedMode == 1\r\n$fpsLimitAdvanced = ").Append(fps).Append("\r\n");
+    return text.ToString();
+   }
+  }
+
   static void Require(bool ok, string message) { if (!ok) throw new Exception("TEST: " + message); }
 
   static int[] Reconcile(int[] routes, params bool[] connected) { Router.Reconcile(routes, connected); return routes; }
@@ -60,7 +72,6 @@ namespace HyruleOnline {
     Require(rw == 1920 && rh == 540, "balanced renders at window size");
     ScreenLayout.RenderSize(new Area { Width = 1920, Height = 540 }, true, out rw, out rh);
     Require(rw == 2880 && rh == 810, "sharp renders at 150 percent");
-    Require(ScreenLayout.FrameRate(60, 90) == 60 && ScreenLayout.FrameRate(144, 90) == 90 && ScreenLayout.FrameRate(144, 60) == 60 && ScreenLayout.FrameRate(50, 60) == 48, "frame rate follows the refresh rate");
     Require(ScreenLayout.Parse("TopBottom") == LayoutMode.TopBottom && ScreenLayout.Parse("garbage") == LayoutMode.Auto && ScreenLayout.Parse("7") == LayoutMode.Auto && ScreenLayout.Parse(null) == LayoutMode.Auto, "saved layout parsing falls back to Auto");
     Console.WriteLine("PASS: screen layout.");
 
@@ -96,6 +107,20 @@ namespace HyruleOnline {
     Require(rejected, "a display that is not ready is rejected");
     Console.WriteLine("PASS: display plans for " + plans + " display, layout and quality combinations.");
 
+    var all = FpsMod.Parse(FpsRules);
+    Require(all.Count == 12 && all[0].Fps == 20 && all[11].Fps == 240 && all.Any(l => l.Fps == 60 && l.Preset == "60FPS Limit (Default)"), "the mod's FPS limits are read from its rules, once each, in order");
+    Require(!all.Any(l => l.Fps == 244 || l.Fps == 48), "advanced framerate presets are not offered");
+    Func<int, string> offered = hz => string.Join(",", FpsMod.Available(all, hz).Select(l => l.Fps));
+    Require(offered(240) == "20,30,45,55,60,72,75,90,120,144,165,240", "a 240 Hz display offers every limit");
+    Require(offered(120) == "20,30,45,55,60,72,75,90,120", "a 120 Hz display offers nothing above 120");
+    Require(offered(144) == "20,30,45,55,60,72,75,90,120,144" && offered(100) == "20,30,45,55,60,72,75,90" && offered(60) == "20,30,45,55,60", "limits stop at the refresh rate");
+    Require(offered(0) == "20,30,45,55,60" && offered(1) == "20,30,45,55,60", "an unknown refresh rate is treated as 60 Hz");
+    Require(offered(10) == "20", "a very slow display still offers the lowest limit");
+    var at120 = FpsMod.Available(all, 120);
+    Require(FpsMod.Choose(at120, 144).Fps == 120 && FpsMod.Choose(at120, 90).Fps == 90 && FpsMod.Choose(at120, 100).Fps == 90 && FpsMod.Choose(at120, 5).Fps == 20, "a saved choice that the display cannot show is lowered");
+    Require(FpsMod.Choose(new List<FpsMod.Limit>(), 60) == null && FpsMod.Parse(null).Count == 0 && FpsMod.Parse("[Definition]\nname = FPS++").Count == 0, "a missing or odd pack gives no options");
+    Console.WriteLine("PASS: FPS limits from the mod.");
+
     string temp = Path.Combine(Path.GetTempPath(), "HyruleOnlineTests-" + Guid.NewGuid().ToString("N"));
     try {
      string instance = Path.Combine(temp, "cemu"), stockFolder = Path.Combine(instance, "graphicPacks", "downloadedGraphicPacks", "BreathOfTheWild", "Graphics");
@@ -107,22 +132,27 @@ namespace HyruleOnline {
      File.WriteAllText(settingsFile, "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<content>\n  <GraphicPack>\n    <Entry filename=\"graphicPacks\\downloadedGraphicPacks\\BreathOfTheWild\\Mods\\ExtendedMemory\\rules.txt\" />\n    <Entry filename=\"graphicPacks\\downloadedGraphicPacks\\BreathOfTheWild\\Graphics\\rules.txt\">\n      <Preset><category>Resolution</category><preset>1920x1080</preset></Preset>\n    </Entry>\n  </GraphicPack>\n  <Graphic>\n    <FullscreenScaling>0</FullscreenScaling>\n  </Graphic>\n</content>");
 
      var view = ScreenLayout.Plan(LayoutMode.TopBottom, false, 1920, 1080).Players[1];
-     CemuDisplay.Apply(instance, view);
+     CemuDisplay.Apply(instance, view, "120FPS Limit");
      string rules = File.ReadAllText(Path.Combine(instance, CemuDisplay.PackFile));
      Require(rules.Contains("name = Graphics (online display)") && rules.Contains("/Online Display\"") && rules.Contains("$aspectRatioWidth = 32\r\n$aspectRatioHeight = 9\r\n$showUltrawideOptions:int = 1") && rules.Contains("$width = 1920\r\n$height = 540"), "the instance pack carries the window's aspect ratio and resolution");
      Require(rules.StartsWith(stock.Substring(0, 12)) && File.ReadAllText(Path.Combine(stockFolder, "rules.txt")) == stock, "the stock pack is left untouched");
      Require(File.Exists(Path.Combine(instance, "graphicPacks", "HyruleOnline", "Graphics", "patch_AspectRatio.asm")), "the pack's patches are copied");
      var settings = System.Xml.Linq.XDocument.Load(settingsFile).Root;
      var entries = settings.Element("GraphicPack").Elements("Entry").Select(e => (string)e.Attribute("filename")).ToArray();
-     Require(entries.Length == 2 && entries.Contains(CemuDisplay.PackFile) && entries.Any(e => e.EndsWith("ExtendedMemory\\rules.txt")), "the stock Graphics entry is replaced and other packs are kept");
+     Require(entries.Length == 3 && entries.Contains(CemuDisplay.PackFile) && entries.Contains(FpsMod.PackFile) && entries.Any(e => e.EndsWith("ExtendedMemory\\rules.txt")), "the stock Graphics entry is replaced, FPS++ is enabled and other packs are kept");
+     var fpsPresets = settings.Element("GraphicPack").Elements("Entry").First(e => (string)e.Attribute("filename") == FpsMod.PackFile).Elements("Preset").Select(p => (string)p.Element("category") + "=" + (string)p.Element("preset")).ToArray();
+     Require(fpsPresets.Length == 2 && fpsPresets[0] == "Mode=Normal Settings" && fpsPresets[1] == "FPS Limit=120FPS Limit", "FPS++ gets the chosen limit in normal mode");
      var presets = settings.Element("GraphicPack").Elements("Entry").First(e => (string)e.Attribute("filename") == CemuDisplay.PackFile).Elements("Preset").Select(p => (string)p.Element("category") + "=" + (string)p.Element("preset")).ToArray();
      Require(presets.Length == 2 && presets[0] == "Aspect Ratio=Online Display" && presets[1] == "Resolution=Online Resolution", "both online presets are selected");
      Require((string)settings.Element("Graphic").Element("FullscreenScaling") == "1", "the picture keeps its aspect ratio");
 
-     CemuDisplay.Apply(instance, ScreenLayout.Plan(LayoutMode.SideBySide, true, 3840, 2160).Players[0]);
+     CemuDisplay.Apply(instance, ScreenLayout.Plan(LayoutMode.SideBySide, true, 3840, 2160).Players[0], "60FPS Limit (Default)");
      rules = File.ReadAllText(Path.Combine(instance, CemuDisplay.PackFile));
      Require(rules.Contains("$width = 2880\r\n$height = 3240") && !rules.Contains("$width = 1920\r\n$height = 540") && rules.Split(new[] { "name = Online Display" }, StringSplitOptions.None).Length == 2, "a new session replaces the previous values");
-     Require(System.Xml.Linq.XDocument.Load(settingsFile).Root.Element("GraphicPack").Elements("Entry").Count() == 2, "settings do not collect duplicate entries");
+     var again = System.Xml.Linq.XDocument.Load(settingsFile).Root.Element("GraphicPack").Elements("Entry");
+     Require(again.Count() == 3 && (string)again.First(e => (string)e.Attribute("filename") == FpsMod.PackFile).Elements("Preset").Last().Element("preset") == "60FPS Limit (Default)", "settings do not collect duplicate entries and take the new limit");
+     CemuDisplay.Apply(instance, view);
+     Require(System.Xml.Linq.XDocument.Load(settingsFile).Root.Element("GraphicPack").Elements("Entry").Count() == 3, "no limit given leaves FPS++ as it was");
 
      bool broken = false;
      try { CemuDisplay.BuildRules("name = something else", view); } catch (InvalidDataException) { broken = true; }
