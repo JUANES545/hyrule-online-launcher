@@ -89,6 +89,9 @@ namespace HyruleOnline {
   LayoutMode mode = LayoutMode.Auto;
   double scale = GraphicsMod.DefaultScale;
   string shadows, shadowDistance, antiAliasing;
+  readonly string[] names = (string[])Characters.DefaultNames.Clone();
+  readonly string[] models = { "", "" };
+  List<Character> characters = Characters.Parse(null);
   int fpsLimit = FpsMod.AutoFps, displayWidth, displayHeight, displayHz;
   Process script;
   string lastError, failure;
@@ -104,6 +107,8 @@ namespace HyruleOnline {
     Window = (Window)XamlReader.Load(stream);
    LoadFonts();
    ReadPrefs();
+   characters = Characters.Read(Path.Combine(root, ".artifacts", "extract", "milkbar", "Milk Bar Launcher.dll"));
+   for (int i = 0; i < 2; i++) WatchPlayer(i);
    router.Message += text => Window.Dispatcher.BeginInvoke(new Action(() => Write(text)));
    C<Button>("Start").Click += (s, e) => StartSession();
    C<Button>("Stop").Click += (s, e) => StopSession();
@@ -223,7 +228,7 @@ namespace HyruleOnline {
   }
 
   bool AnyDropDownOpen() {
-   foreach (var name in new[] { "FpsBox", "ScaleBox", "ShadowsBox", "ShadowDistanceBox", "AntiAliasingBox" }) if (C<ComboBox>(name).IsDropDownOpen) return true;
+   foreach (var name in new[] { "FpsBox", "ScaleBox", "ShadowsBox", "ShadowDistanceBox", "AntiAliasingBox", "P1ModelBox", "P2ModelBox" }) if (C<ComboBox>(name).IsDropDownOpen) return true;
    return false;
   }
 
@@ -241,8 +246,41 @@ namespace HyruleOnline {
     shadows = Saved(root, "Shadows"); shadowDistance = Saved(root, "ShadowDistance"); antiAliasing = Saved(root, "AntiAliasing");
     int wanted;
     fpsLimit = int.TryParse((string)root.Element("FpsLimit"), out wanted) && wanted > 0 ? wanted : FpsMod.AutoFps;
+    for (int i = 0; i < 2; i++) {
+     names[i] = Characters.CleanName((string)root.Element("Name" + (i + 1)), Characters.DefaultNames[i]);
+     models[i] = (string)root.Element("Model" + (i + 1)) ?? "";
+    }
    }
    catch (Exception) { mode = LayoutMode.Auto; scale = GraphicsMod.DefaultScale; shadows = shadowDistance = antiAliasing = null; fpsLimit = FpsMod.AutoFps; }
+  }
+
+  // The name and model of each player sit on that player's card and are written into its Milk Bar settings when a session starts.
+  void WatchPlayer(int player) {
+   var nameBox = C<TextBox>("P" + (player + 1) + "NameBox");
+   var modelBox = C<ComboBox>("P" + (player + 1) + "ModelBox");
+   nameBox.Text = names[player];
+   nameBox.PreviewTextInput += (s, e) => { if (!Characters.IsNameText(e.Text)) e.Handled = true; };
+   DataObject.AddPastingHandler(nameBox, (s, e) => {
+    string pasted = e.DataObject.GetData(typeof(string)) as string;
+    if (pasted == null || !Characters.IsNameText(pasted)) e.CancelCommand();
+   });
+   nameBox.LostFocus += (s, e) => {
+    names[player] = Characters.CleanName(nameBox.Text, Characters.DefaultNames[player]);
+    nameBox.Text = names[player];
+    SavePrefs();
+   };
+   filling = true;
+   try {
+    foreach (var character in characters) modelBox.Items.Add(new ComboBoxItem { Content = character.Display, Tag = character.Model });
+    modelBox.SelectedIndex = characters.IndexOf(Characters.Find(characters, models[player]));
+   }
+   finally { filling = false; }
+   modelBox.SelectionChanged += (s, e) => {
+    var item = modelBox.SelectedItem as ComboBoxItem;
+    if (filling || item == null) return;
+    models[player] = (string)item.Tag;
+    SavePrefs();
+   };
   }
 
   static string Saved(XElement root, string name) { string value = (string)root.Element(name); return string.IsNullOrEmpty(value) ? null : value; }
@@ -251,7 +289,8 @@ namespace HyruleOnline {
    try {
     new XDocument(new XElement("Preferences", new XElement("Layout", mode), new XElement("RenderScale", GraphicsMod.NearestScale(scale).ToString(System.Globalization.CultureInfo.InvariantCulture)),
      new XElement("Shadows", shadows ?? ""), new XElement("ShadowDistance", shadowDistance ?? ""), new XElement("AntiAliasing", antiAliasing ?? ""),
-     new XElement("FpsLimit", fpsLimit == FpsMod.AutoFps ? "Auto" : fpsLimit.ToString()))).Save(PrefsFile);
+     new XElement("FpsLimit", fpsLimit == FpsMod.AutoFps ? "Auto" : fpsLimit.ToString()),
+     new XElement("Name1", names[0]), new XElement("Model1", models[0]), new XElement("Name2", names[1]), new XElement("Model2", models[1]))).Save(PrefsFile);
    }
    catch (Exception error) { Write("Could not save the display settings: " + error.Message); }
   }
@@ -407,11 +446,28 @@ namespace HyruleOnline {
    C<System.Windows.Shapes.Shape>(name + "Dot").Fill = color;
   }
 
+  void ApplyPlayers() {
+   for (int i = 0; i < 2; i++) {
+    var character = Characters.Find(characters, models[i]);
+    names[i] = Characters.CleanName(C<TextBox>("P" + (i + 1) + "NameBox").Text, Characters.DefaultNames[i]);
+    string bcml = Path.Combine(root, ".tools", "localappdata", i == 0 ? "bcml" : "bcml-b", "settings.json");
+    try {
+     string file = MilkBarSettings.Find(MilkBarSettings.UserRoot, bcml);
+     if (file == null) { Write("Player " + (i + 1) + ": no Milk Bar settings file was found, so the name and model are not applied."); continue; }
+     MilkBarSettings.Apply(file, names[i], character);
+     Write("Player " + (i + 1) + ": " + names[i] + " as " + character.Display + ".");
+    }
+    catch (Exception error) { Write("Player " + (i + 1) + ": the name and model could not be applied: " + error.Message); }
+   }
+   SavePrefs();
+  }
+
   void StartSession() {
    failure = null; lastError = null; joined[0] = joined[1] = false;
    if (Scripts.Owned(root).Count == 0 && !PrepareDisplay()) return;
    C<TextBlock>("Status").Text = "Starting...";
    C<TextBlock>("Prompt").Text = "";
+   ApplyPlayers();
    Step("Server", "Starting", Busy); Step("A", "Waiting", Idle); Step("B", "Waiting", Idle);
    Write("Starting the session.");
    try {
@@ -516,11 +572,18 @@ namespace HyruleOnline {
    }
    C<Button>("Start").IsEnabled = script == null && !stopping && owned.Count == 0;
    C<Button>("Stop").IsEnabled = !stopping && (script != null || owned.Count > 0);
+   EnableAppearance(script == null && !stopping && owned.Count == 0);
+  }
+
+  void EnableAppearance(bool enabled) {
+   foreach (var name in new[] { "P1NameBox", "P2NameBox" }) C<TextBox>(name).IsEnabled = enabled;
+   foreach (var name in new[] { "P1ModelBox", "P2ModelBox" }) C<ComboBox>(name).IsEnabled = enabled;
   }
 
   void SetButtons() {
    C<Button>("Start").IsEnabled = false;
    C<Button>("Stop").IsEnabled = !stopping;
+   EnableAppearance(false);
   }
 
   void Tick() {

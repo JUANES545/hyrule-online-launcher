@@ -66,7 +66,7 @@ Separate from `hyrule-coop-launcher` (local split-screen mod). Nothing here has 
 
 ### Two instances on one PC (cemuA + cemuB)
 
-- Start order: server, then launcher A and its Cemu (press Continue within ~60 s), then launcher B and its Cemu. Each launcher folder has its own `user.config` and its own BCML settings (`bcml\settings.json` for A, `bcml-b\settings.json` for B, same `store_dir`). Player names differ (Link / Zelda).
+- Start order: server, then launcher A and its Cemu (press Continue within ~60 s), then launcher B and its Cemu. Each launcher folder has its own `user.config` and its own BCML settings (`bcml\settings.json` for A, `bcml-b\settings.json` for B, each with its own `store_dir`, see "Player name and model"). Player names differ (Link / Pedro by default).
 - Both DLLs write the same `%APPDATA%\BOTWM\LatestLog.txt`, so lines from both instances interleave. The server assigns player 0 to A and player 1 to B.
 - Both instances run at ~30 FPS with Vulkan (OpenGL hangs after the intro).
 
@@ -160,6 +160,14 @@ The launcher no longer scrolls. It has three pages (Play, Graphics, Details) sho
 - `HYRULE_LAUNCHER_SIZE=WIDTHxHEIGHT` opens a smaller window for layout checks (the default is the primary display).
 
 Checked: tests, and screenshots at 1920x1080, 1280x720, 1024x600, 3440x1440, a tall 900x1400 window and the 5120x1440 display, plus Ctrl+Tab. LB / RB with a physical pad is not confirmed yet.
+
+## Player name and model
+
+Each player card has a name box and a model list. They are written to each Milk Bar launcher's `user.config` (`playerName`, `playAsModel`, `playerModel`) right before the session starts, so the Milk Bar window is never needed. Defaults are Link and Pedro. The model list comes from the `NpcData.json` embedded in `Milk Bar Launcher.dll` (Link plus 34 NPCs). Only Link and Urbosa are confirmed working as the local player (checked in a real session with both windows); the other NPC models are untested and shown as "(experimental)". Revali hung the loading screen of the instance that used it, so it is not offered. BumiiMaker, Environmental and Mii models are not offered.
+
+- On Connect the Milk Bar launcher rewrites `GameROMPlayer`, `Armor_Default_Extra_00/01` and `PauseMenuPlayer` in `TitleBG.pack` under `<store_dir>\merged`, and sends the name and remote model to the server. So the local model of an instance depends on its own `merged`.
+- Each instance therefore needs its own `merged`. Cemu A's graphic pack is a junction to `localappdata\bcml\merged`. Cemu B has a real copy, and `bcml-b\settings.json` now uses `store_dir` = `localappdata\bcml-b\store`, where `merged` is a junction to cemuB's `BreathOfTheWild_BCML`. With the shared `store_dir`, B's model was written into A's pack: in a first test A showed both players as Revali and B showed both as Link.
+- Other mod options not in the launcher yet: `ServerConfig.ini` (password, description, default gamemode, enemy / quest / korok / tower / shrine / location / dungeon sync), server console commands (Time, Weather, NameTags, Teleport, Landmarks, Model, DeathSwap, PropHunt) and `Gamemodes.json` presets.
 
 ## Open questions
 

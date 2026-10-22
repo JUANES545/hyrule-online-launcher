@@ -102,6 +102,52 @@ namespace HyruleOnline {
    Console.WriteLine("PASS: window fitting for " + shells + " window sizes and page navigation.");
   }
 
+  static void Players() {
+   const string json = "[{\"Name\":\"Urbosa\",\"Folder\":\"Npc_Gerudo_Hero\"},{\"Name\":\"Revali\",\"Folder\":\"Npc_Rito_Hero\"},{\"Name\":\"Hudson\",\"Folder\":\"Npc_Hylia_Carpenter_001\"},{\"Name\":\"Hudson\",\"Folder\":\"Npc_Hylia_Carpenter_001_Wedding\"},{\"Name\":\"Hat\",\"Folder\":\"Armor_Hat\"}]";
+   var list = Characters.Parse(json);
+   Require(list.Count == 4 && list[0].IsLink && list[0].Model == Character.LinkModel && list[0].Index == 0, "Link comes first");
+   Require(list[1].Index == 3 && list[1].Model == "Npc_Gerudo_Hero" && list[3].Index == 6, "NPC models follow the Milk Bar numbering, after Bumii and Environmental");
+   Require(list[2].Label == "Hudson" && list[3].Label == "Hudson (Wedding)", "repeated names stay distinguishable");
+   Require(!list[1].Experimental && list[1].Display == "Urbosa" && list[2].Experimental && list[2].Display == "Hudson (experimental)" && !list[0].Experimental, "only tested models are not experimental");
+   Require(!list.Any(c => c.Model == "Npc_Rito_Hero"), "a model that hangs the game is not offered");
+   Require(Characters.Parse("").Count == 1 && Characters.Parse(null)[0].IsLink, "without the mod's list only Link is offered");
+   Require(Characters.Find(list, "Npc_Gerudo_Hero") == list[1] && Characters.Find(list, "").IsLink && Characters.Find(list, "Npc_Rito_Hero").IsLink, "a saved model that is gone falls back to Link");
+   Require(Characters.CleanName("Pedro", "x") == "Pedro" && Characters.CleanName("  a;b|c  d ", "x") == "abc d" && Characters.CleanName(";;", "Link") == "Link" && Characters.CleanName(null, "Link") == "Link", "names keep only safe characters");
+   Require(Characters.CleanName("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "x").Length == Characters.MaxName && Characters.IsNameText("Player 1") && !Characters.IsNameText("a;b"), "names are limited in length");
+   Require(Characters.DefaultNames[0] == "Link" && Characters.DefaultNames[1] == "Pedro", "default names");
+   var link = Characters.ModelJson(list[0]);
+   Require(link.Contains("\"ModelIndex\":0") && link.Contains("\"Type\":0") && link.Contains("\"IsArmorSync\":true"), "Link keeps armor sync");
+   Require(Characters.ModelJson(list[1]).Contains("\"Model\":\"Npc_Gerudo_Hero\"") && Characters.ModelJson(list[1]).Contains("\"Type\":1") && Characters.ModelJson(list[1]).Contains("\"ModelIndex\":3"), "an NPC is a custom model");
+
+   string temp = Path.Combine(Path.GetTempPath(), "hyrule-players-" + Guid.NewGuid().ToString("N"));
+   try {
+    string bcmlA = Path.Combine(temp, "bcml", "settings.json"), bcmlB = Path.Combine(temp, "bcml-b", "settings.json");
+    Func<string, string, string> write = (folder, bcml) => {
+     string file = Path.Combine(temp, "Milk_Bar", folder, "1.0.0.0", "user.config");
+     Directory.CreateDirectory(Path.GetDirectoryName(file));
+     File.WriteAllText(file, "<?xml version=\"1.0\" encoding=\"utf-8\"?><configuration><userSettings><App.Settings>"
+      + "<setting name=\"playerName\" serializeAs=\"String\"><value>Old</value></setting>"
+      + "<setting name=\"serversAdded\" serializeAs=\"String\"><value>[{\"Name\":\"Local\"}]</value></setting>"
+      + "<setting name=\"bcmlLocation\" serializeAs=\"String\"><value>" + bcml + "</value></setting>"
+      + "<setting name=\"playAsModel\" serializeAs=\"String\"><value>False</value></setting></App.Settings></userSettings></configuration>");
+     return file;
+    };
+    string fileA = write("hashA", bcmlA), fileB = write("hashB", bcmlB.ToUpperInvariant());
+    Require(MilkBarSettings.Find(Path.Combine(temp, "Milk_Bar"), bcmlA) == fileA && MilkBarSettings.Find(Path.Combine(temp, "Milk_Bar"), bcmlB) == fileB, "each player finds its own settings file");
+    Require(MilkBarSettings.Find(Path.Combine(temp, "Milk_Bar"), Path.Combine(temp, "other.json")) == null && MilkBarSettings.Find(Path.Combine(temp, "none"), bcmlA) == null, "an unknown player has no settings file");
+    MilkBarSettings.Apply(fileA, "Pedro", list[1]);
+    var text = File.ReadAllText(fileA);
+    Func<string, string, string> read = (file, name) => System.Xml.Linq.XDocument.Load(file).Descendants("setting").First(e => (string)e.Attribute("name") == name).Value;
+    Require(read(fileA, "playerName") == "Pedro" && read(fileA, "playAsModel") == "True" && read(fileA, "playerModel") == Characters.ModelJson(list[1]), "an NPC is written with play as model on");
+    Require(read(fileA, "serversAdded") == "[{\"Name\":\"Local\"}]" && read(fileA, "bcmlLocation") == bcmlA, "the other settings are kept");
+    Require(read(fileB, "playerName") == "Old", "the other player's file is untouched");
+    MilkBarSettings.Apply(fileA, "Link", list[0]);
+    Require(read(fileA, "playAsModel") == "False" && read(fileA, "playerName") == "Link" && System.Xml.Linq.XDocument.Load(fileA).Descendants("setting").Count(e => (string)e.Attribute("name") == "playerModel") == 1, "going back to Link turns play as model off and adds no duplicate");
+   }
+   finally { if (Directory.Exists(temp)) Directory.Delete(temp, true); }
+   Console.WriteLine("PASS: player names and models.");
+  }
+
   static void Require(bool ok, string message) { if (!ok) throw new Exception("TEST: " + message); }
 
   static int[] Reconcile(int[] routes, params bool[] connected) { Router.Reconcile(routes, connected); return routes; }
@@ -258,6 +304,7 @@ namespace HyruleOnline {
     Motion();
     Console.WriteLine("PASS: controller motion.");
     Navigation();
+    Players();
     return 0;
    }
    catch (Exception error) { Console.Error.WriteLine(error.Message); return 1; }
