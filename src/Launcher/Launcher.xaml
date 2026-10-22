@@ -136,6 +136,7 @@
      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
      <Button x:Name="Mode1" Content="1 player" Height="38" Padding="12,2" FontSize="17" Margin="0,0,4,0" ToolTip="Play alone: one game on the whole primary display." AutomationProperties.Name="1 player"/>
      <Button x:Name="Mode2" Grid.Column="1" Content="2 players" Height="38" Padding="12,2" FontSize="17" Margin="4,0,0,0" ToolTip="Two players on this PC, with the screen split or one display each." AutomationProperties.Name="2 players"/>
+     <Border x:Name="ModeBadge" Grid.ColumnSpan="2" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="8,0" Height="22" CornerRadius="11" Background="#E61B252B" BorderBrush="#A5BAC5" BorderThickness="2" IsHitTestVisible="False"><TextBlock x:Name="ModeBadgeText" FontStyle="Normal" FontWeight="Bold" FontSize="12" Foreground="#CFE3E4" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
     </Grid>
     <Grid x:Name="Cards">
     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
@@ -384,7 +385,7 @@
  </Grid>
  <StackPanel Grid.Row="3" Margin="14,0,14,8">
   <Border Background="#80212E2D" CornerRadius="5" Padding="14" Margin="0,8,0,12"><TextBlock x:Name="Status" TextAlignment="Center" Text="Ready." Foreground="#AEE2D2"/></Border>
-  <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"><Button x:Name="Start" Content="START SESSION" MinWidth="300" FontFamily="{DynamicResource TitleFont}" FontStretch="Normal" FontStyle="Normal" Background="#B03C554B" BorderBrush="#D5C396" FontSize="20" Padding="40,15"/><Button x:Name="Stop" Content="Stop session" MinWidth="180" Padding="20,16"/><Button x:Name="Exit" Content="Exit" MinWidth="150" Padding="20,16"/></StackPanel>
+  <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"><Grid><Button x:Name="Start" Content="START SESSION" MinWidth="300" FontFamily="{DynamicResource TitleFont}" FontStretch="Normal" FontStyle="Normal" Background="#B03C554B" BorderBrush="#D5C396" FontSize="20" Padding="40,15"/><Border x:Name="StartBadge" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-11,12,0" Padding="8,0" Height="22" CornerRadius="11" Background="#E61B252B" BorderBrush="#A5BAC5" BorderThickness="2" IsHitTestVisible="False"><TextBlock x:Name="StartBadgeText" FontStyle="Normal" FontWeight="Bold" FontSize="12" Foreground="#CFE3E4" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></Grid><Button x:Name="Stop" Content="Stop session" MinWidth="180" Padding="20,16"/><Button x:Name="Exit" Content="Exit" MinWidth="150" Padding="20,16"/></StackPanel>
  </StackPanel>
  <Canvas x:Name="CursorLayer" Grid.RowSpan="4" IsHitTestVisible="False" Panel.ZIndex="100"/>
  </Grid></Viewbox></Grid>

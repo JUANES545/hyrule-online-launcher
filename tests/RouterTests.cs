@@ -99,6 +99,10 @@ namespace HyruleOnline {
    Require(PageNav.Step(PageNav.RightBumper, PageNav.RightBumper) == 0 && PageNav.Step(PageNav.LeftBumper, 0) == 0, "a held or released bumper does nothing");
    Require(PageNav.Step(PageNav.LeftBumper, (ushort)(PageNav.LeftBumper | PageNav.RightBumper)) == 1 && PageNav.Step(0, 0x1000) == 0, "only a new bumper press counts");
    Require(PageNav.Move(0, 1, 3) == 1 && PageNav.Move(2, 1, 3) == 0 && PageNav.Move(0, -1, 3) == 2 && PageNav.Move(1, -1, 3) == 0 && PageNav.Move(5, 0, 0) == 0, "pages wrap around");
+   Require(PageNav.Pressed(0, PadKind.StartButton, PadKind.StartButton) && !PageNav.Pressed(PadKind.StartButton, PadKind.StartButton, PadKind.StartButton) && !PageNav.Pressed(0, PadKind.SelectButton, PadKind.StartButton)
+    && PageNav.Pressed(PadKind.StartButton, (ushort)(PadKind.StartButton | PadKind.SelectButton), PadKind.SelectButton), "only a new Start or Select press counts");
+   Require(PadKind.StartLabel(PadKind.Xbox) == "MENU" && PadKind.SelectLabel(PadKind.Xbox) == "VIEW" && PadKind.StartLabel(PadKind.PlayStation) == "OPTIONS" && PadKind.SelectLabel(PadKind.PlayStation) == "CREATE"
+    && PadKind.StartLabel(PadKind.Nintendo) == "+" && PadKind.SelectLabel(PadKind.Nintendo) == "\u2212", "the centre buttons are named like each family prints them");
    Console.WriteLine("PASS: window fitting for " + shells + " window sizes and page navigation.");
   }
 

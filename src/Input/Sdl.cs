@@ -30,6 +30,11 @@ namespace HyruleOnline {
 
   public static ushort Accept(int layout) { return layout == Nintendo ? Right : Bottom; }
   public static ushort Back(int layout) { return layout == Nintendo ? Bottom : Right; }
+
+  // The two small centre buttons: XInput's Start (0x10) and Back (0x20), named as each family prints them.
+  public const ushort StartButton = 0x10, SelectButton = 0x20;
+  public static string StartLabel(int layout) { return layout == PlayStation ? "OPTIONS" : layout == Nintendo ? "+" : "MENU"; }
+  public static string SelectLabel(int layout) { return layout == PlayStation ? "CREATE" : layout == Nintendo ? "\u2212" : "VIEW"; }
  }
 
  // Thin SDL3 gamepad wrapper. Call every method from the same thread.

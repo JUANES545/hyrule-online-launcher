@@ -40,6 +40,9 @@ namespace HyruleOnline {
    return (pressed & RightBumper) != 0 ? 1 : (pressed & LeftBumper) != 0 ? -1 : 0;
   }
 
+  // True when the button (a mask such as PadKind.StartButton) went down since the previous poll.
+  public static bool Pressed(ushort previous, ushort current, ushort mask) { return (current & mask) != 0 && (previous & mask) == 0; }
+
   public static int Move(int page, int step, int count) { return count <= 0 ? 0 : ((page + step) % count + count) % count; }
  }
 

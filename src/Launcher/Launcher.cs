@@ -144,7 +144,7 @@ namespace HyruleOnline {
    WatchWorld();
    ApplyLanguage();
    router.Message += text => Window.Dispatcher.BeginInvoke(new Action(() => Write(text)));
-   C<Button>("Start").Click += (s, e) => { if (sessionLive) { restartAfterStop = true; StopSession(); } else StartSession(); };
+   C<Button>("Start").Click += (s, e) => PressStart();
    C<Button>("Stop").Click += (s, e) => StopSession();
    C<Button>("Swap").Click += (s, e) => router.Swap();
    C<Button>("Mode1").Click += (s, e) => SetPlayerCount(1);
@@ -294,15 +294,26 @@ namespace HyruleOnline {
    Window.UpdateLayout();
   }
 
+  void PressStart() {
+   if (sessionLive) { restartAfterStop = true; StopSession(); } else StartSession();
+  }
+
   // LB and RB on any controller flip the page, but only while the launcher itself is in front, so they never fight with the games.
+  // Start (or its equivalent) presses Start session; Select flips between 1 and 2 players on the Play page.
   void NavigateWithPads(RouterSnapshot snapshot) {
    int step = 0;
+   bool start = false, select = false;
    for (int slot = 0; slot < 4; slot++) {
     ushort buttons = snapshot.Names[slot] != null ? snapshot.Pads[slot].buttons : (ushort)0;
     if (step == 0) step = PageNav.Step(previousButtons[slot], buttons);
+    start |= PageNav.Pressed(previousButtons[slot], buttons, PadKind.StartButton);
+    select |= PageNav.Pressed(previousButtons[slot], buttons, PadKind.SelectButton);
     previousButtons[slot] = buttons;
    }
-   if (step != 0 && Window.IsActive && !AnyDropDownOpen()) ShowPage(PageNav.Move(page, step, PageNames.Length));
+   if (!Window.IsActive || AnyDropDownOpen() || HelpOpen) return;
+   if (step != 0) ShowPage(PageNav.Move(page, step, PageNames.Length));
+   else if (start && C<Button>("Start").IsEnabled) PressStart();
+   else if (select && page == 0 && C<Button>("Mode1").IsEnabled) SetPlayerCount(playerCount == 1 ? 2 : 1);
   }
 
   bool AnyDropDownOpen() {
@@ -703,6 +714,8 @@ namespace HyruleOnline {
    string hint = Tr("D-pad: move   {0}: select   {1}: back", ConfirmLabel(shown), BackLabel(shown));
    C<TextBlock>("PadHint1").Text = hint;
    C<TextBlock>("PadHint2").Text = hint;
+   C<TextBlock>("StartBadgeText").Text = PadKind.StartLabel(shown);
+   C<TextBlock>("ModeBadgeText").Text = PadKind.SelectLabel(shown);
    C<TextBlock>("PadLayoutInfo").Text = parts.Count == 0 ? Tr("No controller detected: menus use the {0} layout.", PadKind.Names[shown]) : Tr("Detected: {0}", string.Join(ListSeparator, parts.ToArray()));
   }
 
@@ -1180,6 +1193,7 @@ namespace HyruleOnline {
    string label = Tr(dirty ? "RESTART SESSION" : "START SESSION");
    if ((string)start.Content != label) start.Content = label;
    start.IsEnabled = settled && (sessionLive ? dirty : script == null);
+   C<UIElement>("StartBadge").Opacity = start.IsEnabled ? 1 : 0.4;
   }
 
   void StopScript() {
@@ -1239,6 +1253,7 @@ namespace HyruleOnline {
    foreach (var name in new[] { "P1NameBox", "P2NameBox" }) C<TextBox>(name).IsEnabled = enabled;
    foreach (var name in new[] { "RulesBox", "SpecialBox" }) C<ComboBox>(name).IsEnabled = enabled;
    foreach (var name in new[] { "P1AvatarButton", "P2AvatarButton", "Mode1", "Mode2", "UseRecommendedRules" }) C<Button>(name).IsEnabled = enabled;
+   C<UIElement>("ModeBadge").Opacity = enabled ? 1 : 0.4;
    if (!enabled) ClosePickers();
    foreach (var name in RuleBoxes) C<CheckBox>(name).IsEnabled = enabled;
   }
