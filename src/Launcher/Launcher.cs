@@ -97,8 +97,15 @@ namespace HyruleOnline {
   string lastError, failure;
   bool stopping;
   int ticks;
+  string language = "en";
+  List<GameLanguage> gameLanguages = new List<GameLanguage> { GameLanguages.English };
+  readonly Translator translator = new Translator();
+  readonly Dictionary<string, KeyValuePair<string, Brush>> steps = new Dictionary<string, KeyValuePair<string, Brush>>();
+  string statusText = "Ready.", promptText = "";
+  object[] statusArgs, promptArgs;
 
   static Brush Paint(string color) { return new SolidColorBrush((Color)ColorConverter.ConvertFromString(color)); }
+  static string Tr(string english, params object[] args) { return Lang.T(english, args); }
   T C<T>(string name) where T : class { return Window.FindName(name) as T; }
 
   public Launcher(string root, Router router) {
@@ -106,9 +113,13 @@ namespace HyruleOnline {
    using (var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("Launcher.xaml"))
     Window = (Window)XamlReader.Load(stream);
    LoadFonts();
+   translator.Capture(Window);
    ReadPrefs();
    characters = Characters.Read(Path.Combine(root, ".artifacts", "extract", "milkbar", "Milk Bar Launcher.dll"));
+   gameLanguages = GameLanguages.Scan(GameLanguages.ContentFolder(Path.Combine(root, ".tools", "localappdata", "bcml", "settings.json")));
+   language = GameLanguages.Find(gameLanguages, language).Code;
    for (int i = 0; i < 2; i++) WatchPlayer(i);
+   ApplyLanguage();
    router.Message += text => Window.Dispatcher.BeginInvoke(new Action(() => Write(text)));
    C<Button>("Start").Click += (s, e) => StartSession();
    C<Button>("Stop").Click += (s, e) => StopSession();
@@ -134,7 +145,7 @@ namespace HyruleOnline {
     fpsLimit = (int)item.Tag;
     Window.Dispatcher.BeginInvoke(new Action(ChangedDisplayChoice));
    };
-   foreach (var tab in new[] { "TabPlay", "TabGraphics", "TabDetails" }) {
+   foreach (var tab in new[] { "TabPlay", "TabGraphics", "TabLanguage", "TabDetails" }) {
     var button = C<Button>(tab);
     button.Click += (s, e) => ShowPage(int.Parse((string)((Button)s).Tag));
    }
@@ -201,7 +212,7 @@ namespace HyruleOnline {
    C<StackPanel>("Players").Margin = fit.Stacked ? new Thickness(0, 0, 0, 18) : new Thickness(0, 0, 28, 0);
   }
 
-  static readonly string[] PageNames = { "Play", "Graphics", "Details" };
+  static readonly string[] PageNames = { "Play", "Graphics", "Language", "Details" };
   int page;
   ushort[] previousButtons = new ushort[4];
 
@@ -250,8 +261,9 @@ namespace HyruleOnline {
      names[i] = Characters.CleanName((string)root.Element("Name" + (i + 1)), Characters.DefaultNames[i]);
      models[i] = (string)root.Element("Model" + (i + 1)) ?? "";
     }
+    language = Saved(root, "Language") ?? "en";
    }
-   catch (Exception) { mode = LayoutMode.Auto; scale = GraphicsMod.DefaultScale; shadows = shadowDistance = antiAliasing = null; fpsLimit = FpsMod.AutoFps; }
+   catch (Exception) { mode = LayoutMode.Auto; scale = GraphicsMod.DefaultScale; shadows = shadowDistance = antiAliasing = null; fpsLimit = FpsMod.AutoFps; language = "en"; }
   }
 
   // The name and model of each player sit on that player's card and are written into its Milk Bar settings when a session starts.
@@ -269,18 +281,70 @@ namespace HyruleOnline {
     nameBox.Text = names[player];
     SavePrefs();
    };
-   filling = true;
-   try {
-    foreach (var character in characters) modelBox.Items.Add(new ComboBoxItem { Content = character.Display, Tag = character.Model });
-    modelBox.SelectedIndex = characters.IndexOf(Characters.Find(characters, models[player]));
-   }
-   finally { filling = false; }
    modelBox.SelectionChanged += (s, e) => {
     var item = modelBox.SelectedItem as ComboBoxItem;
     if (filling || item == null) return;
     models[player] = (string)item.Tag;
     SavePrefs();
    };
+  }
+
+  void FillModels(int player) {
+   var modelBox = C<ComboBox>("P" + (player + 1) + "ModelBox");
+   filling = true;
+   try {
+    modelBox.Items.Clear();
+    foreach (var character in characters) modelBox.Items.Add(new ComboBoxItem { Content = character.Experimental ? character.Label + " " + Tr("(experimental)") : character.Label, Tag = character.Model });
+    modelBox.SelectedIndex = characters.IndexOf(Characters.Find(characters, models[player]));
+   }
+   finally { filling = false; }
+  }
+
+  // Switches the launcher text to the chosen language and redraws everything the code writes itself.
+  void ApplyLanguage() {
+   Lang.Current = Lang.Ui(language);
+   translator.Apply();
+   C<TextBlock>("HelpText").Text = Lang.Help();
+   FillModels(0); FillModels(1);
+   FillLanguages();
+   C<TextBlock>("Status").Text = Tr(statusText, statusArgs);
+   C<TextBlock>("Prompt").Text = Tr(promptText, promptArgs);
+   foreach (var step in new List<string>(steps.Keys)) Step(step, steps[step].Key, steps[step].Value);
+   if (Window.IsLoaded) { UpdatePlan(); RefreshProcesses(); }
+  }
+
+  void FillLanguages() {
+   var list = C<StackPanel>("LanguageList");
+   list.Children.Clear();
+   foreach (var item in gameLanguages) {
+    string code = item.Code;
+    bool current = code == language;
+    var button = new Button { Content = item.Name, FontSize = 21, Margin = new Thickness(0, 0, 0, 10), HorizontalAlignment = HorizontalAlignment.Stretch,
+     Background = Paint(current ? "#B03C554B" : "#801B252B"), BorderBrush = Paint(current ? "#D5C396" : "#364E5659") };
+    System.Windows.Automation.AutomationProperties.SetAutomationId(button, "Language_" + code);
+    System.Windows.Automation.AutomationProperties.SetItemStatus(button, current ? "Selected" : "");
+    button.Click += (s, e) => ChooseLanguage(code);
+    list.Children.Add(button);
+   }
+  }
+
+  // The game language is written into both Cemu settings when a session starts; the launcher changes at once.
+  void ChooseLanguage(string code) {
+   if (code == language) return;
+   language = code;
+   SavePrefs();
+   ApplyLanguage();
+   Write("Language: " + GameLanguages.Find(gameLanguages, code).Name + ".");
+  }
+
+  void SetStatus(string english, params object[] args) {
+   statusText = english; statusArgs = args;
+   C<TextBlock>("Status").Text = Tr(english, args);
+  }
+
+  void SetPrompt(string english, params object[] args) {
+   promptText = english; promptArgs = args;
+   C<TextBlock>("Prompt").Text = Tr(english, args);
   }
 
   static string Saved(XElement root, string name) { string value = (string)root.Element(name); return string.IsNullOrEmpty(value) ? null : value; }
@@ -290,7 +354,8 @@ namespace HyruleOnline {
     new XDocument(new XElement("Preferences", new XElement("Layout", mode), new XElement("RenderScale", GraphicsMod.NearestScale(scale).ToString(System.Globalization.CultureInfo.InvariantCulture)),
      new XElement("Shadows", shadows ?? ""), new XElement("ShadowDistance", shadowDistance ?? ""), new XElement("AntiAliasing", antiAliasing ?? ""),
      new XElement("FpsLimit", fpsLimit == FpsMod.AutoFps ? "Auto" : fpsLimit.ToString()),
-     new XElement("Name1", names[0]), new XElement("Model1", models[0]), new XElement("Name2", names[1]), new XElement("Model2", models[1]))).Save(PrefsFile);
+     new XElement("Name1", names[0]), new XElement("Model1", models[0]), new XElement("Name2", names[1]), new XElement("Model2", models[1]),
+     new XElement("Language", language))).Save(PrefsFile);
    }
    catch (Exception error) { Write("Could not save the display settings: " + error.Message); }
   }
@@ -327,7 +392,7 @@ namespace HyruleOnline {
    try {
     var scaleBox = C<ComboBox>("ScaleBox");
     scaleBox.Items.Clear();
-    foreach (double option in GraphicsMod.Scales) scaleBox.Items.Add(new ComboBoxItem { Content = GraphicsMod.ScaleLabel(option), Tag = option });
+    foreach (double option in GraphicsMod.Scales) scaleBox.Items.Add(new ComboBoxItem { Content = GraphicsMod.ScaleLabel(option, text => Tr(text)), Tag = option });
     scaleBox.SelectedIndex = Array.IndexOf(GraphicsMod.Scales, GraphicsMod.NearestScale(scale));
     FillQuality("ShadowsBox", GraphicsMod.ShadowsCategory, shadows);
     FillQuality("ShadowDistanceBox", GraphicsMod.ShadowDistanceCategory, shadowDistance);
@@ -341,7 +406,7 @@ namespace HyruleOnline {
    var box = C<ComboBox>(name);
    box.Items.Clear();
    box.IsEnabled = choices.Count > 0;
-   if (choices.Count == 0) { box.Items.Add(new ComboBoxItem { Content = "Not available" }); box.SelectedIndex = 0; return; }
+   if (choices.Count == 0) { box.Items.Add(new ComboBoxItem { Content = Tr("Not available") }); box.SelectedIndex = 0; return; }
    var current = GraphicsMod.Pick(choices, wanted);
    foreach (var choice in choices) box.Items.Add(new ComboBoxItem { Content = choice.Label, ToolTip = choice.Name, Tag = choice.Name });
    box.SelectedIndex = choices.IndexOf(current);
@@ -365,8 +430,8 @@ namespace HyruleOnline {
    try {
     box.Items.Clear();
     box.IsEnabled = choices.Count > 0;
-    if (current == null) { box.Items.Add(new ComboBoxItem { Content = "FPS++ is not installed" }); box.SelectedIndex = 0; return; }
-    box.Items.Add(new ComboBoxItem { Content = "FPS target: Auto · " + FpsMod.Best(choices, displayHz).Fps + " FPS", Tag = FpsMod.AutoFps });
+    if (current == null) { box.Items.Add(new ComboBoxItem { Content = Tr("FPS++ is not installed") }); box.SelectedIndex = 0; return; }
+    box.Items.Add(new ComboBoxItem { Content = Tr("FPS target: Auto · {0} FPS", FpsMod.Best(choices, displayHz).Fps), Tag = FpsMod.AutoFps });
     foreach (var choice in choices) box.Items.Add(new ComboBoxItem { Content = choice.Fps + " FPS", Tag = choice.Fps });
     box.SelectedIndex = fpsLimit == FpsMod.AutoFps ? 0 : choices.FindIndex(l => l.Fps == current.Fps) + 1;
    }
@@ -375,14 +440,15 @@ namespace HyruleOnline {
   void UpdatePlan() {
    WindowPlacer.PrimaryDisplay(out displayWidth, out displayHeight, out displayHz);
    C<TextBlock>("ScreenInfo").Text = displayWidth + " × " + displayHeight + "  /  " + displayHz + " Hz";
-   C<Button>("Layout").Content = "Split: " + (mode == LayoutMode.Auto ? "automatic" : mode == LayoutMode.SideBySide ? "side by side" : "top and bottom");
+   C<Button>("Layout").Content = Tr(mode == LayoutMode.Auto ? "Split: automatic" : mode == LayoutMode.SideBySide ? "Split: side by side" : "Split: top and bottom");
    ShowFpsChoices();
    ShowQuality();
-   if (displayWidth < 320 || displayHeight < 240) { C<TextBlock>("LayoutInfo").Text = "The primary display is not ready."; return; }
+   if (displayWidth < 320 || displayHeight < 240) { C<TextBlock>("LayoutInfo").Text = Tr("The primary display is not ready."); return; }
    var plan = ScreenLayout.Plan(mode, scale, displayWidth, displayHeight);
    bool side = plan.Layout == LayoutMode.SideBySide;
    var first = plan.Players[0];
-   C<TextBlock>("LayoutInfo").Text = (side ? "Side by side · P1 left / P2 right" : "Top and bottom · P1 top / P2 bottom") + Environment.NewLine + "Each game renders " + first.RenderWidth + " × " + first.RenderHeight + " " + (CurrentFps() == null ? "" : "at " + CurrentFps().Fps + " FPS");
+   var shownFps = CurrentFps();
+   C<TextBlock>("LayoutInfo").Text = Tr(side ? "Side by side · P1 left / P2 right" : "Top and bottom · P1 top / P2 bottom") + Environment.NewLine + Tr("Each game renders {0} × {1}", first.RenderWidth, first.RenderHeight) + (shownFps == null ? "" : " " + Tr("at {0} FPS", shownFps.Fps));
    var frame = C<Border>("PreviewFrame");
    double ratio = (double)displayWidth / displayHeight;
    frame.Width = ratio < 1 ? 118 : Math.Min(360, 210 * ratio); frame.Height = frame.Width / ratio;
@@ -418,21 +484,28 @@ namespace HyruleOnline {
     var plan = ScreenLayout.Plan(mode, scale, displayWidth, displayHeight);
     string[] names = { "cemuA", "cemuB" };
     var quality = CurrentQuality();
+    var gameLanguage = GameLanguages.Find(gameLanguages, language);
     Write("Graphics: render " + GraphicsMod.ScaleLabel(quality.Scale) + ", shadows " + quality.Shadows + ", shadow distance " + quality.ShadowDistance + ", anti-aliasing " + quality.AntiAliasing + ".");
+    Write("Game language: " + gameLanguage.Name + " (Cemu console language " + gameLanguage.Console + ").");
     for (int i = 0; i < 2; i++) {
      var view = plan.Players[i];
      var fps = CurrentFps();
-     CemuDisplay.Apply(Path.Combine(root, ".tools", "instances", names[i]), view, fps == null ? null : fps.Preset, quality);
+     CemuDisplay.Apply(Path.Combine(root, ".tools", "instances", names[i]), view, fps == null ? null : fps.Preset, quality, gameLanguage.Console);
      Write("Player " + (i + 1) + ": " + view.RenderWidth + " x " + view.RenderHeight + " (aspect " + view.RatioWidth + ":" + view.RatioHeight + ")" + (fps == null ? "." : ", " + fps.Fps + " FPS limit."));
     }
     return true;
    }
    catch (Exception error) {
-    failure = "The display settings could not be prepared: " + error.Message;
-    C<TextBlock>("Status").Text = failure;
-    Write(failure);
+    Fail("The display settings could not be prepared: {0}", error.Message);
     return false;
    }
+  }
+
+  // The log keeps English; the status line follows the chosen language.
+  void Fail(string english, params object[] args) {
+   failure = string.Format(english, args);
+   SetStatus(english, args);
+   Write(failure);
   }
 
   void Write(string text) {
@@ -441,8 +514,9 @@ namespace HyruleOnline {
    log.ScrollToEnd();
   }
 
-  void Step(string name, string text, Brush color) {
-   C<TextBlock>(name + "Text").Text = text;
+  void Step(string name, string english, Brush color) {
+   steps[name] = new KeyValuePair<string, Brush>(english, color);
+   C<TextBlock>(name + "Text").Text = Tr(english);
    C<System.Windows.Shapes.Shape>(name + "Dot").Fill = color;
   }
 
@@ -465,8 +539,8 @@ namespace HyruleOnline {
   void StartSession() {
    failure = null; lastError = null; joined[0] = joined[1] = false;
    if (Scripts.Owned(root).Count == 0 && !PrepareDisplay()) return;
-   C<TextBlock>("Status").Text = "Starting...";
-   C<TextBlock>("Prompt").Text = "";
+   SetStatus("Starting...");
+   SetPrompt("");
    ApplyPlayers();
    Step("Server", "Starting", Busy); Step("A", "Waiting", Idle); Step("B", "Waiting", Idle);
    Write("Starting the session.");
@@ -474,9 +548,7 @@ namespace HyruleOnline {
     serverHost.Start(Path.Combine(root, ".artifacts", "extract", "milkbar", "DedicatedServer"));
    }
    catch (Exception error) {
-    failure = "The dedicated server could not start: " + error.Message;
-    C<TextBlock>("Status").Text = failure;
-    Write(failure);
+    Fail("The dedicated server could not start: {0}", error.Message);
     Step("Server", "Stopped", Bad);
     return;
    }
@@ -489,31 +561,30 @@ namespace HyruleOnline {
 
   void Handle(string text) {
    Write(text);
-   var prompt = C<TextBlock>("Prompt");
    Match match;
    if (text.StartsWith("Server started")) Step("Server", "Running", Good);
    else if ((match = Regex.Match(text, "^Player ([AB]): wait")).Success) {
     string name = match.Groups[1].Value;
     Step(name, "Waiting for Continue", Busy);
-    prompt.Text = name == "A" ? "Cemu A: wait for the main menu, then press Continue within about a minute. Player 2 starts when player 1 has finished loading." : "Cemu B: wait for the main menu, then press Continue. If player 1 is not in yet, press Continue there too.";
+    SetPrompt(name == "A" ? "Cemu A: wait for the main menu, then press Continue within about a minute. Player 2 starts when player 1 has finished loading." : "Cemu B: wait for the main menu, then press Continue. If player 1 is not in yet, press Continue there too.");
    }
    else if ((match = Regex.Match(text, "^(\\d) of 2 players joined")).Success) {
     // The shared log does not say which player joined, so the steps change only when both are in.
-    if (match.Groups[1].Value == "1") prompt.Text = "One player joined. Press Continue in the other Cemu window.";
+    if (match.Groups[1].Value == "1") SetPrompt("One player joined. Press Continue in the other Cemu window.");
    }
    else if (text.StartsWith("Both players are connected")) {
     joined[0] = joined[1] = true;
     Step("A", "Joined the server", Good); Step("B", "Joined the server", Good);
-    prompt.Text = ""; C<TextBlock>("Status").Text = "Session running.";
+    SetPrompt(""); SetStatus("Session running.");
    }
   }
 
   void ScriptExited(int code) {
    script = null;
    if (code != 0) {
-    failure = lastError ?? "The start script failed.";
-    C<TextBlock>("Status").Text = "Start failed: " + failure;
-    C<TextBlock>("Prompt").Text = "Use Stop session to close anything that was started, then try again.";
+    failure = lastError ?? Tr("The start script failed.");
+    SetStatus("Start failed: {0}", failure);
+    SetPrompt("Use Stop session to close anything that was started, then try again.");
     Write("Start failed (exit code " + code + ").");
    }
    RefreshProcesses();
@@ -521,8 +592,8 @@ namespace HyruleOnline {
 
   void StopSession() {
    stopping = true; SetButtons();
-   C<TextBlock>("Status").Text = "Stopping...";
-   C<TextBlock>("Prompt").Text = "";
+   SetStatus("Stopping...");
+   SetPrompt("");
    StopScript();
    Scripts.Run(root, "Stop-Online.ps1", "", Line, Error, code => Window.Dispatcher.BeginInvoke(new Action(() => {
     stopping = false; failure = null; joined[0] = joined[1] = false; placed.Clear(); RefreshProcesses();
@@ -537,7 +608,7 @@ namespace HyruleOnline {
 
   void OnClosing(object sender, System.ComponentModel.CancelEventArgs e) {
    if (script == null && Scripts.Owned(root).Count == 0) return;
-   var answer = MessageBox.Show(Window, "A session is still open.\n\nYes: stop the session and close.\nNo: close only the launcher. The game keeps running and the controllers fall back to Windows XInput.\nCancel: keep this window open.", "Hyrule Online", MessageBoxButton.YesNoCancel);
+   var answer = MessageBox.Show(Window, Tr("A session is still open.\n\nYes: stop the session and close.\nNo: close only the launcher. The game keeps running and the controllers fall back to Windows XInput.\nCancel: keep this window open."), "Hyrule Online", MessageBoxButton.YesNoCancel);
    if (answer == MessageBoxResult.Cancel) { e.Cancel = true; return; }
    if (answer != MessageBoxResult.Yes) return;
    StopScript();
@@ -561,14 +632,13 @@ namespace HyruleOnline {
    if (!a) joined[0] = false;
    if (!b) joined[1] = false;
    C<System.Windows.Shapes.Shape>("CornerDot").Fill = server ? Good : Idle;
-   C<TextBlock>("CornerServer").Text = server ? "Server running" : "Server stopped";
+   C<TextBlock>("CornerServer").Text = Tr(server ? "Server running" : "Server stopped");
    if (script == null && !stopping) {
     Step("Server", server ? "Running" : "Stopped", server ? Good : Idle);
     Step("A", a ? (joined[0] ? "Joined the server" : "Game open") : "Stopped", a ? (joined[0] ? Good : Busy) : Idle);
     Step("B", b ? (joined[1] ? "Joined the server" : "Game open") : "Stopped", b ? (joined[1] ? Good : Busy) : Idle);
-    var status = C<TextBlock>("Status");
-    if (owned.Count > 0 && failure == null) status.Text = "Session running.";
-    else if (owned.Count == 0 && failure == null) { status.Text = "Ready."; C<TextBlock>("Prompt").Text = ""; }
+    if (owned.Count > 0 && failure == null) SetStatus("Session running.");
+    else if (owned.Count == 0 && failure == null) { SetStatus("Ready."); SetPrompt(""); }
    }
    C<Button>("Start").IsEnabled = script == null && !stopping && owned.Count == 0;
    C<Button>("Stop").IsEnabled = !stopping && (script != null || owned.Count > 0);
@@ -594,9 +664,9 @@ namespace HyruleOnline {
     int slot = snapshot.Routes[player];
     bool present = slot >= 0 && snapshot.Names[slot] != null;
     var pad = present ? snapshot.Pads[slot] : new PadState();
-    C<TextBlock>(key + "Name").Text = present ? snapshot.Names[slot] : "No controller detected";
-    C<TextBlock>(key + "Status").Text = snapshot.Assigning == player ? "Press the bottom face button on a controller to assign it." : present ? "Connected" : "Waiting for a controller";
-    C<Button>("Assign" + (player + 1)).Content = snapshot.Assigning == player ? "Cancel assignment" : "Assign controller";
+    C<TextBlock>(key + "Name").Text = present ? snapshot.Names[slot] : Tr("No controller detected");
+    C<TextBlock>(key + "Status").Text = snapshot.Assigning == player ? Tr("Press the bottom face button on a controller to assign it.") : present ? Tr("Connected") : Tr("Waiting for a controller");
+    C<Button>("Assign" + (player + 1)).Content = Tr(snapshot.Assigning == player ? "Cancel assignment" : "Assign controller");
     Move(C<FrameworkElement>(key + "L"), pad.lx, pad.ly, 20);
     Move(C<FrameworkElement>(key + "R"), pad.rx, pad.ry, 111);
     C<ProgressBar>(key + "LT").Value = pad.lt;

@@ -32,7 +32,7 @@ namespace HyruleOnline {
    return text.Append(eol).ToString();
   }
 
-  public static void Apply(string instance, PlayerView view, string fpsPreset = null, GraphicsMod.Quality quality = null) {
+  public static void Apply(string instance, PlayerView view, string fpsPreset = null, GraphicsMod.Quality quality = null, int? consoleLanguage = null) {
    string stockFolder = Path.Combine(instance, StockPack);
    string settingsFile = Path.Combine(instance, "settings.xml");
    if (!File.Exists(Path.Combine(stockFolder, "rules.txt"))) throw new FileNotFoundException("The BOTW Graphics pack is missing from " + instance + ".");
@@ -47,12 +47,17 @@ namespace HyruleOnline {
    }
    var utf8 = new UTF8Encoding(false);
    File.WriteAllText(packFile, BuildRules(File.ReadAllText(Path.Combine(stockFolder, "rules.txt")), view), utf8);
-   WriteSettings(settingsFile, fpsPreset, quality);
+   WriteSettings(settingsFile, fpsPreset, quality, consoleLanguage);
   }
 
-  static void WriteSettings(string settingsFile, string fpsPreset, GraphicsMod.Quality quality) {
+  static void WriteSettings(string settingsFile, string fpsPreset, GraphicsMod.Quality quality, int? consoleLanguage) {
    var document = XDocument.Load(settingsFile);
    var content = document.Root;
+   // The game language; Cemu's own menu language (<language>) is a different setting and stays as it is.
+   if (consoleLanguage.HasValue) {
+    var language = content.Element("console_language");
+    if (language == null) content.Add(new XElement("console_language", consoleLanguage.Value)); else language.Value = consoleLanguage.Value.ToString();
+   }
    var packs = content.Element("GraphicPack");
    if (packs == null) { packs = new XElement("GraphicPack"); content.Add(packs); }
    // Two Graphics packs would patch the same game code, so the stock one must not stay enabled.

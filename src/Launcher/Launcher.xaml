@@ -80,7 +80,8 @@
     <Border x:Name="NavPrev" Width="54" Height="30" CornerRadius="16,5,5,5" Background="#801B252B" BorderBrush="#A5BAC5" BorderThickness="2" Margin="0,0,14,0" VerticalAlignment="Center" ToolTip="Previous page (LB or Ctrl+Shift+Tab)" AutomationProperties.Name="Previous page (LB)"><TextBlock Text="LB" FontStyle="Normal" FontWeight="Bold" FontSize="15" Foreground="#CFE3E4" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0"/></Border>
     <Button x:Name="TabPlay" Content="PLAY" Tag="0" Style="{StaticResource TabButton}"/>
     <Button x:Name="TabGraphics" Content="GRAPHICS" Tag="1" Style="{StaticResource TabButton}"/>
-    <Button x:Name="TabDetails" Content="DETAILS" Tag="2" Style="{StaticResource TabButton}"/>
+    <Button x:Name="TabLanguage" Content="LANGUAGE" Tag="2" Style="{StaticResource TabButton}"/>
+    <Button x:Name="TabDetails" Content="DETAILS" Tag="3" Style="{StaticResource TabButton}"/>
     <Border x:Name="NavNext" Width="54" Height="30" CornerRadius="5,16,5,5" Background="#801B252B" BorderBrush="#A5BAC5" BorderThickness="2" Margin="14,0,0,0" VerticalAlignment="Center" ToolTip="Next page (RB or Ctrl+Tab)" AutomationProperties.Name="Next page (RB)"><TextBlock Text="RB" FontStyle="Normal" FontWeight="Bold" FontSize="15" Foreground="#CFE3E4" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0"/></Border>
    </StackPanel>
    <Grid Grid.Row="2" x:Name="Pages" Margin="14,0,14,6">
@@ -173,6 +174,18 @@
     </Border>
    </StackPanel>
   </Grid>
+  <Grid x:Name="LanguagePage" Visibility="Collapsed">
+   <StackPanel HorizontalAlignment="Center" VerticalAlignment="Top" Width="620">
+    <TextBlock Text="LANGUAGE" TextAlignment="Center" FontFamily="{DynamicResource TitleFont}" FontStretch="Normal" FontWeight="Normal" FontSize="14" Foreground="#CBBF9F" Margin="0,0,0,12"/>
+    <Border Background="#A0152027" CornerRadius="8" Padding="28,22" BorderBrush="#3449585A" BorderThickness="1">
+     <StackPanel>
+      <TextBlock TextAlignment="Center" Foreground="#C7DCDD" FontSize="15" Margin="0,0,0,16" Text="Choose the game language. The launcher uses it too and changes right away."/>
+      <StackPanel x:Name="LanguageList"/>
+      <TextBlock TextAlignment="Center" Foreground="#9EB2BD" FontSize="14" Margin="0,8,0,0" Text="The game applies it to both players the next time a session starts. Text added by the mod itself may stay in English."/>
+     </StackPanel>
+    </Border>
+   </StackPanel>
+  </Grid>
   <Grid x:Name="DetailsPage" Visibility="Collapsed">
    <Border Background="#E0152027" CornerRadius="8" Padding="18"><Grid>
     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="3*"/><RowDefinition Height="Auto"/><RowDefinition Height="2*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
@@ -183,7 +196,7 @@
     <TextBox x:Name="ServerCommand" Grid.Row="4" ToolTip="Server command, then Enter (type help)" Margin="0,8,0,0" FontFamily="Consolas" FontStretch="Normal" FontSize="13" Background="#0F171C" Foreground="#E2D5B2" BorderBrush="#3449585A" Padding="6,4"/>
    </Grid></Border>
   </Grid>
-  <Border x:Name="HelpPanel" Visibility="Collapsed" VerticalAlignment="Top" CornerRadius="12" Padding="18" Background="#FC193039" BorderBrush="#3449585A" BorderThickness="1" Panel.ZIndex="5"><TextBlock Foreground="#C7DCDD" Text="SESSION: Start session opens the dedicated server, then Player 1 and Player 2 in their own Cemu windows. When each game reaches the main menu, press Continue in that window within about a minute.&#10;&#10;PAGES: LB and RB on any controller (or Ctrl+Tab) move between Play, Graphics and Details while this launcher is in front.&#10;&#10;CONTROLLERS: choose a player, then press the bottom face button on a controller to assign it. Each Cemu window only sees its own controller. Vibration support depends on the controller.&#10;&#10;DISPLAY: the two Cemu windows share the primary display. Split chooses side by side or top and bottom; Auto splits wide displays side by side. Windows are placed when they open, so moving one by hand is kept.&#10;&#10;GRAPHICS: the choices come from the game's own graphics pack and apply the next time a session starts.&#10;&#10;The preview shows the split layout, not a game screenshot. Use Alt+Tab to come back to this launcher while the game is open."/></Border>
+  <Border x:Name="HelpPanel" Visibility="Collapsed" VerticalAlignment="Top" CornerRadius="12" Padding="18" Background="#FC193039" BorderBrush="#3449585A" BorderThickness="1" Panel.ZIndex="5"><TextBlock x:Name="HelpText" Foreground="#C7DCDD"/></Border>
  </Grid>
  <StackPanel Grid.Row="3" Margin="14,0,14,8">
   <Border Background="#80212E2D" CornerRadius="5" Padding="14" Margin="0,8,0,12"><TextBlock x:Name="Status" TextAlignment="Center" Text="Ready." Foreground="#AEE2D2"/></Border>

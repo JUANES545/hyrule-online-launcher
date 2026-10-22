@@ -169,6 +169,14 @@ Each player card has a name box and a model list. They are written to each Milk 
 - Each instance therefore needs its own `merged`. Cemu A's graphic pack is a junction to `localappdata\bcml\merged`. Cemu B has a real copy, and `bcml-b\settings.json` now uses `store_dir` = `localappdata\bcml-b\store`, where `merged` is a junction to cemuB's `BreathOfTheWild_BCML`. With the shared `store_dir`, B's model was written into A's pack: in a first test A showed both players as Revali and B showed both as Link.
 - Other mod options not in the launcher yet: `ServerConfig.ini` (password, description, default gamemode, enemy / quest / korok / tower / shrine / location / dungeon sync), server console commands (Time, Weather, NameTags, Teleport, Landmarks, Model, DeathSwap, PropHunt) and `Gamemodes.json` presets.
 
+## Language
+
+- The game is the US version. `content\Pack` has `Bootup_USen.pack`, `Bootup_USes.pack` and `Bootup_USfr.pack`, so the launcher offers English, Español (Latinoamérica) and Français (Canada). The list comes from a scan of those packs (read-only, through `game_dir` in the project's BCML settings), so other regions list their own languages.
+- The game language is Cemu's `<console_language>` in `settings.xml` (direct child of `<content>`): 0 ja, 1 en, 2 fr, 3 de, 4 it, 5 es, 6 zh, 7 ko, 8 nl, 9 pt, 10 ru, 11 Traditional Chinese. `<language>` is Cemu's own menu language and is left alone. Both instances get the value each time a session starts.
+- The launcher text follows the same choice for English, Spanish and French; any other game language shows the launcher in English. Log lines and the mod's own graphics pack labels stay English.
+- Checked in a real session in Spanish: both `settings.xml` files got `5` and the game text came up in Spanish. The BCML-merged content only has `Bootup_USen.pack`, so text added by mods can stay in English.
+- One Cemu A crash (exception thrown from `InjectDLL.dll` after both instances were loading) happened in the first Spanish run and did not repeat in the second. Not shown to depend on the language.
+
 ## Open questions
 
 0. Pipe limit: the launcher creates `languageConnectionPipe` with max 2 instances, which fits exactly two launchers on one PC. The DLL pipe name is fixed, and in the two-instance run both DLLs connected without a visible mix-up, but this was not tested on purpose.

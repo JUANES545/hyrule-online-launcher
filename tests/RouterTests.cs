@@ -150,9 +150,125 @@ namespace HyruleOnline {
 
   static void Require(bool ok, string message) { if (!ok) throw new Exception("TEST: " + message); }
 
+  // The text of every string literal inside the calls to the given methods.
+  static List<string> CallLiterals(string source, params string[] calls) {
+   var found = new List<string>();
+   foreach (string call in calls) {
+    int at = 0;
+    while ((at = source.IndexOf(call + "(", at, StringComparison.Ordinal)) >= 0) {
+     if (at > 0 && (char.IsLetterOrDigit(source[at - 1]) || source[at - 1] == '_' || source[at - 1] == '.')) { at += call.Length; continue; }
+     int i = at + call.Length + 1, depth = 1;
+     while (i < source.Length && depth > 0) {
+      char c = source[i];
+      if (c == '"') {
+       var text = new System.Text.StringBuilder();
+       i++;
+       while (source[i] != '"') {
+        if (source[i] == '\\') { char next = source[i + 1]; text.Append(next == 'n' ? '\n' : next); i += 2; }
+        else text.Append(source[i++]);
+       }
+       found.Add(text.ToString());
+      }
+      else if (c == '(') depth++;
+      else if (c == ')') depth--;
+      i++;
+     }
+     at = i;
+    }
+   }
+   return found;
+  }
+
+  static void Languages(string root) {
+   var table = Lang.Table;
+   Require(table.Select(r => r[0]).Distinct().Count() == table.Length, "every English text appears once in the table");
+   Func<string, string> holes = text => string.Join(",", System.Text.RegularExpressions.Regex.Matches(text, "\\{\\d+\\}").Cast<System.Text.RegularExpressions.Match>().Select(m => m.Value).OrderBy(v => v));
+   foreach (var row in table) {
+    Require(row.Length == Lang.Supported.Length && row.All(t => !string.IsNullOrWhiteSpace(t)), "every language has text for: " + row[0]);
+    Require(row.All(t => holes(t) == holes(row[0])), "the same placeholders in every language: " + row[0]);
+    Require(row.All(t => t.Split('\n').Length == row[0].Split('\n').Length), "the same line breaks in every language: " + row[0]);
+   }
+   Require(Lang.HelpText.Length == Lang.Supported.Length && Lang.HelpText.All(t => t.Split(new[] { "\n\n" }, StringSplitOptions.None).Length == Lang.HelpText[0].Split(new[] { "\n\n" }, StringSplitOptions.None).Length), "the help text has the same sections in every language");
+
+   try {
+    Lang.Current = "es";
+    Require(Lang.T("PLAY") == "JUGAR" && Lang.T("Unknown text") == "Unknown text" && Lang.T("Each game renders {0} × {1}", 1920, 1080) == "Cada juego se renderiza a 1920 × 1080", "Spanish text, English fallback and placeholders");
+    Require(GraphicsMod.ScaleLabel(1.5, t => Lang.T(t)) == "150% (más nítido)" && GraphicsMod.ScaleLabel(1.0) == "100% (window size)", "render scale labels follow the language");
+    Lang.Current = "fr";
+    Require(Lang.T("PLAY") == "JOUER" && Lang.Help().StartsWith("SESSION :"), "French text");
+    Lang.Current = Lang.Ui("de");
+    Require(Lang.Current == "en" && Lang.T("PLAY") == "PLAY" && Lang.Help().StartsWith("SESSION: Start"), "a language without a translation shows English");
+   }
+   finally { Lang.Current = "en"; }
+
+   // Nothing the launcher writes may be missing from the table.
+   var known = new HashSet<string>(table.Select(r => r[0]).Concat(Lang.Neutral));
+   var xaml = System.Xml.Linq.XDocument.Load(Path.Combine(root, "src", "Launcher", "Launcher.xaml"));
+   System.Xml.Linq.XNamespace x = "http://schemas.microsoft.com/winfx/2006/xaml";
+   foreach (var element in xaml.Descendants()) {
+    if (element.AncestorsAndSelf().Any(e => e.Name.LocalName == "Window.Resources" || Lang.Dynamic.Contains((string)e.Attribute(x + "Name")))) continue;
+    foreach (string attribute in new[] { "Text", "Content", "ToolTip", "AutomationProperties.Name" }) {
+     string value = (string)element.Attribute(attribute);
+     if (string.IsNullOrEmpty(value) || value.StartsWith("{")) continue;
+     Require(known.Contains(value), "the XAML text is translated: " + value);
+    }
+   }
+   string code = File.ReadAllText(Path.Combine(root, "src", "Launcher", "Launcher.cs"));
+   var skipped = new[] { "", "Server", "A", "B" };
+   var literals = CallLiterals(code, "Tr", "Fail", "SetStatus", "SetPrompt", "Step").Where(t => !skipped.Contains(t)).ToList();
+   Require(literals.Count > 40, "the launcher code uses the translation helpers");
+   foreach (string literal in literals) Require(known.Contains(literal), "the launcher text is translated: " + literal);
+
+   string temp = Path.Combine(Path.GetTempPath(), "hyrule-lang-" + Guid.NewGuid().ToString("N"));
+   try {
+    string content = Path.Combine(temp, "content");
+    Directory.CreateDirectory(Path.Combine(content, "Pack"));
+    foreach (string pack in new[] { "Bootup_USfr.pack", "Bootup_USen.pack", "Bootup_USes.pack", "Bootup.pack", "Bootup_Graphics.pack", "Bootup_EUen.pack", "Bootup_USxx1.pack" }) File.WriteAllText(Path.Combine(content, "Pack", pack), "x");
+    var found = GameLanguages.Scan(content);
+    Require(string.Join(",", found.Select(l => l.Code)) == "en,es,fr", "the languages come from the game's Bootup packs, English first");
+    Require(found[0].Name == "English" && found[0].Console == 1 && found[1].Name == "Español (Latinoamérica)" && found[1].Console == 5 && found[2].Name == "Français (Canada)" && found[2].Console == 2, "native names and Cemu console languages");
+    Require(GameLanguages.Find(found, "fr") == found[2] && GameLanguages.Find(found, "de") == found[0], "an unknown language falls back to the first one");
+
+    string europe = Path.Combine(temp, "europe");
+    Directory.CreateDirectory(Path.Combine(europe, "Pack"));
+    foreach (string pack in new[] { "Bootup_EUru.pack", "Bootup_EUde.pack", "Bootup_EUit.pack", "Bootup_EUnl.pack", "Bootup_EUes.pack" }) File.WriteAllText(Path.Combine(europe, "Pack", pack), "x");
+    var other = GameLanguages.Scan(europe);
+    Require(string.Join(",", other.Select(l => l.Code)) == "de,es,it,nl,ru" && other.Select(l => l.Console).SequenceEqual(new[] { 3, 5, 4, 8, 10 }) && other[1].Name == "Español (España)", "other regions map to their console languages");
+    Require(Lang.Ui("es") == "es" && Lang.Ui("de") == "en", "the launcher has Spanish and French; other languages use English");
+    string asia = Path.Combine(temp, "asia");
+    Directory.CreateDirectory(Path.Combine(asia, "Pack"));
+    File.WriteAllText(Path.Combine(asia, "Pack", "Bootup_TWzh.pack"), "x"); File.WriteAllText(Path.Combine(asia, "Pack", "Bootup_JPja.pack"), "x");
+    Require(GameLanguages.Scan(asia).Select(l => l.Console).SequenceEqual(new[] { 0, 11 }), "Japanese and Traditional Chinese console languages");
+    Require(GameLanguages.Scan(null).Count == 1 && GameLanguages.Scan(null)[0].Code == "en" && GameLanguages.Scan(Path.Combine(temp, "missing"))[0].Console == 1 && GameLanguages.Scan(temp).Count == 1, "without a game folder only English is offered");
+
+    string bcml = Path.Combine(temp, "settings.json");
+    File.WriteAllText(bcml, "{\n  \"game_dir\": \"E:\\\\Games\\\\Zelda [Game]\\\\content\",\n  \"game_dir_nx\": \"\"\n}");
+    Require(GameLanguages.ContentFolder(bcml) == "E:\\Games\\Zelda [Game]\\content" && GameLanguages.ContentFolder(Path.Combine(temp, "none.json")) == null, "the game folder comes from the BCML settings");
+    File.WriteAllText(bcml, "{ \"game_dir\": \"\" }");
+    Require(GameLanguages.ContentFolder(bcml) == null, "an empty game folder is ignored");
+
+    string instance = Path.Combine(temp, "cemu"), stockFolder = Path.Combine(instance, "graphicPacks", "downloadedGraphicPacks", "BreathOfTheWild", "Graphics");
+    Directory.CreateDirectory(stockFolder);
+    File.WriteAllText(Path.Combine(stockFolder, "rules.txt"), "[Definition]\r\ntitleIds = 00050000101C9400\r\nname = Graphics\r\npath = \"The Legend of Zelda: Breath of the Wild/Graphics\"\r\nversion = 7\r\n");
+    string settingsFile = Path.Combine(instance, "settings.xml");
+    File.WriteAllText(settingsFile, "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<content>\n  <language>0</language>\n  <console_language>1</console_language>\n  <GraphicPack />\n</content>");
+    var view = ScreenLayout.Plan(LayoutMode.SideBySide, 1.0, 1920, 1080).Players[0];
+    Func<string, string> setting = name => (string)System.Xml.Linq.XDocument.Load(settingsFile).Root.Element(name);
+    CemuDisplay.Apply(instance, view, null, null, 5);
+    Require(setting("console_language") == "5" && setting("language") == "0", "the game language is written and Cemu's own menu language is kept");
+    CemuDisplay.Apply(instance, view);
+    Require(setting("console_language") == "5", "no language given leaves the game language as it was");
+    File.WriteAllText(settingsFile, "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<content>\n  <GraphicPack />\n</content>");
+    CemuDisplay.Apply(instance, view, null, null, 2);
+    Require(setting("console_language") == "2", "a settings file without the language gets one");
+   }
+   finally { if (Directory.Exists(temp)) Directory.Delete(temp, true); }
+   Console.WriteLine("PASS: game and launcher languages.");
+  }
+
   static int[] Reconcile(int[] routes, params bool[] connected) { Router.Reconcile(routes, connected); return routes; }
 
-  static int Main() {
+  static int Main(string[] args) {
    try {
     var routes = Reconcile(new[] { -1, -1 }, true, true, false, false);
     Require(routes[0] == 0 && routes[1] == 1, "first two pads take players one and two");
@@ -305,8 +421,9 @@ namespace HyruleOnline {
     Console.WriteLine("PASS: controller motion.");
     Navigation();
     Players();
-    return 0;
-   }
+    Languages(args.Length > 0 ? args[0] : Directory.GetCurrentDirectory());
+        return 0;
+       }
    catch (Exception error) { Console.Error.WriteLine(error.Message); return 1; }
   }
  }

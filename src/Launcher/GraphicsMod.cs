@@ -64,9 +64,10 @@ namespace HyruleOnline {
    return Scales.OrderBy(s => Math.Abs(s - wanted)).First();
   }
 
-  public static string ScaleLabel(double scale) {
+  public static string ScaleLabel(double scale, Func<string, string> translate = null) {
+   Func<string, string> t = translate ?? (text => text);
    string percent = Math.Round(scale * 100).ToString("0", System.Globalization.CultureInfo.InvariantCulture) + "%";
-   return scale == DefaultScale ? percent + " (window size)" : scale > DefaultScale ? percent + " (sharper)" : percent + " (faster)";
+   return scale == DefaultScale ? percent + " " + t("(window size)") : scale > DefaultScale ? percent + " " + t("(sharper)") : percent + " " + t("(faster)");
   }
  }
 }
