@@ -71,7 +71,6 @@ namespace HyruleOnline {
    new[] { "Teleports player 2 next to player 1", "Teletransporta al jugador 2 junto al jugador 1", "Téléporte le joueur 2 près du joueur 1" },
    new[] { "LANGUAGE", "IDIOMA", "LANGUE" },
    new[] { "DETAILS", "DETALLES", "DÉTAILS" },
-   new[] { "CONTROLLERS", "MANDOS", "MANETTES" },
    new[] { "Player 1", "Jugador 1", "Joueur 1" },
    new[] { "Player 2", "Jugador 2", "Joueur 2" },
    new[] { "NAME", "NOMBRE", "NOM" },

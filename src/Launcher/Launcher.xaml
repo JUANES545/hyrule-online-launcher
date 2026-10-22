@@ -132,11 +132,10 @@
    <Grid.ColumnDefinitions><ColumnDefinition Width="1.1*"/><ColumnDefinition Width="0.9*"/></Grid.ColumnDefinitions>
    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
    <StackPanel x:Name="Players" Margin="0,0,20,0">
-    <TextBlock Text="CONTROLLERS" TextAlignment="Center" FontFamily="{DynamicResource TitleFont}" FontStretch="Normal" FontWeight="Normal"     FontSize="14" Foreground="#CBBF9F" Margin="0,0,0,8"/>
     <Grid x:Name="ModeRow" Margin="0,0,0,8">
      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-     <Button x:Name="Mode1" Content="1 player" Margin="0,0,4,0" ToolTip="Play alone: one game on the whole primary display." AutomationProperties.Name="1 player"/>
-     <Button x:Name="Mode2" Grid.Column="1" Content="2 players" Margin="4,0,0,0" ToolTip="Two players on this PC, with the screen split or one display each." AutomationProperties.Name="2 players"/>
+     <Button x:Name="Mode1" Content="1 player" Height="38" Padding="12,2" FontSize="17" Margin="0,0,4,0" ToolTip="Play alone: one game on the whole primary display." AutomationProperties.Name="1 player"/>
+     <Button x:Name="Mode2" Grid.Column="1" Content="2 players" Height="38" Padding="12,2" FontSize="17" Margin="4,0,0,0" ToolTip="Two players on this PC, with the screen split or one display each." AutomationProperties.Name="2 players"/>
     </Grid>
     <Grid x:Name="Cards">
     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
