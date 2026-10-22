@@ -224,7 +224,16 @@ The launcher and its helpers assume two players in many places, so the answers d
   - The Milk Bar DLL uses one fixed pipe and the launcher creates it with max 2 instances; starts would have to stay staggered one by one and the pipe limit would need a patch or a different launcher.
   - The server config has no player cap here, but the DLL has a `PlayerLimit` setting whose value was not read, and the Milk Bar FAQ lists "crashes with more players" as a known issue.
   - The layout would need 2x2 cells, per-display mode would become N displays, and names, models, teleport and rules would need N players.
+- **More than two players with the extra ones on other PCs.** The local limits (RAM, VRAM, one pipe, the launcher's two-player layout) go away, because each remote player runs their own Cemu. The launcher would host the server plus one or two local players. What remains is the mod and server's own limit and the FAQ's crash reports, which depend on the mod and were not tested here.
 - Not tested: any session with more than two Cemu instances.
+
+## Restart Session
+
+While a session is open, the Start button becomes "Restart session" as soon as an option that is only read at start differs from what the session was started with. Pressing it stops the session and starts it again with the new values.
+
+- **Needs a restart:** graphics quality, advanced Cemu options (API, VSync, async shaders, barriers, up/downscale), FPS target, display, split, one display per player and scale, game language, player names, avatars and rules. They are written to Cemu's `settings.xml`, the graphic packs, the Milk Bar `settings.json` or the server ini before the games start.
+- **Applies live:** the launcher language and the live controls (time, weather, name tags, teleport). Changing a value back to what the session started with removes the prompt.
+- **Verified:** a scripted run (UI Automation) with a real server: Start stays disabled until an option changes, turns into "Restart session", turns back when the value is restored, and pressing it replaced the server process. Not verified: a full restart with both Cemu windows in the game (Cemu did not start in that scripted run, cause not found).
 
 ## Open questions
 

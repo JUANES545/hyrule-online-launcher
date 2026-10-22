@@ -112,6 +112,9 @@ namespace HyruleOnline {
   string lastError, failure;
   bool stopping;
   int ticks;
+  bool sessionLive, restartAfterStop, restartPending;
+  string appliedSignature;
+  const string RestartPrompt = "Some changes only apply after a restart. Press Restart session to apply them.";
   string language = "en", launcherLanguage = "en";
   List<GameLanguage> gameLanguages = new List<GameLanguage> { GameLanguages.English };
   readonly Translator translator = new Translator();
@@ -139,7 +142,7 @@ namespace HyruleOnline {
    WatchWorld();
    ApplyLanguage();
    router.Message += text => Window.Dispatcher.BeginInvoke(new Action(() => Write(text)));
-   C<Button>("Start").Click += (s, e) => StartSession();
+   C<Button>("Start").Click += (s, e) => { if (sessionLive) { restartAfterStop = true; StopSession(); } else StartSession(); };
    C<Button>("Stop").Click += (s, e) => StopSession();
    C<Button>("Swap").Click += (s, e) => router.Swap();
    for (int i = 0; i < 2; i++) {
@@ -377,7 +380,9 @@ namespace HyruleOnline {
    catch (Exception) { rules = new ServerRules(); presets = new List<ServerRules>(); }
   }
 
-  void SaveRules() {
+  // While a session is open the running server keeps its rules; the new ones are written when the session restarts.
+  void SaveRules(bool force = false) {
+   if (sessionLive && !force) return;
    try { if (Directory.Exists(ServerFolder)) rules.Save(ServerIni); }
    catch (Exception error) { Write("Could not save the world rules: " + error.Message); }
   }
@@ -913,7 +918,8 @@ namespace HyruleOnline {
    SetStatus("Starting...");
    SetPrompt("");
    ApplyPlayers();
-   SaveRules();
+   SaveRules(true);
+   appliedSignature = Signature();
    Write("World rules: " + rules.Name + ", " + ServerRules.SpecialNames[rules.Special] + ".");
    ShowNameTags(true);
    Step("Server", "Starting", Busy); Step("A", "Waiting", Idle); Step("B", "Waiting", Idle);
@@ -970,8 +976,39 @@ namespace HyruleOnline {
    SetPrompt("");
    StopScript();
    Scripts.Run(root, "Stop-Online.ps1", "", Line, Error, code => Window.Dispatcher.BeginInvoke(new Action(() => {
-    stopping = false; failure = null; joined[0] = joined[1] = false; placed.Clear(); RefreshProcesses();
+    stopping = false; failure = null; joined[0] = joined[1] = false; placed.Clear(); appliedSignature = null; RefreshProcesses();
+    if (!restartAfterStop) return;
+    restartAfterStop = false;
+    if (sessionLive) Write("The previous session did not close completely, so it was not restarted.");
+    else StartSession();
    })));
+  }
+
+  // Everything a session writes before the games start. A change here only reaches the games after a restart; the launcher language and the live controls are not part of it.
+  string Signature() {
+   Func<double, string> size = v => GraphicsMod.NearestScale(v).ToString(System.Globalization.CultureInfo.InvariantCulture);
+   var parts = new List<object> { shadows, shadowDistance, antiAliasing, advanced.Api, advanced.VSync, advanced.AsyncCompile, advanced.AccurateBarriers, advanced.Upscale, advanced.Downscale, language,
+    rules.Special, rules.Enemies, rules.Quests, rules.Koroks, rules.Towers, rules.Shrines, rules.Locations, rules.DivineBeasts, pair != null };
+   for (int i = 0; i < 2; i++) parts.AddRange(new object[] { Characters.CleanName(C<TextBox>("P" + (i + 1) + "NameBox").Text, Characters.DefaultNames[i]), models[i] });
+   if (pair != null) for (int i = 0; i < 2; i++) parts.AddRange(new object[] { displays[i], size(scales[i]), fpsLimits[i] });
+   else parts.AddRange(new object[] { mode, size(scale), fpsLimit });
+   return string.Join("|", parts.Select(p => p == null ? "" : p.ToString()).ToArray());
+  }
+
+  // While the games run, Start becomes Restart as soon as an option that needs a restart differs from what the games were started with.
+  void UpdateStart() {
+   var start = C<Button>("Start");
+   bool settled = !stopping;
+   if (sessionLive && settled && appliedSignature == null) appliedSignature = Signature();
+   bool dirty = sessionLive && settled && appliedSignature != null && appliedSignature != Signature();
+   if (dirty != restartPending) {
+    restartPending = dirty;
+    if (dirty) SetPrompt(RestartPrompt);
+    else if (promptText == RestartPrompt) SetPrompt("");
+   }
+   string label = Tr(dirty ? "RESTART SESSION" : "START SESSION");
+   if ((string)start.Content != label) start.Content = label;
+   start.IsEnabled = settled && (sessionLive ? dirty : script == null);
   }
 
   void StopScript() {
@@ -1019,9 +1056,11 @@ namespace HyruleOnline {
     if (owned.Count > 0 && failure == null) SetStatus("Session running.");
     else if (owned.Count == 0 && failure == null) { SetStatus("Ready."); SetPrompt(""); }
    }
-   C<Button>("Start").IsEnabled = script == null && !stopping && owned.Count == 0;
+   sessionLive = owned.Count > 0;
+   if (!sessionLive && script == null && !stopping) appliedSignature = null;
+   UpdateStart();
    C<Button>("Stop").IsEnabled = !stopping && (script != null || owned.Count > 0);
-   EnableAppearance(script == null && !stopping && owned.Count == 0);
+   EnableAppearance(!stopping && (script == null || sessionLive));
    if (serverUp != serverHost.Running) { serverUp = serverHost.Running; UpdateLive(); }
   }
 
@@ -1058,6 +1097,7 @@ namespace HyruleOnline {
     DrawMotion(key, present ? snapshot.Motion[slot] : new MotionReading());
    }
    if (++ticks % 60 == 0) RefreshProcesses();
+   else if (ticks % 5 == 0) UpdateStart();
   }
 
   // The glyph shows a pad that has motion sensors: the body rolls with the gyro and tilt, the dot follows the acceleration.
