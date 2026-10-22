@@ -25,6 +25,43 @@ namespace HyruleOnline {
    public string Shadows, ShadowDistance, AntiAliasing;
   }
 
+  // Cemu's own graphics settings (settings.xml, <Graphic>), as opposed to the BOTW pack presets above.
+  public const string AutoApi = "Auto", VulkanApi = "Vulkan", OpenGlApi = "OpenGL";
+  public static readonly string[] Apis = { AutoApi, VulkanApi, OpenGlApi };
+  // Cemu's filter numbers: 0 bilinear, 1 bicubic, 2 bicubic hermite, 3 nearest neighbor.
+  public static readonly string[] Filters = { "Bilinear", "Bicubic", "Bicubic Hermite", "Nearest neighbor" };
+
+  public sealed class Advanced {
+   public string Api = AutoApi;
+   public bool VSync, AsyncCompile, AccurateBarriers;
+   public int Upscale = 1, Downscale = 0;
+  }
+
+  [System.Runtime.InteropServices.DllImport("kernel32", CharSet = System.Runtime.InteropServices.CharSet.Unicode, SetLastError = true)]
+  static extern IntPtr LoadLibrary(string name);
+  [System.Runtime.InteropServices.DllImport("kernel32")]
+  static extern bool FreeLibrary(IntPtr module);
+
+  // A Vulkan loader is installed with every GPU driver that supports Vulkan.
+  public static bool VulkanAvailable() {
+   IntPtr module = LoadLibrary("vulkan-1.dll");
+   if (module == IntPtr.Zero) return false;
+   FreeLibrary(module);
+   return true;
+  }
+
+  public static string CleanApi(string value) { return Apis.FirstOrDefault(a => a == value) ?? AutoApi; }
+
+  public static int CleanFilter(string value, int fallback) {
+   int parsed;
+   return int.TryParse(value, out parsed) && parsed >= 0 && parsed < Filters.Length ? parsed : fallback;
+  }
+
+  // Auto picks Vulkan whenever the machine has it; a Vulkan choice on a machine without it falls back to OpenGL.
+  public static string ResolveApi(string wanted, bool vulkanAvailable) {
+   return wanted == OpenGlApi || !vulkanAvailable ? OpenGlApi : VulkanApi;
+  }
+
   public static List<Choice> Parse(string rules, string category) {
    var choices = new List<Choice>();
    foreach (string block in Regex.Split(rules ?? "", "(?m)^\\[Preset\\][ \\t]*\\r?$").Skip(1)) {

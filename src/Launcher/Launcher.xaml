@@ -77,6 +77,10 @@
      <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.4"/></Trigger>
     </ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
   </Style>
+  <Style x:Key="InfoDot" TargetType="TextBlock">
+   <Setter Property="Text" Value="ⓘ"/><Setter Property="FontFamily" Value="Segoe UI Symbol"/><Setter Property="FontSize" Value="14"/><Setter Property="Foreground" Value="#78939F"/><Setter Property="Margin" Value="7,0,0,0"/><Setter Property="Cursor" Value="Help"/><Setter Property="VerticalAlignment" Value="Center"/>
+   <Style.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Foreground" Value="#E1CFA1"/></Trigger></Style.Triggers>
+  </Style>
   <SolidColorBrush x:Key="P1MotionAccent" Color="#7EE9C9"/>
   <SolidColorBrush x:Key="P2MotionAccent" Color="#E5C384"/>
   <SolidColorBrush x:Key="MotionMuted" Color="#78939F"/>
@@ -185,23 +189,52 @@
    </StackPanel>
   </Grid>
   <Grid x:Name="GraphicsPage" Visibility="Collapsed">
-   <StackPanel HorizontalAlignment="Center" VerticalAlignment="Top" Width="620">
+   <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+   <StackPanel Margin="0,0,14,0">
     <TextBlock Text="GRAPHICS" TextAlignment="Center" FontFamily="{DynamicResource TitleFont}" FontStretch="Normal" FontWeight="Normal" FontSize="14" Foreground="#CBBF9F" Margin="0,0,0,12"/>
     <Border Background="#A0152027" CornerRadius="8" Padding="28,22" BorderBrush="#3449585A" BorderThickness="1">
      <StackPanel>
       <TextBlock x:Name="GraphicsNote" TextAlignment="Center" Foreground="#9EB2BD" FontSize="14" Margin="0,0,0,16" TextWrapping="Wrap" Text="Applied to both games the next time a session starts."/>
-      <TextBlock Text="Render resolution" FontSize="13" Foreground="#78939F"/>
-      <ComboBox x:Name="ScaleBox" Margin="0,4,0,14"/>
+      <StackPanel Orientation="Horizontal"><TextBlock Text="Render resolution" FontSize="13" Foreground="#78939F"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="How many pixels each game renders. Higher is sharper but needs a stronger graphics card."/></StackPanel>
+      <ComboBox x:Name="ScaleBox" Margin="0,4,0,14" ToolTip="How many pixels each game renders. Higher is sharper but needs a stronger graphics card."/>
       <TextBlock x:Name="GraphicsSeparateNote" Visibility="Collapsed" Foreground="#E0BE75" FontSize="13" TextWrapping="Wrap" Margin="0,-8,0,14" Text="Each player sets this on the Play page while there is one display per player."/>
-      <TextBlock Text="Shadows" FontSize="13" Foreground="#78939F"/>
-      <ComboBox x:Name="ShadowsBox" Margin="0,4,0,14"/>
-      <TextBlock Text="Shadow draw distance" FontSize="13" Foreground="#78939F"/>
-      <ComboBox x:Name="ShadowDistanceBox" Margin="0,4,0,14"/>
-      <TextBlock Text="Anti-aliasing" FontSize="13" Foreground="#78939F"/>
-      <ComboBox x:Name="AntiAliasingBox" Margin="0,4,0,0"/>
+      <StackPanel Orientation="Horizontal"><TextBlock Text="Shadows" FontSize="13" Foreground="#78939F"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="Quality of the shadows in the game."/></StackPanel>
+      <ComboBox x:Name="ShadowsBox" Margin="0,4,0,14" ToolTip="Quality of the shadows in the game."/>
+      <StackPanel Orientation="Horizontal"><TextBlock Text="Shadow draw distance" FontSize="13" Foreground="#78939F"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="How far from the player shadows are drawn."/></StackPanel>
+      <ComboBox x:Name="ShadowDistanceBox" Margin="0,4,0,14" ToolTip="How far from the player shadows are drawn."/>
+      <StackPanel Orientation="Horizontal"><TextBlock Text="Anti-aliasing" FontSize="13" Foreground="#78939F"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="Smooths jagged edges."/></StackPanel>
+      <ComboBox x:Name="AntiAliasingBox" Margin="0,4,0,0" ToolTip="Smooths jagged edges."/>
      </StackPanel>
     </Border>
    </StackPanel>
+   <StackPanel Grid.Column="1" Margin="14,0,0,0">
+    <TextBlock Text="ADVANCED (CEMU)" TextAlignment="Center" FontFamily="{DynamicResource TitleFont}" FontStretch="Normal" FontWeight="Normal" FontSize="14" Foreground="#CBBF9F" Margin="0,0,0,12"/>
+    <Border Background="#A0152027" CornerRadius="8" Padding="28,22" BorderBrush="#3449585A" BorderThickness="1">
+     <StackPanel>
+      <TextBlock TextAlignment="Center" Foreground="#9EB2BD" FontSize="14" Margin="0,0,0,16" TextWrapping="Wrap" Text="Settings of the Cemu emulator for advanced users. The defaults suit most PCs."/>
+      <StackPanel Orientation="Horizontal"><TextBlock Text="Graphics API" FontSize="13" Foreground="#78939F"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="The graphics backend Cemu uses. Auto picks Vulkan when this PC supports it and OpenGL otherwise."/></StackPanel>
+      <ComboBox x:Name="ApiBox" Margin="0,4,0,6" ToolTip="The graphics backend Cemu uses. Auto picks Vulkan when this PC supports it and OpenGL otherwise."/>
+      <TextBlock Foreground="#E0BE75" FontSize="13" TextWrapping="Wrap" Margin="0,0,0,14" Text="After changing the API the first start can take longer while shaders compile again."/>
+      <UniformGrid Columns="2" Margin="0,0,0,14">
+       <StackPanel Margin="0,0,6,0">
+        <StackPanel Orientation="Horizontal"><TextBlock Text="Upscale filter" FontSize="13" Foreground="#78939F"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="How Cemu stretches the picture when the window is larger than the game's resolution."/></StackPanel>
+        <ComboBox x:Name="UpscaleBox" Margin="0,4,0,0" ToolTip="How Cemu stretches the picture when the window is larger than the game's resolution."/>
+       </StackPanel>
+       <StackPanel Margin="6,0,0,0">
+        <StackPanel Orientation="Horizontal"><TextBlock Text="Downscale filter" FontSize="13" Foreground="#78939F"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="How Cemu shrinks the picture when the window is smaller than the game's resolution."/></StackPanel>
+        <ComboBox x:Name="DownscaleBox" Margin="0,4,0,0" ToolTip="How Cemu shrinks the picture when the window is smaller than the game's resolution."/>
+       </StackPanel>
+      </UniformGrid>
+      <CheckBox x:Name="VSyncBox" Content="VSync" Style="{StaticResource RuleToggle}" Margin="0,0,0,10" ToolTip="Waits for the display refresh to avoid tearing. It can cap the frame rate and add delay."/>
+      <CheckBox x:Name="AsyncBox" Content="Asynchronous shader compile" Style="{StaticResource RuleToggle}" Margin="0,0,0,10" ToolTip="Compiles shaders in the background instead of pausing the game. Less stutter, but objects may be missing for a moment."/>
+      <CheckBox x:Name="BarriersBox" Content="Accurate barriers (Vulkan)" Style="{StaticResource RuleToggle}" Margin="0,0,0,0" ToolTip="Vulkan only. Fixes rare graphical glitches on some graphics cards at a small cost in speed."/>
+     </StackPanel>
+    </Border>
+   </StackPanel>
+   <Border Grid.Row="1" Grid.ColumnSpan="2" Margin="0,16,0,0" Background="#80111A20" CornerRadius="6" Padding="16,9" MinHeight="40">
+    <TextBlock x:Name="GraphicsHint" Foreground="#C9D6DB" FontSize="14" TextWrapping="Wrap" VerticalAlignment="Center"/>
+   </Border>
   </Grid>
   <Grid x:Name="MultiplayerPage" Visibility="Collapsed">
    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
@@ -211,18 +244,18 @@
     <Border Background="#A0152027" CornerRadius="8" Padding="24,20" BorderBrush="#3449585A" BorderThickness="1">
      <StackPanel>
       <TextBlock TextAlignment="Center" Foreground="#9EB2BD" FontSize="14" Margin="0,0,0,14" Text="What the two players share. Applied when the next session starts."/>
-      <TextBlock Text="Preset" FontSize="13" Foreground="#78939F"/>
-      <ComboBox x:Name="RulesBox" FontSize="17" Padding="14,8" Margin="0,4,0,12" AutomationProperties.Name="Rules preset"/>
-      <TextBlock Text="Special mode" FontSize="13" Foreground="#78939F"/>
-      <ComboBox x:Name="SpecialBox" FontSize="17" Padding="14,8" Margin="0,4,0,14" AutomationProperties.Name="Special mode"/>
+      <StackPanel Orientation="Horizontal"><TextBlock Text="Preset" FontSize="13" Foreground="#78939F"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="A ready-made set of sync rules. You can still change each rule below."/></StackPanel>
+      <ComboBox x:Name="RulesBox" FontSize="17" Padding="14,8" Margin="0,4,0,12" AutomationProperties.Name="Rules preset" ToolTip="A ready-made set of sync rules. You can still change each rule below."/>
+      <StackPanel Orientation="Horizontal"><TextBlock Text="Special mode" FontSize="13" Foreground="#78939F"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="An optional game mode on top of the rules: Hunter vs Speedrunner or Death Swap."/></StackPanel>
+      <ComboBox x:Name="SpecialBox" FontSize="17" Padding="14,8" Margin="0,4,0,14" AutomationProperties.Name="Special mode" ToolTip="An optional game mode on top of the rules: Hunter vs Speedrunner or Death Swap."/>
       <UniformGrid Columns="2">
-       <CheckBox x:Name="RuleEnemies" Content="Enemies" Style="{StaticResource RuleToggle}"/>
-       <CheckBox x:Name="RuleQuests" Content="Quests" Style="{StaticResource RuleToggle}"/>
-       <CheckBox x:Name="RuleKoroks" Content="Koroks" Style="{StaticResource RuleToggle}"/>
-       <CheckBox x:Name="RuleTowers" Content="Towers" Style="{StaticResource RuleToggle}"/>
-       <CheckBox x:Name="RuleShrines" Content="Shrines" Style="{StaticResource RuleToggle}"/>
-       <CheckBox x:Name="RuleLocations" Content="Locations" Style="{StaticResource RuleToggle}"/>
-       <CheckBox x:Name="RuleDivineBeasts" Content="Divine Beasts" Style="{StaticResource RuleToggle}"/>
+       <CheckBox x:Name="RuleEnemies" Content="Enemies" Style="{StaticResource RuleToggle}" ToolTip="Keeps enemies in sync: what one player defeats is defeated for both."/>
+       <CheckBox x:Name="RuleQuests" Content="Quests" Style="{StaticResource RuleToggle}" ToolTip="Shares quest progress between the players."/>
+       <CheckBox x:Name="RuleKoroks" Content="Koroks" Style="{StaticResource RuleToggle}" ToolTip="Shares the Korok seeds found by each player."/>
+       <CheckBox x:Name="RuleTowers" Content="Towers" Style="{StaticResource RuleToggle}" ToolTip="Shares activated towers and the map they reveal."/>
+       <CheckBox x:Name="RuleShrines" Content="Shrines" Style="{StaticResource RuleToggle}" ToolTip="Shares the shrines either player has completed."/>
+       <CheckBox x:Name="RuleLocations" Content="Locations" Style="{StaticResource RuleToggle}" ToolTip="Shares the map locations either player has discovered."/>
+       <CheckBox x:Name="RuleDivineBeasts" Content="Divine Beasts" Style="{StaticResource RuleToggle}" ToolTip="Shares Divine Beast progress between the players."/>
       </UniformGrid>
      </StackPanel>
     </Border>
@@ -232,26 +265,29 @@
     <Border Background="#A0152027" CornerRadius="8" Padding="24,20" BorderBrush="#3449585A" BorderThickness="1">
      <StackPanel>
       <TextBlock TextAlignment="Center" Foreground="#9EB2BD" FontSize="14" Margin="0,0,0,14" Text="Available while the server is running."/>
-      <TextBlock Text="Time of day (24 hour, HH:MM)" FontSize="13" Foreground="#78939F"/>
+      <StackPanel Orientation="Horizontal"><TextBlock Text="Time of day (24 hour, HH:MM)" FontSize="13" Foreground="#78939F"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="The time to set in the game, written as 24 hour HH:MM."/></StackPanel>
       <Grid Margin="0,4,0,12"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
        <TextBox x:Name="TimeBox" Style="{StaticResource NameBox}" Text="12:00" MaxLength="5" Height="44" FontSize="17" AutomationProperties.Name="Time of day"/>
-       <Button x:Name="SetTime" Grid.Column="1" Content="Set time" FontStyle="Normal" FontSize="16" Padding="22,9" Margin="8,0,0,0" Width="170"/>
+       <Button x:Name="SetTime" Grid.Column="1" Content="Set time" FontStyle="Normal" FontSize="16" Padding="22,9" Margin="8,0,0,0" Width="170" ToolTip="Changes the time of day for every player."/>
       </Grid>
-      <TextBlock Text="Weather" FontSize="13" Foreground="#78939F"/>
+      <StackPanel Orientation="Horizontal"><TextBlock Text="Weather" FontSize="13" Foreground="#78939F"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="The weather to apply with the button next to it."/></StackPanel>
       <Grid Margin="0,4,0,12"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-       <ComboBox x:Name="WeatherBox" FontSize="17" Padding="14,8" AutomationProperties.Name="Weather"/>
-       <Button x:Name="SetWeather" Grid.Column="1" Content="Set weather" FontStyle="Normal" FontSize="16" Padding="22,9" Margin="8,0,0,0" Width="170"/>
+       <ComboBox x:Name="WeatherBox" FontSize="17" Padding="14,8" AutomationProperties.Name="Weather" ToolTip="The weather to apply with the button next to it."/>
+       <Button x:Name="SetWeather" Grid.Column="1" Content="Set weather" FontStyle="Normal" FontSize="16" Padding="22,9" Margin="8,0,0,0" Width="170" ToolTip="Changes the weather for every player."/>
       </Grid>
-      <CheckBox x:Name="LiveNameTags" Content="Name tags" IsChecked="True" Style="{StaticResource RuleToggle}" Margin="0,0,0,10"/>
+      <CheckBox x:Name="LiveNameTags" Content="Name tags" IsChecked="True" Style="{StaticResource RuleToggle}" Margin="0,0,0,10" ToolTip="Shows or hides the names above the other players' heads."/>
       <UniformGrid Columns="2">
-       <Button x:Name="PauseSync" Content="Pause sync" FontStyle="Normal" FontSize="16" Padding="12,9" Margin="0,0,4,8"/>
-       <Button x:Name="ResumeSync" Content="Resume sync" FontStyle="Normal" FontSize="16" Padding="12,9" Margin="4,0,0,8"/>
+       <Button x:Name="PauseSync" Content="Pause sync" FontStyle="Normal" FontSize="16" Padding="12,9" Margin="0,0,4,8" ToolTip="Stops the shared rules from syncing for now, so the players can explore apart."/>
+       <Button x:Name="ResumeSync" Content="Resume sync" FontStyle="Normal" FontSize="16" Padding="12,9" Margin="4,0,0,8" ToolTip="Starts syncing the shared rules again."/>
        <Button x:Name="BringP1" Content="Player 1 → player 2" ToolTip="Teleports player 1 next to player 2" FontStyle="Normal" FontSize="16" Padding="12,9" Margin="0,0,4,0"/>
        <Button x:Name="BringP2" Content="Player 2 → player 1" ToolTip="Teleports player 2 next to player 1" FontStyle="Normal" FontSize="16" Padding="12,9" Margin="4,0,0,0"/>
       </UniformGrid>
      </StackPanel>
     </Border>
    </StackPanel>
+   <Border Grid.Row="1" Grid.ColumnSpan="2" Margin="0,16,0,0" Background="#80111A20" CornerRadius="6" Padding="16,9" MinHeight="40">
+    <TextBlock x:Name="MultiplayerHint" Foreground="#C9D6DB" FontSize="14" TextWrapping="Wrap" VerticalAlignment="Center"/>
+   </Border>
   </Grid>
   <Grid x:Name="LanguagePage" Visibility="Collapsed">
    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Top" Width="700">

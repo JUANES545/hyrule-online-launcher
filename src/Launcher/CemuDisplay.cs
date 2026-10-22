@@ -32,7 +32,7 @@ namespace HyruleOnline {
    return text.Append(eol).ToString();
   }
 
-  public static void Apply(string instance, PlayerView view, string fpsPreset = null, GraphicsMod.Quality quality = null, int? consoleLanguage = null) {
+  public static void Apply(string instance, PlayerView view, string fpsPreset = null, GraphicsMod.Quality quality = null, int? consoleLanguage = null, GraphicsMod.Advanced advanced = null, bool vulkanAvailable = true) {
    string stockFolder = Path.Combine(instance, StockPack);
    string settingsFile = Path.Combine(instance, "settings.xml");
    if (!File.Exists(Path.Combine(stockFolder, "rules.txt"))) throw new FileNotFoundException("The BOTW Graphics pack is missing from " + instance + ".");
@@ -47,10 +47,10 @@ namespace HyruleOnline {
    }
    var utf8 = new UTF8Encoding(false);
    File.WriteAllText(packFile, BuildRules(File.ReadAllText(Path.Combine(stockFolder, "rules.txt")), view), utf8);
-   WriteSettings(settingsFile, fpsPreset, quality, consoleLanguage);
+   WriteSettings(settingsFile, fpsPreset, quality, consoleLanguage, advanced, vulkanAvailable);
   }
 
-  static void WriteSettings(string settingsFile, string fpsPreset, GraphicsMod.Quality quality, int? consoleLanguage) {
+  static void WriteSettings(string settingsFile, string fpsPreset, GraphicsMod.Quality quality, int? consoleLanguage, GraphicsMod.Advanced advanced, bool vulkanAvailable) {
    var document = XDocument.Load(settingsFile);
    var content = document.Root;
    // The game language; Cemu's own menu language (<language>) is a different setting and stays as it is.
@@ -81,11 +81,23 @@ namespace HyruleOnline {
 
    var graphic = content.Element("Graphic");
    if (graphic == null) { graphic = new XElement("Graphic"); content.Add(graphic); }
-   var scaling = graphic.Element("FullscreenScaling");
-   if (scaling == null) graphic.Add(new XElement("FullscreenScaling", "1")); else scaling.Value = "1";
+   SetValue(graphic, "FullscreenScaling", "1");
+   if (advanced != null) {
+    SetValue(graphic, "api", GraphicsMod.ResolveApi(advanced.Api, vulkanAvailable) == GraphicsMod.OpenGlApi ? "0" : "1");
+    SetValue(graphic, "VSync", advanced.VSync ? "1" : "0");
+    SetValue(graphic, "AsyncCompile", advanced.AsyncCompile ? "true" : "false");
+    SetValue(graphic, "VulkanAccurateBarriers", advanced.AccurateBarriers ? "true" : "false");
+    SetValue(graphic, "UpscaleFilter", GraphicsMod.CleanFilter(advanced.Upscale.ToString(), 1).ToString());
+    SetValue(graphic, "DownscaleFilter", GraphicsMod.CleanFilter(advanced.Downscale.ToString(), 0).ToString());
+   }
 
    var settings = new XmlWriterSettings { Indent = true, IndentChars = "    ", Encoding = new UTF8Encoding(false) };
    using (var writer = XmlWriter.Create(settingsFile, settings)) document.Save(writer);
+  }
+
+  static void SetValue(XElement parent, string name, string value) {
+   var element = parent.Element(name);
+   if (element == null) parent.Add(new XElement(name, value)); else element.Value = value;
   }
 
   static XElement Preset(string category, string preset) {

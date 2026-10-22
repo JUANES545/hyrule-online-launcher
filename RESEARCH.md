@@ -198,6 +198,27 @@ Findings from this machine and the code, and what was built:
 - The choice is saved in `preferences.xml` (`Arrangement`, `Display1/2`, `Scale1/2`, `Fps1/2`). The launcher re-reads the display list every minute and updates when displays appear or disappear.
 - Not verified: gameplay on the second display (the real session only covered placement, sizes and the log until the first player loaded), more than two displays, and displays with a different DPI scale.
 
+## Advanced Cemu graphics and option hints (built)
+
+- The Graphics page has a second column, "Advanced (Cemu)", written into each instance's `settings.xml` `<Graphic>` block when a session starts: `api` (0 OpenGL, 1 Vulkan), `VSync`, `AsyncCompile`, `VulkanAccurateBarriers`, `UpscaleFilter` and `DownscaleFilter` (0 bilinear, 1 bicubic, 2 bicubic hermite, 3 nearest neighbor). The values follow the numbers already in the real `settings.xml` and Cemu 2.x's `CemuConfig.h`; the 1.26.2 meaning of each is not independently verified, apart from `api`.
+- Auto resolves to Vulkan when `vulkan-1.dll` loads and to OpenGL otherwise. It does not benchmark the GPU. Vulkan is disabled in the list when the DLL is missing, and accurate barriers only apply to Vulkan.
+- Checked in a real session on this machine: with the preference forced to OpenGL, Cemu A's log shows "Init OpenGL graphics backend" and `settings.xml` holds `api 0`, `AsyncCompile true`, filters 3 and 1. The default run earlier logged "Init Vulkan graphics backend" on the RTX 5070 Ti. The session was stopped right after Cemu A started, so OpenGL gameplay was not checked.
+- Caution: the earlier isolated-install notes say an OpenGL first boot with an empty shader cache hung on the loading screen, and the shader cache is separate per API. Changing the API may force a long shader rebuild on the next start, which also delays player B in the staggered start. The UI warns about it in soft words; this has not been measured.
+- Hints: every Graphics and Multiplayer option has a tooltip and an info dot. A hint bar under the options shows the same text on mouse hover or keyboard focus. The launcher has no gamepad focus navigation yet (only LB/RB page switching), so a controller cannot move the focus to an option until that exists.
+
+## One, three or four players (research, not built)
+
+The launcher and its helpers assume two players in many places, so the answers differ a lot.
+
+- **One player: low effort.** It needs one Cemu on the whole display, no second launcher or second instance, and the layout, router and status code accepting a count of 1. The server and the mod do not require a second player. Still to confirm: that the Milk Bar DLL works alone with the dedicated server (it should, since player A already joins first).
+- **Three or four players: medium to high effort and not safe to promise.**
+  - The code hard-codes two: `joined = new bool[2]`, `for (i < 2)` loops in `Launcher.cs`, the `cemuA`/`cemuB` names and paths, `PlayerView[2]` in `Layout.cs`, `Router.Routes = new int[2]`, and `player[2]` in `xinput_bridge.c` (the shared memory already holds four pad states, the bridge answers only Cemu XInput 0 and 1).
+  - More instances (`cemuC`, `cemuD`) mean more disk, RAM and VRAM: each BOTW instance with shaders is heavy, and four render windows on one GPU will probably not hold 60 FPS.
+  - The Milk Bar DLL uses one fixed pipe and the launcher creates it with max 2 instances; starts would have to stay staggered one by one and the pipe limit would need a patch or a different launcher.
+  - The server config has no player cap here, but the DLL has a `PlayerLimit` setting whose value was not read, and the Milk Bar FAQ lists "crashes with more players" as a known issue.
+  - The layout would need 2x2 cells, per-display mode would become N displays, and names, models, teleport and rules would need N players.
+- Not tested: any session with more than two Cemu instances.
+
 ## Open questions
 
 0. Pipe limit: the launcher creates `languageConnectionPipe` with max 2 instances, which fits exactly two launchers on one PC. The DLL pipe name is fixed, and in the two-instance run both DLLs connected without a visible mix-up, but this was not tested on purpose.

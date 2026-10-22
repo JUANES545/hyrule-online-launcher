@@ -487,6 +487,20 @@ namespace HyruleOnline {
      Require(again.Count() == 3 && (string)again.First(e => (string)e.Attribute("filename") == FpsMod.PackFile).Elements("Preset").Last().Element("preset") == "60FPS Limit (Default)", "settings do not collect duplicate entries and take the new limit");
      CemuDisplay.Apply(instance, view);
      Require(System.Xml.Linq.XDocument.Load(settingsFile).Root.Element("GraphicPack").Elements("Entry").Count() == 3, "no limit given leaves FPS++ as it was");
+     Require(System.Xml.Linq.XDocument.Load(settingsFile).Root.Element("Graphic").Element("api") == null, "no advanced options leave Cemu's API alone");
+
+     var options = new GraphicsMod.Advanced { Api = GraphicsMod.AutoApi, VSync = true, AsyncCompile = true, AccurateBarriers = true, Upscale = 3, Downscale = 2 };
+     Func<string> graphicValues = () => { var g = System.Xml.Linq.XDocument.Load(settingsFile).Root.Element("Graphic"); return string.Join(",", new[] { "api", "VSync", "AsyncCompile", "VulkanAccurateBarriers", "UpscaleFilter", "DownscaleFilter", "FullscreenScaling" }.Select(n => (string)g.Element(n))); };
+     CemuDisplay.Apply(instance, view, null, null, null, options, true);
+     Require(graphicValues() == "1,1,true,true,3,2,1", "advanced options are written to Cemu's graphic settings: " + graphicValues());
+     CemuDisplay.Apply(instance, view, null, null, null, options, false);
+     Require(graphicValues().StartsWith("0,"), "Auto and Vulkan fall back to OpenGL when Vulkan is missing");
+     options.Api = GraphicsMod.OpenGlApi; options.VSync = false; options.AsyncCompile = false; options.AccurateBarriers = false; options.Upscale = 9; options.Downscale = -1;
+     CemuDisplay.Apply(instance, view, null, null, null, options, true);
+     Require(graphicValues() == "0,0,false,false,1,0,1", "OpenGL is honoured and a bad filter falls back to the default: " + graphicValues());
+     Require(GraphicsMod.ResolveApi(GraphicsMod.AutoApi, true) == "Vulkan" && GraphicsMod.ResolveApi(GraphicsMod.VulkanApi, true) == "Vulkan" && GraphicsMod.ResolveApi(GraphicsMod.OpenGlApi, true) == "OpenGL" && GraphicsMod.ResolveApi(GraphicsMod.AutoApi, false) == "OpenGL", "the API resolves from the wish and the hardware");
+     Require(GraphicsMod.CleanApi("DirectX") == "Auto" && GraphicsMod.CleanApi(null) == "Auto" && GraphicsMod.CleanApi("OpenGL") == "OpenGL" && GraphicsMod.CleanFilter("2", 1) == 2 && GraphicsMod.CleanFilter("7", 1) == 1 && GraphicsMod.CleanFilter("x", 0) == 0 && GraphicsMod.CleanFilter(null, 1) == 1, "saved API and filter values are cleaned");
+     GraphicsMod.VulkanAvailable();
 
      bool broken = false;
      try { CemuDisplay.BuildRules("name = something else", view); } catch (InvalidDataException) { broken = true; }
