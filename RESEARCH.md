@@ -249,7 +249,7 @@ While a session is open, the Start button becomes "Restart session" as soon as a
 
 The Display card shows each monitor's EDID name (for example "Odyssey G95C") instead of the resolution, in the one-display-per-player layout and in the primary-display caption. The name comes from the 0xFC descriptor of the monitor's EDID in the registry; when it is missing the card falls back to "Display N". Unit test: `EdidName` in `tests\RouterTests.cs`.
 
-## Screen rotation (built, not verified in a session)
+## Screen rotation (built, verified on the title screen)
 
 Each player's screen can be turned a quarter turn clockwise per click (0, 90, 180, 270). The avatar button beside the display preview shows the direction. It is only offered with two players, in both the primary-display split and the one-display-per-player layout. In two-display mode the user picks each player's display with the Display dropdowns; the split always uses the primary display.
 
@@ -259,7 +259,7 @@ Each player's screen can be turned a quarter turn clockwise per click (0, 90, 18
 - `Start-Online.ps1` sets `VK_IMPLICIT_LAYER_PATH` per player right before starting that player's Milk Bar launcher, so only turned players load the layer.
 - For 90 and 270 degrees the game renders the swapped shape (the window area is unchanged) and the shader rotates the picture back into the window.
 - Unit tests cover the plans and the file deployment. ReShade rewrites its ini on exit and drops comments, so `RotationMod` recognises its own setup by the preset path, not by a comment (the first version refused to start a second session because of this).
-- **Verified (2026-10-22, session with player 1 turned 90 degrees):** ReShade 6.5.1 loaded in Cemu A only, the shader compiled, the game rendered 1266 x 1170 in a 1170 x 1266 window, and a screenshot of the title screen shows player 1's picture turned a quarter turn clockwise with no visible stretching, next to player 2's upright picture. When the displays changed during the session the launcher showed player 1 at 1440 x 5120 on the 5120 x 1440 display. Not verified: 180 and 270 degrees visually, the buttons with a real pad, and gameplay while turned.
+- **Verified (2026-10-22, session with player 1 turned 90 degrees):** ReShade 6.5.1 loaded in Cemu A only, the shader compiled, the game rendered 1266 x 1170 in a 1170 x 1266 window, and a screenshot of the title screen shows player 1's picture turned a quarter turn clockwise with no visible stretching, next to player 2's upright picture. When the displays changed during the session the launcher showed player 1 at 1440 x 5120 on the 5120 x 1440 display. The same check at 180 degrees (picture upside down, 1170 x 1266 render) and 270 degrees (1266 x 1170 render, text reads upward) looked correct, with player 2 upright both times. The turn buttons were also reached and pressed with the simulated pad cursor (`HYRULE_PAD_SCRIPT`). Not verified: the buttons with a real pad, and gameplay while turned.
 
 ## Milk Bar "Unexpected character encountered ... line 2, position 3" (cause found, 2026-10-23)
 
