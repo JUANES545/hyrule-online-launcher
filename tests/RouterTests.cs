@@ -134,6 +134,15 @@ namespace HyruleOnline {
    Require(Spatial.Pick(uneven[0], uneven, 1) == 1, "down from a wide box picks the nearest lined up one");
    Require(Spatial.Pick(uneven[2], uneven, 3) == 3 && Spatial.Pick(uneven[1], uneven, 3) == 2, "a far box is still reachable when nothing is closer");
    Require(Spatial.Pick(cells[0], new List<Box>(), 1) == -1 && Spatial.Pick(cells[0], cells, -1) == -1, "no candidate gives no move");
+   // Two columns whose rows do not line up, plus a footer and a corner button, like the Graphics page.
+   var page = new List<Box> { new Box(0, 0, 80, 10), new Box(100, 0, 80, 10), new Box(0, 20, 80, 10), new Box(100, 18, 38, 10), new Box(142, 18, 38, 10), new Box(0, 40, 80, 10), new Box(100, 38, 80, 10), new Box(40, 100, 30, 10), new Box(300, 0, 10, 10) };
+   Require(Spatial.Pick(page[2], page, 3) == 3 && Spatial.Pick(page[3], page, 2) == 2 && Spatial.Pick(page[3], page, 3) == 4 && Spatial.Pick(page[4], page, 2) == 3, "right and left follow the row they line up with");
+   Require(Spatial.Pick(page[5], page, 3) == 6 && Spatial.Pick(page[6], page, 2) == 5, "a row that is offset a little still pairs up");
+   Require(Spatial.Pick(page[0], page, 3) == 1 && Spatial.Pick(page[1], page, 3) == 8 && Spatial.Pick(page[8], page, 2) == 1, "right reaches a box in the same row only");
+   Require(Spatial.Pick(page[7], page, 3) == -1 && Spatial.Pick(page[7], page, 2) == -1, "left and right never jump to another row");
+   Require(Spatial.Pick(page[5], page, 1) == 7 && Spatial.Pick(page[7], page, 0) == 5, "down and up still reach a footer that is lined up");
+   Require(Spatial.Pick(page[0], page, 0) == -1 && Spatial.Pick(page[4], page, 0) == 1 && Spatial.Pick(page[3], page, 1) == 6, "up stops at the top row and finds the box above or below");
+   Require(Spatial.Pick(page[0], new List<Box> { page[0], new Box(300, 40, 10, 10) }, 1) == 1, "down may reach a box that is not lined up when nothing else is below");
    Console.WriteLine("PASS: controller menu movement.");
   }
 

@@ -212,6 +212,12 @@ Findings from this machine and the code, and what was built:
 - On Play, the avatar slot of each card opens a mosaic (7 columns) with the name under each image. Both cards can be open together and the two players choose at the same time. Wide windows show them side by side; portrait windows keep them stacked.
 - Controller cursors: the controller routed to a player drives that player's cursor (green P1, orange P2); every other controller, and every controller on the other pages, shares a white cursor. D-pad or left stick moves by screen position, A presses/toggles/opens a list, B goes back or closes. LB/RB still switch pages (blocked while a list or mosaic is open). The cursor does nothing unless the launcher is the active window, and is paused while a controller is being assigned (B cancels the assignment).
 - Verified: pure logic by `Test.ps1` (repeat, dead zone, nearest-control picking) and a scripted run (`HYRULE_PAD_SCRIPT`, simulated presses) that opens both mosaics, picks avatars, changes a list value with the cursor and flips pages at 1920x1080, 1280x720 and 800x1000. Not verified: a real physical controller, and names cannot be typed with a pad (the name box only takes keyboard text).
+- Fine adjustment (tested with a ViGEm virtual Xbox pad driving the real launcher, 1600x900 and 1280x720):
+  - The first cursor seat ran before a new page was laid out, so only Help and the footer were candidates and every page started on Help. `ShowPage` now lays the page out first, and the cursor lands on the first option of the page (never Help or the footer).
+  - Each cursor remembers where it left every page; coming back with LB/RB puts it there again.
+  - Left and right only move along the current row, so they no longer jump to an unrelated row; up and down fall back to the nearest box when nothing is straight above or below. An audit of every page's neighbour graph found no unreachable option.
+  - With Help open the cursor stays on Help, and B closes it.
+  - Not covered: typing text (names, time of day, server command) still needs a keyboard.
 
 ## One, three or four players (research, not built)
 

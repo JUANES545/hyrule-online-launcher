@@ -89,28 +89,39 @@ namespace HyruleOnline {
   public Box(double x, double y, double width, double height) { X = x; Y = y; Width = width; Height = height; }
  }
 
- // Picks the neighbour a controller moves to: the nearest box in that direction, preferring the ones lined up with the current one.
+ // Picks the neighbour a controller moves to. A box lined up with the current one (it shares a row for left/right, a column for up/down) always wins over one that is not;
+ // among those the nearest wins and the best centred breaks ties. Only up and down may fall back to a box that is not lined up, so left and right never jump to another row.
  static class Spatial {
   static double Gap(double start, double length, double otherStart, double otherLength) {
    return Math.Max(0, Math.Max(otherStart - (start + length), start - (otherStart + otherLength)));
   }
 
   public static int Pick(Box from, IList<Box> items, int direction) {
-   int best = -1;
-   double bestScore = double.MaxValue, fromX = from.X + from.Width / 2, fromY = from.Y + from.Height / 2;
+   if (direction < 0 || direction > 3) return -1;
+   bool vertical = direction < 2;
+   int best = -1, fallback = -1;
+   double bestScore = double.MaxValue, fallbackScore = double.MaxValue, fromX = from.X + from.Width / 2, fromY = from.Y + from.Height / 2;
    for (int i = 0; i < items.Count; i++) {
     var item = items[i];
-    double itemX = item.X + item.Width / 2, itemY = item.Y + item.Height / 2, along, across;
+    double itemX = item.X + item.Width / 2, itemY = item.Y + item.Height / 2, along, offset, across;
     switch (direction) {
-     case 0: if (itemY >= fromY - 1) continue; along = Math.Max(0, from.Y - (item.Y + item.Height)) + (fromY - itemY) * .1; across = Gap(from.X, from.Width, item.X, item.Width) * 3 + Math.Abs(itemX - fromX) * .3; break;
-     case 1: if (itemY <= fromY + 1) continue; along = Math.Max(0, item.Y - (from.Y + from.Height)) + (itemY - fromY) * .1; across = Gap(from.X, from.Width, item.X, item.Width) * 3 + Math.Abs(itemX - fromX) * .3; break;
-     case 2: if (itemX >= fromX - 1) continue; along = Math.Max(0, from.X - (item.X + item.Width)) + (fromX - itemX) * .1; across = Gap(from.Y, from.Height, item.Y, item.Height) * 3 + Math.Abs(itemY - fromY) * .3; break;
-     case 3: if (itemX <= fromX + 1) continue; along = Math.Max(0, item.X - (from.X + from.Width)) + (itemX - fromX) * .1; across = Gap(from.Y, from.Height, item.Y, item.Height) * 3 + Math.Abs(itemY - fromY) * .3; break;
-     default: continue;
+     case 0: if (itemY >= fromY - 1) continue; along = Math.Max(0, from.Y - (item.Y + item.Height)) + (fromY - itemY) * .1; break;
+     case 1: if (itemY <= fromY + 1) continue; along = Math.Max(0, item.Y - (from.Y + from.Height)) + (itemY - fromY) * .1; break;
+     case 2: if (itemX >= fromX - 1) continue; along = Math.Max(0, from.X - (item.X + item.Width)) + (fromX - itemX) * .1; break;
+     default: if (itemX <= fromX + 1) continue; along = Math.Max(0, item.X - (from.X + from.Width)) + (itemX - fromX) * .1; break;
     }
-    if (along + across < bestScore) { bestScore = along + across; best = i; }
+    if (vertical) { across = Gap(from.X, from.Width, item.X, item.Width); offset = Math.Abs(itemX - fromX); }
+    else { across = Gap(from.Y, from.Height, item.Y, item.Height); offset = Math.Abs(itemY - fromY); }
+    if (across <= 0) {
+     double score = along + offset * .5;
+     if (score < bestScore) { bestScore = score; best = i; }
+    }
+    else if (vertical) {
+     double score = along + across * 1.5 + offset * .3;
+     if (score < fallbackScore) { fallbackScore = score; fallback = i; }
+    }
    }
-   return best;
+   return best >= 0 ? best : fallback;
   }
  }
 }

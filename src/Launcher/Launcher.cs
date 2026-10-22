@@ -285,6 +285,7 @@ namespace HyruleOnline {
     tab.Background = Paint(current ? "#B03C554B" : "#801B252B");
     tab.BorderBrush = Paint(current ? "#D5C396" : "#364E5659");
    }
+   Window.UpdateLayout();
   }
 
   // LB and RB on any controller flip the page, but only while the launcher itself is in front, so they never fight with the games.

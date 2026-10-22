@@ -20,6 +20,7 @@ namespace HyruleOnline {
   public int Picker = -1;
   public ComboBox Combo;
   public int ComboIndex;
+  public readonly Dictionary<int, FrameworkElement> Memory = new Dictionary<int, FrameworkElement>();
  }
 
  sealed partial class Launcher {
@@ -133,18 +134,30 @@ namespace HyruleOnline {
    return Candidates(cursor).Contains(element);
   }
 
+  // Where a cursor lands on a page: the spot it left last time, else the first option of the page (never Help or the footer buttons).
   void Seat(PadCursor cursor) {
    var all = Candidates(cursor);
    FrameworkElement start = null;
    if (cursor.Picker >= 0) start = avatarTiles[cursor.Picker].FirstOrDefault(t => t.Tag == AvatarOf(cursor.Picker));
-   else if (page == 0) start = C<Button>(cursor.Owner == 0 ? "P1AvatarButton" : cursor.Owner == 1 ? "P2AvatarButton" : "Start");
-   if (start == null || !all.Contains(start)) start = all.OrderBy(e => Bounds(e).Top * 4 + Bounds(e).Left).FirstOrDefault();
+   else if (HelpOpen) start = C<Button>("Help");
+   else if (cursor.Memory.TryGetValue(page, out start) && !all.Contains(start)) start = null;
+   if (start == null && cursor.Picker < 0 && !HelpOpen) {
+    if (page == 0) start = C<Button>(cursor.Owner == 0 ? "P1AvatarButton" : cursor.Owner == 1 ? "P2AvatarButton" : "Start");
+    if (start == null || !all.Contains(start)) {
+     var chrome = new[] { "Help", "Start", "Stop", "Exit" };
+     var content = all.Where(e => !chrome.Contains(e.Name)).ToList();
+     start = (content.Count > 0 ? content : all).OrderBy(e => Math.Round(Bounds(e).Top / 12)).ThenBy(e => Bounds(e).Left).FirstOrDefault();
+    }
+   }
    SetTarget(cursor, start);
   }
+
+  bool HelpOpen { get { return C<Border>("HelpPanel").Visibility == Visibility.Visible; } }
 
   void SetTarget(PadCursor cursor, FrameworkElement element) {
    cursor.Target = element;
    if (element == null) return;
+   if (cursor.Picker < 0 && !HelpOpen) cursor.Memory[page] = element;
    var tile = element.Tag as Character;
    if (tile != null && cursor.Picker >= 0) ShowPickerName(cursor.Picker, tile);
    ShowHint(element);
@@ -176,6 +189,7 @@ namespace HyruleOnline {
   // What this cursor may move to: the open mosaic if it is choosing, otherwise the controls of the page and the footer, minus other players' cards.
   List<FrameworkElement> Candidates(PadCursor cursor) {
    if (cursor.Picker >= 0) return avatarTiles[cursor.Picker].Cast<FrameworkElement>().Where(t => t.IsVisible && t.IsEnabled).ToList();
+   if (HelpOpen) return new List<FrameworkElement> { C<Button>("Help") };
    var found = new List<FrameworkElement>();
    Collect(C<FrameworkElement>(PageNames[page] + "Page"), found);
    foreach (var name in new[] { "Help", "Start", "Stop", "Exit" }) {
@@ -256,7 +270,10 @@ namespace HyruleOnline {
 
   void BackCursor(PadCursor cursor) {
    if (cursor.Combo != null) { cursor.Combo.IsDropDownOpen = false; cursor.Combo = null; return; }
-   if (cursor.Picker < 0) return;
+   if (cursor.Picker < 0) {
+    if (HelpOpen) C<Border>("HelpPanel").Visibility = Visibility.Collapsed;
+    return;
+   }
    int player = cursor.Picker;
    cursor.Picker = -1;
    SetPicker(player, false);
