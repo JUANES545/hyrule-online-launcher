@@ -64,9 +64,32 @@ Separate from `hyrule-coop-launcher` (local split-screen mod). Nothing here has 
 - The DLL starts scanning ~45 s after Connect and needs the save loaded (press Continue straight away). Each scan retries 15 times and then throws, which closes Cemu.
 - Result: "Scanned game flags successfully" and "Joined server" in `%APPDATA%\BOTWM\LatestLog.txt`.
 
+### Two instances on one PC (cemuA + cemuB)
+
+- Start order: server, then launcher A and its Cemu (press Continue within ~60 s), then launcher B and its Cemu. Each launcher folder has its own `user.config` and its own BCML settings (`bcml\settings.json` for A, `bcml-b\settings.json` for B, same `store_dir`). Player names differ (Link / Zelda).
+- Both DLLs write the same `%APPDATA%\BOTWM\LatestLog.txt`, so lines from both instances interleave. The server assigns player 0 to A and player 1 to B.
+- Both instances run at ~30 FPS with Vulkan (OpenGL hangs after the intro).
+
+### Files BCML drops from the merge (fixed by hand in `merged\content` and both graphic packs)
+
+BCML's merged output is incomplete for this mod. Compare the mod's own packs against the merged result whenever something does not work.
+
+- `Actor\Pack\GameRomCamera.sbactorpack` lacked `Actor/AISchedule/GameRomCamera.baischedule`. That actor runs the `GameRomCamera_EachFrame` event flow that sets the `notPaused` flag. Without it the DLL logs "Create request failed: Game is paused." forever and never spawns anyone. After the fix the log shows "Game paused" / "Game unpaused".
+- `Actor\ActorInfo.product.sbyml` was missing entirely, so the game did not know `Jugador1..32`. Rebuilt from the vanilla update file plus the 39 added actors and 2 partial diffs in the mod's `logs\actorinfo.yml` (merged by name hash, 7973 actors). After that the log shows "Spawned player N" and the remote Link appears.
+- `Pack\TitleBG.pack` event flows (see above).
+
+### Input separation
+
+- Both Cemu copies shipped the same XInput profile (uuid 0), so both Links moved with one controller. With two physical controllers, cemuB uses the same profile with `<uuid>1</uuid>`.
+- A hand-written `<api>Keyboard</api>` profile crashes Cemu 1.26.2f at startup (C++ exception while creating the main window). Do not reuse it; use a second XInput pad or create the profile from the Cemu UI.
+
+### Result (2026-10-22)
+
+Both instances on localhost see the other player's Link, and each controller moves only its own Link. Confirmed visually by the user. Still untested: other machines over a VPN, long sessions, armor sync edge cases ("Couldn't find armor address" appears once, then it retries and succeeds).
+
 ## Open questions
 
-0. Pipe limit: the launcher creates `languageConnectionPipe` with max 2 instances, which fits exactly two launchers on one PC, but a DLL could connect to the wrong launcher. Needs a test, not an assumption.
+0. Pipe limit: the launcher creates `languageConnectionPipe` with max 2 instances, which fits exactly two launchers on one PC. The DLL pipe name is fixed, and in the two-instance run both DLLs connected without a visible mix-up, but this was not tested on purpose.
 1. ~~Where are binaries?~~ Answered: GitHub release 2.0.1 (also the `.bnp` in the repo, 15.8 MB).
 2. Does the pattern scan work on our Cemu 1.26.2 copy, and does it conflict with the `BOTWMultiplayer` graphic pack?
 3. Which parts of our launcher (display policy, Apollo/Artemis, controller routing, Steam shortcut) can drive two Cemu processes.
