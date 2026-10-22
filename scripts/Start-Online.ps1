@@ -45,20 +45,50 @@ function Set-ControllerProfile {
     Set-Content -LiteralPath (Join-Path $profiles 'controller0.xml') -Value $xml -Encoding UTF8
 }
 
-function Wait-JoinedServer {
-    param([datetime]$Since, [int]$TimeoutSeconds)
+function Get-LogCount {
+    param([string]$Pattern, [datetime]$Since)
+    if (-not (Test-Path -LiteralPath $gameLog)) { return 0 }
+    $lines = try { Get-Content -LiteralPath $gameLog -ErrorAction Stop } catch { @() }
+    $count = 0
+    foreach ($line in $lines) {
+        if ($line -match '^\[\w+\]\[(\d\d-\d\d-\d{4} \d\d:\d\d:\d\d)\]') {
+            $text = $Matches[1]
+            if ($line -notmatch $Pattern) { continue }
+            $stamp = [datetime]::ParseExact($text, 'dd-MM-yyyy HH:mm:ss', [Globalization.CultureInfo]::InvariantCulture)
+            if ($stamp -ge $Since.AddSeconds(-1)) { $count++ }
+        }
+    }
+    return $count
+}
+
+function Get-CemuProcess {
+    param([string]$Folder)
+    foreach ($process in Get-Process -Name Cemu -ErrorAction SilentlyContinue) {
+        try { if ($process.Path -like "$Folder\*") { $process.Refresh(); return $process } } catch { }
+    }
+    return $null
+}
+
+# Waits until a log line shows up after $Since. Returns $false on timeout.
+function Wait-LogLine {
+    param([string]$Pattern, [datetime]$Since, [int]$TimeoutSeconds)
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
     while ((Get-Date) -lt $deadline) {
-        if (Test-Path -LiteralPath $gameLog) {
-            $lines = try { Get-Content -LiteralPath $gameLog -ErrorAction Stop } catch { @() }
-            foreach ($line in $lines) {
-                if ($line -match '^\[\w+\]\[(\d\d-\d\d-\d{4} \d\d:\d\d:\d\d)\].*Joined server') {
-                    $stamp = [datetime]::ParseExact($Matches[1], 'dd-MM-yyyy HH:mm:ss', [Globalization.CultureInfo]::InvariantCulture)
-                    if ($stamp -ge $Since) { return $true }
-                }
-            }
-        }
-        Start-Sleep -Seconds 2
+        if ((Get-LogCount -Pattern $Pattern -Since $Since) -gt 0) { return $true }
+        Start-Sleep -Seconds 1
+    }
+    return $false
+}
+
+# Cemu shows "loading..." in its title until the game is running and its shaders are ready.
+function Wait-GameLoaded {
+    param([string]$Folder, [int]$TimeoutSeconds)
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ((Get-Date) -lt $deadline) {
+        $process = Get-CemuProcess -Folder $Folder
+        if (-not $process) { throw "Cemu closed while loading ($Folder)." }
+        if ($process.MainWindowTitle -match 'FPS:') { return $true }
+        Start-Sleep -Seconds 1
     }
     return $false
 }
@@ -91,13 +121,35 @@ $server = Start-Process -FilePath (Join-Path $serverDirectory 'MBL.DedicatedServ
 Write-Output "Server started (pid $($server.Id))."
 Start-Sleep -Seconds 5
 
+$sessionStart = Get-Date
 foreach ($player in $players) {
     $started = Get-Date
     & (Join-Path $PSScriptRoot 'Connect-MilkBar.ps1') -LauncherDirectory $player.Launcher
     Write-Output "Player $($player.Name): wait for the game, then press Continue in its Cemu window (within ~60 s of the save loading)."
-    if (-not (Wait-JoinedServer -Since $started -TimeoutSeconds $ContinueTimeoutSeconds)) {
-        throw "Player $($player.Name) did not join the server within $ContinueTimeoutSeconds s. Check $gameLog."
+    # The server numbers players in the order their DLLs connect, and every DLL takes whichever launcher pipe is free,
+    # so player B starts only after player A is linked. B then loads while the user presses Continue for A.
+    if (-not (Wait-LogLine -Pattern 'Assigned to player' -Since $started -TimeoutSeconds 90)) {
+        throw "Player $($player.Name) did not reach the server. Check $gameLog."
     }
-    Write-Output "Player $($player.Name) joined."
+    if ($player.Name -eq 'A') {
+        Write-Output 'Player B starts as soon as player A has finished loading.'
+        $loading = Get-Date
+        if (Wait-GameLoaded -Folder $player.Cemu -TimeoutSeconds 300) { Write-Output "Player A finished loading after $([int]((Get-Date) - $loading).TotalSeconds) s." }
+        else { Write-Output 'Player A is still loading; starting player B anyway.' }
+    }
+}
+
+# Both DLLs write to the same log and its lines do not say which player they belong to, so count the joins.
+$deadline = (Get-Date).AddSeconds($ContinueTimeoutSeconds)
+$seen = 0
+while ($seen -lt 2) {
+    foreach ($player in $players) {
+        if (-not (Get-CemuProcess -Folder $player.Cemu)) { throw "Cemu $($player.Name) closed before the session was ready. Check $gameLog." }
+    }
+    $count = Get-LogCount -Pattern 'Displayed "Joined server' -Since $sessionStart
+    if ($count -gt $seen) { $seen = $count; Write-Output "$seen of 2 players joined." }
+    if ($seen -ge 2) { break }
+    if ((Get-Date) -gt $deadline) { throw "Only $seen of 2 players joined within $ContinueTimeoutSeconds s. Check $gameLog." }
+    Start-Sleep -Seconds 2
 }
 Write-Output 'Both players are connected.'

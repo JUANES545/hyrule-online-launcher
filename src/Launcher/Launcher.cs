@@ -276,15 +276,17 @@ namespace HyruleOnline {
    else if ((match = Regex.Match(text, "^Player ([AB]): wait")).Success) {
     string name = match.Groups[1].Value;
     Step(name, "Waiting for Continue", Busy);
-    prompt.Text = "Cemu " + name + ": wait for the main menu, then press Continue within about a minute.";
+    prompt.Text = name == "A" ? "Cemu A: wait for the main menu, then press Continue within about a minute. Player 2 starts when player 1 has finished loading." : "Cemu B: wait for the main menu, then press Continue. If player 1 is not in yet, press Continue there too.";
    }
-   else if ((match = Regex.Match(text, "^Player ([AB]) joined")).Success) {
-    string name = match.Groups[1].Value;
-    joined[name == "A" ? 0 : 1] = true;
-    Step(name, "Joined the server", Good);
-    prompt.Text = name == "A" ? "Player 1 joined. Starting player 2..." : "";
+   else if ((match = Regex.Match(text, "^(\\d) of 2 players joined")).Success) {
+    // The shared log does not say which player joined, so the steps change only when both are in.
+    if (match.Groups[1].Value == "1") prompt.Text = "One player joined. Press Continue in the other Cemu window.";
    }
-   else if (text.StartsWith("Both players are connected")) { prompt.Text = ""; C<TextBlock>("Status").Text = "Session running."; }
+   else if (text.StartsWith("Both players are connected")) {
+    joined[0] = joined[1] = true;
+    Step("A", "Joined the server", Good); Step("B", "Joined the server", Good);
+    prompt.Text = ""; C<TextBlock>("Status").Text = "Session running.";
+   }
   }
 
   void ScriptExited(int code) {
