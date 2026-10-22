@@ -140,6 +140,8 @@ namespace HyruleOnline {
    Require(Spatial.Pick(page[5], page, 3) == 6 && Spatial.Pick(page[6], page, 2) == 5, "a row that is offset a little still pairs up");
    Require(Spatial.Pick(page[0], page, 3) == 1 && Spatial.Pick(page[1], page, 3) == 8 && Spatial.Pick(page[8], page, 2) == 1, "right reaches a box in the same row only");
    Require(Spatial.Pick(page[7], page, 3) == -1 && Spatial.Pick(page[7], page, 2) == -1, "left and right never jump to another row");
+   var columns = new List<Box> { new Box(0, 0, 80, 10), new Box(100, 60, 80, 10) };
+   Require(Spatial.Pick(columns[0], columns, 3) == -1 && Spatial.Pick(columns[0], columns, 3, true) == 1 && Spatial.Pick(columns[1], columns, 2, true) == 0, "sideways reaches the other column when nothing lines up");
    Require(Spatial.Pick(page[5], page, 1) == 7 && Spatial.Pick(page[7], page, 0) == 5, "down and up still reach a footer that is lined up");
    Require(Spatial.Pick(page[0], page, 0) == -1 && Spatial.Pick(page[4], page, 0) == 1 && Spatial.Pick(page[3], page, 1) == 6, "up stops at the top row and finds the box above or below");
    Require(Spatial.Pick(page[0], new List<Box> { page[0], new Box(300, 40, 10, 10) }, 1) == 1, "down may reach a box that is not lined up when nothing else is below");

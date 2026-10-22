@@ -205,6 +205,8 @@ namespace HyruleOnline {
    return found;
   }
 
+  static readonly string[] ChromeNames = { "Help", "Start", "Stop", "Exit" };
+
   void MoveCursor(PadCursor cursor, int direction) {
    if (cursor.Combo != null) {
     if (direction > 1) return;
@@ -218,6 +220,12 @@ namespace HyruleOnline {
    if (all.Count == 0 || from.IsEmpty) return;
    var boxes = all.Select(e => { var b = Bounds(e); return new Box(b.X, b.Y, b.Width, b.Height); }).ToList();
    int pick = Spatial.Pick(new Box(from.X, from.Y, from.Width, from.Height), boxes, direction);
+   // Nothing in the same row: a content control may still cross to the other column (player 1's cards sit higher than the display options). The footer and Help never do.
+   if (pick < 0 && direction >= 2 && cursor.Target != null && !ChromeNames.Contains(cursor.Target.Name)) {
+    var sideways = all.Where(e => !ChromeNames.Contains(e.Name)).ToList();
+    int side = Spatial.Pick(new Box(from.X, from.Y, from.Width, from.Height), sideways.Select(e => { var b = Bounds(e); return new Box(b.X, b.Y, b.Width, b.Height); }).ToList(), direction, true);
+    if (side >= 0) pick = all.IndexOf(sideways[side]);
+   }
    if (pick >= 0) SetTarget(cursor, all[pick]);
    else if (page == 4 && direction < 2) { if (direction == 0) C<TextBox>("Log").LineUp(); else C<TextBox>("Log").LineDown(); }
   }

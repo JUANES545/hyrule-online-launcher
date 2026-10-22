@@ -96,7 +96,10 @@ namespace HyruleOnline {
    return Math.Max(0, Math.Max(otherStart - (start + length), start - (otherStart + otherLength)));
   }
 
-  public static int Pick(Box from, IList<Box> items, int direction) {
+  // With sideways set, left and right may also reach a box that is not in the same row when nothing lines up.
+  public static int Pick(Box from, IList<Box> items, int direction) { return Pick(from, items, direction, false); }
+
+  public static int Pick(Box from, IList<Box> items, int direction, bool sideways) {
    if (direction < 0 || direction > 3) return -1;
    bool vertical = direction < 2;
    int best = -1, fallback = -1;
@@ -116,7 +119,7 @@ namespace HyruleOnline {
      double score = along + offset * .5;
      if (score < bestScore) { bestScore = score; best = i; }
     }
-    else if (vertical) {
+    else if (vertical || sideways) {
      double score = along + across * 1.5 + offset * .3;
      if (score < fallbackScore) { fallbackScore = score; fallback = i; }
     }
