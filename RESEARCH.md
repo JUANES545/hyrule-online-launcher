@@ -83,6 +83,12 @@ BCML's merged output is incomplete for this mod. Compare the mod's own packs aga
 - Both Cemu copies shipped the same XInput profile (uuid 0), so both Links moved with one controller. With two physical controllers, cemuB uses the same profile with `<uuid>1</uuid>`.
 - A hand-written `<api>Keyboard</api>` profile crashes Cemu 1.26.2f at startup (C++ exception while creating the main window). Do not reuse it; use a second XInput pad or create the profile from the Cemu UI.
 
+### Scripted start
+
+`scripts/Start-Online.ps1` refuses to run if Cemu, a Milk Bar launcher or the server is already open. It then writes the controller profile of each Cemu (A = XInput 0, B = XInput 1, same bindings as the local launcher's `Configure-Cemu.ps1`), starts the server, and drives launcher A and B through `scripts/Connect-MilkBar.ps1` (UI Automation on the Connect button). It waits for "Joined server" in the DLL log before starting B. The user still presses Continue in each Cemu. Verified once end to end (both joined, "Spawned player" logged).
+
+Not done yet: routing through the local launcher's SDL3 + `xinput1_4.dll` bridge, so non-XInput controllers work too.
+
 ### Result (2026-10-22)
 
 Both instances on localhost see the other player's Link, and each controller moves only its own Link. Confirmed visually by the user. Still untested: other machines over a VPN, long sessions, armor sync edge cases ("Couldn't find armor address" appears once, then it retries and succeeds).
