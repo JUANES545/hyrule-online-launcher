@@ -7,6 +7,7 @@ namespace HyruleOnline {
  sealed class RouterSnapshot {
   public readonly int[] Routes = new int[2];
   public readonly string[] Names = new string[4];
+  public readonly int[] Kinds = new int[4];
   public readonly PadState[] Pads = new PadState[4];
   public readonly MotionReading[] Motion = new MotionReading[4];
   public int Assigning = -1;
@@ -17,13 +18,13 @@ namespace HyruleOnline {
  // Layout: enabled@0, player[2]@4/8, heartbeat@12, states[4]@16+16i, vibration@80+4i, rumbleSeq@96+4i, seqlock@112.
  sealed class Router : IDisposable {
   const string MapName = "Local\\HyruleCoop.Routing.v2";
-  // Menu button layout, shared with the launcher's pad navigation: the Nintendo layout claims a controller with the right button, Xbox with the bottom one.
-  public static volatile bool NintendoMenus = true;
-  const ushort ButtonBottom = 0x1000, ButtonRight = 0x2000;
+  // Menu button layout setting (PadKind.Auto or a fixed layout), shared with the launcher's pad navigation.
+  public static volatile int MenuLayout = PadKind.Auto;
   readonly object gate = new object();
   readonly int[] routes = { -1, -1 };
   readonly bool[] connected = new bool[4];
   readonly string[] names = new string[4];
+  readonly int[] kinds = new int[4];
   readonly PadState[] pads = new PadState[4];
   readonly MotionReading[] motion = new MotionReading[4];
   readonly bool[] testRequested = new bool[2];
@@ -65,6 +66,7 @@ namespace HyruleOnline {
    lock (gate) {
     Array.Copy(routes, snapshot.Routes, 2);
     Array.Copy(names, snapshot.Names, 4);
+    Array.Copy(kinds, snapshot.Kinds, 4);
     Array.Copy(pads, snapshot.Pads, 4);
     Array.Copy(motion, snapshot.Motion, 4);
     snapshot.Assigning = assigning;
@@ -102,10 +104,10 @@ namespace HyruleOnline {
       for (int i = 0; i < 4; i++) { present[i] = Sdl.Present(i); if (present[i]) states[i] = Sdl.Read(i); }
       int[] current;
       lock (gate) {
-       for (int i = 0; i < 4; i++) { connected[i] = present[i]; names[i] = Sdl.Names[i]; pads[i] = states[i].pad; motion[i] = Sdl.Motion(i); }
+       for (int i = 0; i < 4; i++) { connected[i] = present[i]; names[i] = Sdl.Names[i]; kinds[i] = present[i] ? Sdl.Kinds[i] : -1; pads[i] = states[i].pad; motion[i] = Sdl.Motion(i); }
        if (assigning >= 0) {
         for (int slot = 0; slot < 4; slot++) {
-         ushort accept = NintendoMenus ? ButtonRight : ButtonBottom;
+         ushort accept = PadKind.Accept(PadKind.Resolve(MenuLayout, kinds[slot]));
          if (!connected[slot] || (states[slot].pad.buttons & accept) == 0 || (previousButtons[slot] & accept) != 0) continue;
          Assign(routes, assigning, slot); assigning = -1; break;
         }

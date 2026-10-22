@@ -92,6 +92,7 @@ namespace HyruleOnline {
   string shadows, shadowDistance, antiAliasing;
   GraphicsMod.Advanced advanced = new GraphicsMod.Advanced();
   readonly bool vulkanAvailable = GraphicsMod.VulkanAvailable();
+  readonly HardwareInfo hardware = Hardware.Detect();
   readonly string[] names = (string[])Characters.DefaultNames.Clone();
   readonly string[] models = { "", "" };
   ServerRules rules = new ServerRules();
@@ -164,6 +165,8 @@ namespace HyruleOnline {
    WatchQuality("ShadowDistanceBox", name => shadowDistance = name);
    WatchQuality("AntiAliasingBox", name => antiAliasing = name);
    WatchAdvanced();
+   C<Button>("UseRecommendedGraphics").Click += (s, e) => UseRecommendedGraphics();
+   C<Button>("UseRecommendedRules").Click += (s, e) => UseRecommendedRules();
    WireHints("GraphicsPage", "GraphicsHint");
    WireHints("MultiplayerPage", "MultiplayerHint");
    BuildCursors();
@@ -328,7 +331,7 @@ namespace HyruleOnline {
     fpsLimit = int.TryParse((string)root.Element("FpsLimit"), out wanted) && wanted > 0 ? wanted : FpsMod.AutoFps;
     perDisplay = (string)root.Element("Arrangement") == "PerDisplay";
     playerCount = (string)root.Element("Players") == "1" ? 1 : 2;
-    PadNav.Nintendo = (string)root.Element("PadLayout") != "Xbox";
+    Router.MenuLayout = Array.IndexOf(PadKind.Names, (string)root.Element("MenuLayout"));
     for (int i = 0; i < 2; i++) {
      displays[i] = Saved(root, "Display" + (i + 1));
      scales[i] = double.TryParse((string)root.Element("Scale" + (i + 1)), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out saved) ? GraphicsMod.NearestScale(saved) : scale;
@@ -343,7 +346,7 @@ namespace HyruleOnline {
    }
    catch (Exception) {
     mode = LayoutMode.Auto; scale = GraphicsMod.DefaultScale; shadows = shadowDistance = antiAliasing = null; advanced = new GraphicsMod.Advanced(); fpsLimit = FpsMod.AutoFps; language = launcherLanguage = "en";
-    perDisplay = false; playerCount = 2; PadNav.Nintendo = true;
+    perDisplay = false; playerCount = 2; Router.MenuLayout = PadKind.Auto;
     for (int i = 0; i < 2; i++) { displays[i] = null; scales[i] = GraphicsMod.DefaultScale; fpsLimits[i] = FpsMod.AutoFps; }
    }
   }
@@ -468,6 +471,7 @@ namespace HyruleOnline {
     weather.Items.Clear();
     foreach (var option in ServerCommands.Weather) weather.Items.Add(new ComboBoxItem { Content = Tr(option[0]), Tag = option[1] });
     weather.SelectedIndex = chosen;
+    ShowRuleInfo(match);
    }
    finally { filling = false; }
   }
@@ -566,7 +570,7 @@ namespace HyruleOnline {
      new XElement("Scale1", GraphicsMod.NearestScale(scales[0]).ToString(System.Globalization.CultureInfo.InvariantCulture)), new XElement("Scale2", GraphicsMod.NearestScale(scales[1]).ToString(System.Globalization.CultureInfo.InvariantCulture)),
      new XElement("Fps1", fpsLimits[0] == FpsMod.AutoFps ? "Auto" : fpsLimits[0].ToString()), new XElement("Fps2", fpsLimits[1] == FpsMod.AutoFps ? "Auto" : fpsLimits[1].ToString()),
      new XElement("Name1", names[0]), new XElement("Model1", models[0]), new XElement("Name2", names[1]), new XElement("Model2", models[1]),
-     new XElement("Language", language), new XElement("LauncherLanguage", launcherLanguage), new XElement("PadLayout", PadNav.Nintendo ? "Nintendo" : "Xbox"))).Save(PrefsFile);
+     new XElement("Language", language), new XElement("LauncherLanguage", launcherLanguage), new XElement("MenuLayout", Router.MenuLayout < 0 ? "Auto" : PadKind.Names[Router.MenuLayout]))).Save(PrefsFile);
    }
    catch (Exception error) { Write("Could not save the display settings: " + error.Message); }
   }
@@ -667,16 +671,47 @@ namespace HyruleOnline {
    C<CheckBox>("BarriersBox").IsEnabled = GraphicsMod.ResolveApi(advanced.Api, vulkanAvailable) == GraphicsMod.VulkanApi;
    var layout = C<ComboBox>("PadLayoutBox");
    layout.Items.Clear();
+   layout.Items.Add(new ComboBoxItem { Content = Tr("Auto (match each controller)"), Tag = "Auto" });
    layout.Items.Add(new ComboBoxItem { Content = Tr("Nintendo (A right, B bottom)"), Tag = "Nintendo" });
    layout.Items.Add(new ComboBoxItem { Content = Tr("Xbox (A bottom, B right)"), Tag = "Xbox" });
-   layout.SelectedIndex = PadNav.Nintendo ? 0 : 1;
+   layout.Items.Add(new ComboBoxItem { Content = Tr("PlayStation ({0} bottom, {1} right)", CrossMark, CircleMark), Tag = "PlayStation" });
+   layout.SelectedIndex = Router.MenuLayout + 1;
+   padLayoutShown = null;
+   ShowRecommended();
+  }
+
+  string padLayoutShown;
+
+  const string CrossMark = "\u2715", CircleMark = "\u25CB", ListSeparator = ", ";
+  static string ConfirmLabel(int layout) { return layout == PadKind.PlayStation ? CrossMark : "A"; }
+  static string BackLabel(int layout) { return layout == PadKind.PlayStation ? CircleMark : "B"; }
+
+  // Tells which layout each connected controller follows and keeps the "A: select" hint in step with the first one.
+  void ShowPadLayout(RouterSnapshot snapshot) {
+   var parts = new List<string>();
+   int first = -1;
+   for (int slot = 0; slot < 4; slot++) {
+    if (snapshot.Names[slot] == null) continue;
+    int layout = PadKind.Resolve(Router.MenuLayout, snapshot.Kinds[slot]);
+    if (first < 0) first = layout;
+    parts.Add(snapshot.Names[slot] + ": " + PadKind.Names[layout]);
+   }
+   string signature = Router.MenuLayout + "|" + string.Join(";", parts.ToArray()) + "|" + Lang.Current;
+   if (signature == padLayoutShown) return;
+   padLayoutShown = signature;
+   int shown = first < 0 ? PadKind.Resolve(Router.MenuLayout, -1) : first;
+   string hint = Tr("D-pad: move   {0}: select   {1}: back", ConfirmLabel(shown), BackLabel(shown));
+   C<TextBlock>("PadHint1").Text = hint;
+   C<TextBlock>("PadHint2").Text = hint;
+   C<TextBlock>("PadLayoutInfo").Text = parts.Count == 0 ? Tr("No controller detected: menus use the {0} layout.", PadKind.Names[shown]) : Tr("Detected: {0}", string.Join(ListSeparator, parts.ToArray()));
   }
 
   void WatchAdvanced() {
    C<ComboBox>("PadLayoutBox").SelectionChanged += (s, e) => {
     var item = ((ComboBox)s).SelectedItem as ComboBoxItem;
     if (filling || item == null || !(item.Tag is string)) return;
-    PadNav.Nintendo = (string)item.Tag == "Nintendo";
+    Router.MenuLayout = Array.IndexOf(PadKind.Names, (string)item.Tag);
+    padLayoutShown = null;
     SavePrefs();
    };
    C<ComboBox>("ApiBox").SelectionChanged += (s, e) => {
@@ -705,6 +740,96 @@ namespace HyruleOnline {
   }
 
   readonly List<TextBlock> hintBars = new List<TextBlock>();
+
+  static string Percent(double value) { return Math.Round(value * 100).ToString("0", System.Globalization.CultureInfo.InvariantCulture) + "%"; }
+
+  static string Gigabytes(double value) { return value.ToString(value >= 2 ? "0" : "0.#", System.Globalization.CultureInfo.InvariantCulture); }
+
+  // The window one game gets when the primary display is shared (or all of it when playing alone).
+  Area GameWindow() {
+   int width = displayWidth > 0 ? displayWidth : 1920, height = displayHeight > 0 ? displayHeight : 1080;
+   return playerCount == 1 ? new Area { Width = width, Height = height } : ScreenLayout.Split(mode, width, height)[0];
+  }
+
+  // The recommended render scale for the shared display [0] and for each player's own display [1], [2].
+  double[] RecommendedScales() {
+   var window = GameWindow();
+   var best = new double[3];
+   best[0] = Hardware.RecommendedScale(hardware.Tier, window.Width, window.Height, playerCount);
+   MonitorInfo first, second;
+   var own = pair;
+   if (own == null && canSeparate && ScreenLayout.Pair(monitors, displays[0], displays[1], out first, out second)) own = new[] { first, second };
+   for (int i = 0; i < 2; i++) best[i + 1] = own == null ? best[0] : Hardware.RecommendedScale(hardware.Tier, own[i].Width, own[i].Height, playerCount);
+   return best;
+  }
+
+  string RecommendedPreset(string category, string wanted) { return Hardware.PickPreset(GraphicsMod.Read(InstanceFolder, category), wanted); }
+
+  string PresetLabel(string name) { return name == null ? Tr("Not available") : GraphicsMod.Label(name); }
+
+  void ShowRecommended() {
+   var lines = new List<string>();
+   lines.Add(string.IsNullOrEmpty(hardware.Gpu) ? Tr("Graphics card not detected") : hardware.Gpu + (hardware.VramMb > 0 ? " (" + Gigabytes(hardware.VramMb / 1024.0) + " GB)" : ""));
+   string processor = !string.IsNullOrEmpty(hardware.Cpu) ? Tr("{0} · {1} threads", hardware.Cpu, hardware.Threads) : "";
+   if (hardware.RamGb > 0) processor += (processor.Length > 0 ? " · " : "") + Tr("{0} GB of memory", Gigabytes(hardware.RamGb));
+   if (processor.Length > 0) lines.Add(processor);
+   lines.Add(Tr("Performance class: {0}", Tr(Hardware.TierNames[hardware.Tier])));
+   C<TextBlock>("HardwareText").Text = string.Join("\n", lines.ToArray());
+   var best = RecommendedScales();
+   string rendering = pair != null ? Percent(best[1]) + " / " + Percent(best[2]) : Percent(best[0]);
+   C<TextBlock>("RecommendedText").Text = Tr("Recommended: render {0}, shadows {1}, shadow distance {2}, anti-aliasing {3}.", rendering,
+     PresetLabel(RecommendedPreset(GraphicsMod.ShadowsCategory, Hardware.ShadowsFor(hardware.Tier))),
+     PresetLabel(RecommendedPreset(GraphicsMod.ShadowDistanceCategory, Hardware.ShadowDistanceFor(hardware.Tier))),
+     PresetLabel(RecommendedPreset(GraphicsMod.AntiAliasingCategory, Hardware.AntiAliasingChoice)))
+    + "\n" + Tr("Cemu: automatic API, {0} upscale filter, asynchronous shaders on, VSync off. FPS target Auto.", GraphicsMod.Filters[Hardware.AdvancedFor(hardware.Tier).Upscale]);
+  }
+
+  // Puts every Graphics option back to what suits this PC; the FPS targets go back to Auto.
+  void UseRecommendedGraphics() {
+   int tier = hardware.Tier;
+   var best = RecommendedScales();
+   scale = best[0]; scales[0] = best[1]; scales[1] = best[2];
+   shadows = RecommendedPreset(GraphicsMod.ShadowsCategory, Hardware.ShadowsFor(tier));
+   shadowDistance = RecommendedPreset(GraphicsMod.ShadowDistanceCategory, Hardware.ShadowDistanceFor(tier));
+   antiAliasing = RecommendedPreset(GraphicsMod.AntiAliasingCategory, Hardware.AntiAliasingChoice);
+   advanced = Hardware.AdvancedFor(tier);
+   fpsLimit = FpsMod.AutoFps; fpsLimits[0] = fpsLimits[1] = FpsMod.AutoFps;
+   Write("Recommended graphics settings applied (" + Hardware.TierNames[tier] + " class).");
+   ChangedDisplayChoice();
+  }
+
+  string PresetBlurb(string name) {
+   switch (name) {
+    case "Game Completion": return Tr("For playing the whole game together. Defeated enemies, Korok seeds, towers, shrines and map locations are shared; quests and Divine Beasts stay separate for each player.");
+    case "Hunter Vs Speedrunner": return Tr("A chase game: the speedrunner races through the game while the hunters try to stop them. What one player clears, activates or discovers counts for both.");
+    case "Any% Speedrun": return Tr("Built for speedruns: what one player defeats, activates or discovers counts for both, except quests, Korok seeds and Divine Beasts.");
+    case "Hide n' seek": return Tr("Only defeated enemies are shared. Everything else stays separate for each player, which suits hide and seek in the same world.");
+    case "Death Swap": return Tr("A game mode where the players are swapped around the world at intervals. Nothing else is shared.");
+    case "Custom": return Tr("Your own mix: choose below what the players share.");
+   }
+   return "";
+  }
+
+  string SpecialBlurb(int special) {
+   return special == 1 ? Tr("Adds a chase: one player speedruns while the others hunt them. Best with the Hunter Vs Speedrunner preset.")
+    : special == 2 ? Tr("Adds Death Swap: the players are swapped around the world at intervals. Best with the Death Swap preset.")
+    : Tr("Normal co-op: only the rules above decide what the players share.");
+  }
+
+  void ShowRuleInfo(ServerRules match) {
+   Func<List<string>, string> list = names => names.Count == 0 ? Tr("Nothing") :    string.Join(ListSeparator, names.ConvertAll(n => Tr(n)).ToArray());
+   C<TextBlock>("PresetInfo").Text = PresetBlurb(match == null ? "Custom" : match.Name);
+   C<TextBlock>("PresetShares").Text = Tr("Shared: {0}", list(rules.Shared(true))) + "\n" + Tr("Not shared: {0}", list(rules.Shared(false)));
+   C<TextBlock>("SpecialInfo").Text = SpecialBlurb(rules.Special);
+  }
+
+  // The preset every new player should start from; it does not depend on this PC's hardware.
+  void UseRecommendedRules() {
+   if (presets.Count == 0) return;
+   rules = ServerRules.Recommended(presets);
+   SaveRules();
+   ShowRules();
+  }
 
   void ResetHints() {
    foreach (var bar in hintBars) bar.Text = Tr("Hover an option, or move the focus to it, to see what it does.");
@@ -1113,7 +1238,7 @@ namespace HyruleOnline {
   void EnableAppearance(bool enabled) {
    foreach (var name in new[] { "P1NameBox", "P2NameBox" }) C<TextBox>(name).IsEnabled = enabled;
    foreach (var name in new[] { "RulesBox", "SpecialBox" }) C<ComboBox>(name).IsEnabled = enabled;
-   foreach (var name in new[] { "P1AvatarButton", "P2AvatarButton", "Mode1", "Mode2" }) C<Button>(name).IsEnabled = enabled;
+   foreach (var name in new[] { "P1AvatarButton", "P2AvatarButton", "Mode1", "Mode2", "UseRecommendedRules" }) C<Button>(name).IsEnabled = enabled;
    if (!enabled) ClosePickers();
    foreach (var name in RuleBoxes) C<CheckBox>(name).IsEnabled = enabled;
   }
@@ -1127,6 +1252,7 @@ namespace HyruleOnline {
   void Tick() {
    var snapshot = router.Snapshot();
    NavigateWithPads(snapshot);
+   ShowPadLayout(snapshot);
    DrivePads(snapshot);
    for (int player = 0; player < 2; player++) {
     string key = "P" + (player + 1);
@@ -1134,7 +1260,7 @@ namespace HyruleOnline {
     bool present = slot >= 0 && snapshot.Names[slot] != null;
     var pad = present ? snapshot.Pads[slot] : new PadState();
     C<TextBlock>(key + "Name").Text = present ? snapshot.Names[slot] : Tr("No controller detected");
-    C<TextBlock>(key + "Status").Text = snapshot.Assigning == player ? Tr("Press A on a controller to assign it.") : present ? Tr("Connected") : Tr("Waiting for a controller");
+    C<TextBlock>(key + "Status").Text = snapshot.Assigning == player ? Tr("Press the confirm button on a controller to assign it.") : present ? Tr("Connected") : Tr("Waiting for a controller");
     C<Button>("Assign" + (player + 1)).Content = Tr(snapshot.Assigning == player ? "Cancel assignment" : "Assign controller");
     Move(C<FrameworkElement>(key + "L"), pad.lx, pad.ly, 20);
     Move(C<FrameworkElement>(key + "R"), pad.rx, pad.ry, 111);

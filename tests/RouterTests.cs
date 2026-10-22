@@ -102,6 +102,38 @@ namespace HyruleOnline {
    Console.WriteLine("PASS: window fitting for " + shells + " window sizes and page navigation.");
   }
 
+  static GraphicsMod.Choice Preset(string name, bool isDefault) { return new GraphicsMod.Choice { Name = name, Label = name, Default = isDefault }; }
+
+  static void HardwareTiers() {
+   Func<string, int> tier = gpu => Hardware.Tier(gpu, 0, 16, 32);
+   Require(tier("NVIDIA GeForce RTX 5070 Ti") == Hardware.Ultra && tier("NVIDIA GeForce RTX 4060") == Hardware.High && tier("NVIDIA GeForce RTX 3050") == Hardware.Balanced, "RTX cards are classed by their model number");
+   Require(tier("NVIDIA GeForce GTX 1060 6GB") == Hardware.Balanced && tier("NVIDIA GeForce GTX 1080") == Hardware.High && tier("NVIDIA GeForce GT 710") == Hardware.Basic, "older GeForce cards");
+   Require(tier("AMD Radeon RX 6600") == Hardware.High && tier("AMD Radeon RX 7900 XTX") == Hardware.Ultra && tier("AMD Radeon RX 580") == Hardware.Balanced, "Radeon cards");
+   Require(tier("Intel(R) UHD Graphics 630") == Hardware.Basic && tier("Intel(R) Arc(TM) A750 Graphics") == Hardware.High && tier("AMD Radeon(TM) Graphics") == Hardware.Basic, "integrated and Arc graphics");
+   Require(tier("NVIDIA GeForce RTX 4070 Laptop GPU") == Hardware.High, "a laptop card is one class lower");
+   Require(!Hardware.IsRealAdapter("SudoMaker Virtual Display Adapter") && !Hardware.IsRealAdapter("Microsoft Basic Render Driver") && Hardware.IsRealAdapter("NVIDIA GeForce RTX 5070 Ti"), "virtual adapters are ignored");
+   Require(Hardware.Tier("NVIDIA GeForce RTX 5070 Ti", 1024, 16, 32) == Hardware.Basic && Hardware.Tier("NVIDIA GeForce RTX 5070 Ti", 3072, 16, 32) == Hardware.Balanced, "little video memory lowers the class");
+   Require(Hardware.Tier("NVIDIA GeForce RTX 5070 Ti", 16384, 2, 32) == Hardware.Balanced && Hardware.Tier("NVIDIA GeForce RTX 5070 Ti", 16384, 16, 8) == Hardware.Balanced && Hardware.Tier("NVIDIA GeForce RTX 5070 Ti", 16384, 16, 32) == Hardware.Ultra, "few threads or little RAM cap the class");
+
+   Require(Hardware.RecommendedScale(Hardware.Ultra, 1920, 1080, 1) == 1.0 && Hardware.RecommendedScale(Hardware.Ultra, 5120, 1440, 2) < 1.0, "an Ultra card renders Full HD at 100% but backs off on a huge display");
+   Require(Hardware.RecommendedScale(Hardware.Basic, 1920, 1080, 2) == 0.5 && Hardware.RecommendedScale(Hardware.Basic, 1280, 720, 1) == 1.0, "a Basic card drops the scale as the window grows");
+   Require(Hardware.RecommendedScale(Hardware.High, 1920, 1080, 2) <= Hardware.RecommendedScale(Hardware.High, 1920, 1080, 1), "two players never get more than one");
+   foreach (int level in new[] { 0, 1, 2, 3 }) Require(Hardware.RecommendedScale(level, 3840, 2160, 2) <= GraphicsMod.DefaultScale && Hardware.RecommendedScale(level, 3840, 2160, 2) >= GraphicsMod.Scales[0], "the scale stays inside the offered range");
+
+   var shadows = new List<GraphicsMod.Choice> { Preset("Low (50%)", false), Preset("Medium (100%, Default)", true), Preset("High (200%)", false) };
+   Require(Hardware.PickPreset(shadows, "High") == "High (200%)" && Hardware.PickPreset(shadows, "Low") == "Low (50%)", "a preset is found by its leading word");
+   Require(Hardware.PickPreset(shadows, "Very High") == "Medium (100%, Default)" && Hardware.PickPreset(new List<GraphicsMod.Choice>(), "High") == null, "a missing preset falls back to the pack default, or nothing");
+   Require(Hardware.AdvancedFor(Hardware.Basic).Upscale == 0 && Hardware.AdvancedFor(Hardware.High).Upscale == 1 && Hardware.AdvancedFor(Hardware.Ultra).AsyncCompile && !Hardware.AdvancedFor(Hardware.Ultra).VSync && Hardware.AdvancedFor(Hardware.Ultra).Api == GraphicsMod.AutoApi, "the Cemu settings follow the class");
+
+   var presets = new List<ServerRules> { new ServerRules { Name = "Death Swap", Special = 2 }, new ServerRules { Name = "Game Completion", Enemies = true, Koroks = true }, new ServerRules { Name = "Hide n' seek", Enemies = true } };
+   var recommended = ServerRules.Recommended(presets);
+   Require(recommended.Name == "Game Completion" && recommended.Special == 0 && recommended.Enemies && recommended.Koroks && !recommended.Quests, "the recommended rules are Game Completion");
+   presets.RemoveAt(1);
+   Require(ServerRules.Recommended(presets).Name == "Hide n' seek" && ServerRules.Recommended(new List<ServerRules>()).Name == "Custom", "without Game Completion the first preset with no special mode, or Custom");
+   Require(string.Join(",", recommended.Shared(true).ToArray()) == "Enemies,Koroks" && recommended.Shared(false).Count == 5 && recommended.Shared(false)[0] == "Quests", "shared and not shared rules are listed in page order");
+   Console.WriteLine("PASS: hardware classes and recommendations.");
+  }
+
   static void PadMenus() {
    var pad = new PadNav();
    var idle = pad.Update(0, 0, 0, 0);
@@ -120,23 +152,28 @@ namespace HyruleOnline {
    Require(first.Accept && first.Back, "A and B report on press");
    var held = buttons.Update((ushort)(PadNav.ButtonA | PadNav.ButtonB), 0, 0, 20);
    Require(!held.Accept && !held.Back, "A and B do not repeat while held");
-   var held2 = new PadNav();
-   bool layout = PadNav.Nintendo;
-   try {
-    PadNav.Nintendo = false;
-    held2.Update(PadNav.ButtonA, 0, 0, 0);
-    Require(!held2.Update(0, 0, 0, 10).Accept && held2.Update(PadNav.ButtonA, 0, 0, 20).Accept, "releasing and pressing the Xbox accept button again counts");
-    var xbox = new PadNav().Update(PadNav.ButtonA, 0, 0, 0);
-    Require(xbox.Accept && !xbox.Back, "the Xbox layout accepts with the bottom button");
-    xbox = new PadNav().Update(PadNav.ButtonB, 0, 0, 0);
-    Require(!xbox.Accept && xbox.Back, "the Xbox layout goes back with the right button");
-    PadNav.Nintendo = true;
-    var nintendo = new PadNav().Update(PadNav.ButtonB, 0, 0, 0);
-    Require(nintendo.Accept && !nintendo.Back, "the Nintendo layout accepts with the right button");
-    nintendo = new PadNav().Update(PadNav.ButtonA, 0, 0, 0);
-    Require(!nintendo.Accept && nintendo.Back, "the Nintendo layout goes back with the bottom button");
+   var held2 = new PadNav { Layout = PadKind.Xbox };
+   held2.Update(PadNav.ButtonA, 0, 0, 0);
+   Require(!held2.Update(0, 0, 0, 10).Accept && held2.Update(PadNav.ButtonA, 0, 0, 20).Accept, "releasing and pressing the Xbox accept button again counts");
+   foreach (int family in new[] { PadKind.Xbox, PadKind.PlayStation }) {
+    var bottomAccept = new PadNav { Layout = family }.Update(PadNav.ButtonA, 0, 0, 0);
+    Require(bottomAccept.Accept && !bottomAccept.Back, PadKind.Names[family] + " accepts with the bottom button");
+    bottomAccept = new PadNav { Layout = family }.Update(PadNav.ButtonB, 0, 0, 0);
+    Require(!bottomAccept.Accept && bottomAccept.Back, PadKind.Names[family] + " goes back with the right button");
    }
-   finally { PadNav.Nintendo = layout; }
+   var nintendo = new PadNav { Layout = PadKind.Nintendo }.Update(PadNav.ButtonB, 0, 0, 0);
+   Require(nintendo.Accept && !nintendo.Back, "the Nintendo layout accepts with the right button");
+   nintendo = new PadNav { Layout = PadKind.Nintendo }.Update(PadNav.ButtonA, 0, 0, 0);
+   Require(!nintendo.Accept && nintendo.Back, "the Nintendo layout goes back with the bottom button");
+   Require(new PadNav().Layout == PadKind.Nintendo, "a new pad starts on the Nintendo layout");
+
+   Require(PadKind.Classify(2, "Xbox 360 Controller") == PadKind.Xbox && PadKind.Classify(3, "Xbox One Controller") == PadKind.Xbox && PadKind.Classify(12, "Steam Virtual Gamepad") == PadKind.Xbox, "Xbox and Steam pads use the Xbox layout");
+   Require(PadKind.Classify(4, "PS3 Controller") == PadKind.PlayStation && PadKind.Classify(5, "PS4 Controller") == PadKind.PlayStation && PadKind.Classify(6, "DualSense Wireless Controller") == PadKind.PlayStation, "PlayStation pads use the PlayStation layout");
+   Require(PadKind.Classify(7, "Nintendo Switch Pro Controller") == PadKind.Nintendo && PadKind.Classify(10, "Joy-Con (L/R)") == PadKind.Nintendo && PadKind.Classify(11, "GameCube Controller") == PadKind.Nintendo, "Nintendo pads use the Nintendo layout");
+   Require(PadKind.Classify(0, "Wireless Controller") == PadKind.PlayStation && PadKind.Classify(1, "Switch Pro Controller") == PadKind.Nintendo && PadKind.Classify(0, "Generic USB Gamepad") == PadKind.Xbox && PadKind.Classify(0, null) == PadKind.Xbox, "an unknown type falls back to the name, then to Xbox");
+   Require(PadKind.Classify(2, "Nintendo-looking Xbox pad") == PadKind.Xbox, "a known type is never overruled by its name");
+   Require(PadKind.Resolve(PadKind.Auto, PadKind.PlayStation) == PadKind.PlayStation && PadKind.Resolve(PadKind.Auto, -1) == PadKind.Nintendo, "Auto follows the pad and defaults to Nintendo without one");
+   Require(PadKind.Resolve(PadKind.Xbox, PadKind.Nintendo) == PadKind.Xbox && PadKind.Resolve(PadKind.Nintendo, PadKind.PlayStation) == PadKind.Nintendo, "a chosen layout wins over the detected one");
 
    // A 3 x 2 grid of 10 x 10 boxes with 2 px gaps, then one far box.
    var cells = new List<Box>();
@@ -583,6 +620,7 @@ namespace HyruleOnline {
     Console.WriteLine("PASS: controller motion.");
     Navigation();
     PadMenus();
+    HardwareTiers();
     Players();
     ServerRulesTest();
     Languages(args.Length > 0 ? args[0] : Directory.GetCurrentDirectory());

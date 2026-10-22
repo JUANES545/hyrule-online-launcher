@@ -7,6 +7,31 @@ namespace HyruleOnline {
  [StructLayout(LayoutKind.Sequential)] struct PadState { public ushort buttons; public byte lt, rt; public short lx, ly, rx, ry; }
  [StructLayout(LayoutKind.Sequential)] struct XInputState { public uint packet; public PadState pad; }
 
+ // Which family of button labels a controller uses. SDL reports buttons by position, so only the labels and the confirm button differ.
+ static class PadKind {
+  public const int Auto = -1, Nintendo = 0, Xbox = 1, PlayStation = 2;
+  public const ushort Bottom = 0x1000, Right = 0x2000;
+  public static readonly string[] Names = { "Nintendo", "Xbox", "PlayStation" };
+
+  // typeCode is SDL_GamepadType: 4 to 6 are PlayStation pads, 7 to 11 Nintendo ones; 0 and 1 (unknown, standard) fall back to the name.
+  public static int Classify(int typeCode, string name) {
+   if (typeCode >= 4 && typeCode <= 6) return PlayStation;
+   if (typeCode >= 7 && typeCode <= 11) return Nintendo;
+   string lower = (name ?? "").ToLowerInvariant();
+   if (typeCode <= 1) {
+    if (lower.Contains("nintendo") || lower.Contains("switch") || lower.Contains("joy-con") || lower.Contains("joycon")) return Nintendo;
+    if (lower.Contains("playstation") || lower.Contains("dualshock") || lower.Contains("dualsense") || lower.Contains("wireless controller") || lower.Contains("ps4") || lower.Contains("ps5")) return PlayStation;
+   }
+   return Xbox;
+  }
+
+  // The layout a controller follows: the chosen one, or its own when the choice is Auto. Without a controller, Auto means Nintendo.
+  public static int Resolve(int setting, int detected) { return setting != Auto ? setting : detected < 0 ? Nintendo : detected; }
+
+  public static ushort Accept(int layout) { return layout == Nintendo ? Right : Bottom; }
+  public static ushort Back(int layout) { return layout == Nintendo ? Bottom : Right; }
+ }
+
  // Thin SDL3 gamepad wrapper. Call every method from the same thread.
  static class Sdl {
   const string Dll = "SDL3.dll";
@@ -22,6 +47,7 @@ namespace HyruleOnline {
   [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] static extern IntPtr SDL_OpenGamepad(uint id);
   [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] static extern void SDL_CloseGamepad(IntPtr pad);
   [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] static extern IntPtr SDL_GetGamepadName(IntPtr pad);
+  [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] static extern int SDL_GetGamepadType(IntPtr pad);
   [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] static extern short SDL_GetGamepadAxis(IntPtr pad, int axis);
   [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] [return: MarshalAs(UnmanagedType.I1)] static extern bool SDL_GetGamepadButton(IntPtr pad, int button);
   [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] [return: MarshalAs(UnmanagedType.I1)] static extern bool SDL_RumbleGamepad(IntPtr pad, ushort low, ushort high, uint duration);
@@ -46,6 +72,8 @@ namespace HyruleOnline {
   static readonly ControllerMotion[] motion = { new ControllerMotion(), new ControllerMotion(), new ControllerMotion(), new ControllerMotion() };
   static readonly SensorEvent[] events = new SensorEvent[64];
   public static readonly string[] Names = new string[4];
+  // The button layout family each connected controller belongs to (PadKind), decided when it is opened.
+  public static readonly int[] Kinds = new int[4];
 
   static string Utf8(IntPtr value) {
    if (value == IntPtr.Zero) return "Controller";
@@ -81,6 +109,7 @@ namespace HyruleOnline {
      int slot = Array.FindIndex(handles, h => h == IntPtr.Zero); if (slot < 0) break;
      var handle = SDL_OpenGamepad(id); if (handle == IntPtr.Zero) continue;
      ids[slot] = id; handles[slot] = handle; Names[slot] = Utf8(SDL_GetGamepadName(handle));
+     Kinds[slot] = PadKind.Classify(SDL_GetGamepadType(handle), Names[slot]);
      bool accel = SDL_GamepadHasSensor(handle, 1) && SDL_SetGamepadSensorEnabled(handle, 1, true);
      bool gyro = SDL_GamepadHasSensor(handle, 2) && SDL_SetGamepadSensorEnabled(handle, 2, true);
      motion[slot].Configure(accel, gyro);

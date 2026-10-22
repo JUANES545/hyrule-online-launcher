@@ -82,6 +82,7 @@ namespace HyruleOnline {
     int owner = OwnerOf(slot, snapshot);
     active[owner] = true;
     var state = snapshot.Pads[slot];
+    slotNavs[slot].Layout = PadKind.Resolve(Router.MenuLayout, snapshot.Kinds[slot]);
     var press = slotNavs[slot].Update(state.buttons, state.lx, state.ly, now);
     if (snapshot.Assigning >= 0 && press.Back) router.CancelAssign();
     if (listening) presses.Add(new KeyValuePair<int, PadPress>(owner, press));

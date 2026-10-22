@@ -181,5 +181,22 @@ namespace HyruleOnline {
    foreach (var preset in presets) if (preset.SameRules(rules)) return preset;
    return null;
   }
+
+  public const string RecommendedName = "Game Completion";
+
+  // The rules the launcher suggests: the Game Completion preset when it exists, otherwise the first preset without a special mode.
+  public static ServerRules Recommended(List<ServerRules> presets) {
+   var found = presets.Find(p => p.Name == RecommendedName) ?? presets.Find(p => p.Special == 0);
+   return found == null ? new ServerRules { Name = "Custom" } : found.Copy();
+  }
+
+  // English names of the rules that are on (or off), in the order of the page.
+  public List<string> Shared(bool on) {
+   var all = new[] { new KeyValuePair<string, bool>("Enemies", Enemies), new KeyValuePair<string, bool>("Quests", Quests), new KeyValuePair<string, bool>("Koroks", Koroks),
+    new KeyValuePair<string, bool>("Towers", Towers), new KeyValuePair<string, bool>("Shrines", Shrines), new KeyValuePair<string, bool>("Locations", Locations), new KeyValuePair<string, bool>("Divine Beasts", DivineBeasts) };
+   var names = new List<string>();
+   foreach (var rule in all) if (rule.Value == on) names.Add(rule.Key);
+   return names;
+  }
  }
 }

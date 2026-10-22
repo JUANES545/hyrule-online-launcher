@@ -53,10 +53,10 @@ namespace HyruleOnline {
  sealed class PadNav {
   public const ushort DpadUp = 0x1, DpadDown = 0x2, DpadLeft = 0x4, DpadRight = 0x8, ButtonA = 0x1000, ButtonB = 0x2000;
   public const int Deadzone = 16000, FirstRepeat = 420, NextRepeat = 120;
-  // Buttons are read by position. The Nintendo layout confirms with the right button and goes back with the bottom one; Xbox does the opposite. Menus only, never the game.
-  public static bool Nintendo { get { return Router.NintendoMenus; } set { Router.NintendoMenus = value; } }
-  public static ushort AcceptButton { get { return Nintendo ? ButtonB : ButtonA; } }
-  public static ushort BackButton { get { return Nintendo ? ButtonA : ButtonB; } }
+  // Buttons are read by position: the Nintendo layout confirms with the right button and goes back with the bottom one; Xbox and PlayStation do the opposite. Menus only, never the game.
+  public int Layout = PadKind.Nintendo;
+  public ushort AcceptButton { get { return PadKind.Accept(Layout); } }
+  public ushort BackButton { get { return PadKind.Back(Layout); } }
   ushort previous;
   int held = -1;
   long nextAt;
