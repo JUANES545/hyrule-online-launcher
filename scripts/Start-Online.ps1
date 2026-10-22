@@ -138,6 +138,12 @@ Start-Sleep -Seconds 5
 $sessionStart = Get-Date
 foreach ($player in $players) {
     $started = Get-Date
+    # The Vulkan loader only sees the ReShade layer in a Cemu whose player has a turned screen (see RotationMod.cs).
+    if (Test-Path -LiteralPath (Join-Path $player.Cemu 'ReShade64.json')) {
+        $env:VK_IMPLICIT_LAYER_PATH = $player.Cemu
+        Write-Output "Player $($player.Name): the screen is turned, so ReShade loads in this Cemu."
+    }
+    else { Remove-Item Env:VK_IMPLICIT_LAYER_PATH -ErrorAction SilentlyContinue }
     & (Join-Path $PSScriptRoot 'Connect-MilkBar.ps1') -LauncherDirectory $player.Launcher -Show:$ShowMilkBar
     Write-Output "Player $($player.Name): wait for the game, then press Continue in its Cemu window (within ~60 s of the save loading)."
     # The server numbers players in the order their DLLs connect, and every DLL takes whichever launcher pipe is free,

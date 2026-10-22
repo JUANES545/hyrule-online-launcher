@@ -14,7 +14,7 @@ namespace HyruleOnline {
   // Elements whose text the launcher sets from code; the XAML walker leaves them alone.
   public static readonly string[] Dynamic = {
    "CornerServer", "P1Status", "P2Status", "P1Name", "P2Name", "P1AvatarName", "P2AvatarName", "P1PickerName", "P2PickerName", "ScreenInfo", "LayoutInfo", "Layout", "Arrange", "Assign1", "Assign2",
-   "ServerText", "AText", "BText", "Status", "Prompt", "HelpText", "Log", "ServerLog", "LanguageList", "LauncherLanguageList", "TimeBox", "GraphicsHint", "MultiplayerHint", "Start", "HardwareText", "RecommendedText", "PresetInfo", "PresetShares", "SpecialInfo", "PadHint1", "PadHint2", "PadLayoutInfo", "StartText", "Mode"
+   "ServerText", "AText", "BText", "Status", "Prompt", "HelpText", "Log", "ServerLog", "LanguageList", "LauncherLanguageList", "TimeBox", "GraphicsHint", "MultiplayerHint", "Start", "HardwareText", "RecommendedText", "PresetInfo", "PresetShares", "SpecialInfo", "PadHint1", "PadHint2", "PadLayoutInfo", "StartText", "Mode", "SplitCaption"
   };
 
   // Text that reads the same in every language.
@@ -88,7 +88,7 @@ namespace HyruleOnline {
    new[] { "Test vibration", "Probar vibración", "Tester la vibration" },
    new[] { "⇄  Swap players", "⇄  Intercambiar jugadores", "⇄  Inverser les joueurs" },
    new[] { "DISPLAY", "PANTALLA", "ÉCRAN" },
-   new[] { "Primary display · automatic detection", "Pantalla principal · detección automática", "Écran principal · détection automatique" },
+   new[] { "Primary display", "Pantalla principal", "Écran principal" },
    new[] { "P1", "J1", "J1" },
    new[] { "P2", "J2", "J2" },
    new[] { "SESSION", "SESIÓN", "SESSION" },
@@ -199,6 +199,9 @@ namespace HyruleOnline {
    new[] { "Session running.", "Sesión en marcha.", "Session en cours." },
    new[] { "Start failed: {0}", "No se pudo iniciar: {0}", "Échec du démarrage : {0}" },
    new[] { "The display settings could not be prepared: {0}", "No se pudo preparar la configuración de pantalla: {0}", "Les paramètres d'affichage n'ont pas pu être préparés : {0}" },
+   new[] { "Turn the screen of player {0} a quarter turn clockwise", "Girar un cuarto de vuelta, en sentido horario, la pantalla del jugador {0}", "Faire pivoter l'écran du joueur {0} d'un quart de tour dans le sens horaire" },
+   new[] { "Turning a screen needs Vulkan. Choose Vulkan in the graphics settings.", "Girar una pantalla requiere Vulkan. Elige Vulkan en los ajustes de gráficos.", "Faire pivoter un écran nécessite Vulkan. Choisissez Vulkan dans les paramètres graphiques." },
+   new[] { "Turning a screen needs ReShade. Copy ReShade64.dll and ReShade64.json to {0}.", "Girar una pantalla requiere ReShade. Copia ReShade64.dll y ReShade64.json en {0}.", "Faire pivoter un écran nécessite ReShade. Copiez ReShade64.dll et ReShade64.json dans {0}." },
    new[] { "The dedicated server could not start: {0}", "El servidor dedicado no pudo iniciarse: {0}", "Le serveur dédié n'a pas pu démarrer : {0}" },
    new[] { "The start script failed.", "El script de inicio falló.", "Le script de démarrage a échoué." },
    new[] { "Cemu A: wait for the main menu, then press Continue within about a minute.", "Cemu A: espera al menú principal y pulsa Continuar en aproximadamente un minuto.", "Cemu A : attendez le menu principal, puis appuyez sur Continuer dans la minute environ." },

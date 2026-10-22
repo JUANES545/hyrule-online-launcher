@@ -521,6 +521,10 @@ namespace HyruleOnline {
     var moved = ScreenLayout.Assign(new[] { d1, d2, d3 }, d2.Device, d1.Device, 1, d3.Device);
     Require(moved[0] == d2.Device && moved[1] == d3.Device, "choosing a free display changes only that player");
     Require(ScreenLayout.DisplayNumber(d2.Device) == 2 && ScreenLayout.DisplayNumber("\\\\.\\DISPLAY12") == 12 && ScreenLayout.DisplayNumber("x") == 0 && ScreenLayout.DisplayNumber(null) == 0, "display numbers are read from the device name");
+    var edid = new byte[128];
+    var modelBytes = System.Text.Encoding.ASCII.GetBytes("Odyssey G95C\n");
+    edid[72 + 3] = 0xFC; Array.Copy(modelBytes, 0, edid, 72 + 5, modelBytes.Length);
+    Require(WindowPlacer.EdidName(edid) == "Odyssey G95C" && WindowPlacer.EdidName(new byte[128]) == null && WindowPlacer.EdidName(null) == null && WindowPlacer.EdidName(new byte[20]) == null, "the model name is read from the EDID name descriptor");
 
     int separatePlans = 0;
     foreach (var first in displays) foreach (var second in displays) foreach (double scale in GraphicsMod.Scales) {
@@ -542,6 +546,42 @@ namespace HyruleOnline {
     try { ScreenLayout.PlanSeparate(d2, 1.0, tiny, 1.0); } catch (ArgumentOutOfRangeException) { rejected = true; }
     Require(rejected, "a display that is too small is rejected");
     Console.WriteLine("PASS: one display per player, " + separatePlans + " display pairs.");
+
+    var turnedSplit = ScreenLayout.Plan(LayoutMode.TopBottom, 1.0, 1920, 1080, new[] { 180, 90 });
+    Require(turnedSplit.Players[0].Rotation == 180 && turnedSplit.Players[0].RenderWidth == 1920 && turnedSplit.Players[0].RenderHeight == 540, "a half turn keeps the window shape");
+    Require(turnedSplit.Players[1].Rotation == 90 && turnedSplit.Players[1].Area.Width == 1920 && turnedSplit.Players[1].Area.Height == 540 && turnedSplit.Players[1].RenderWidth == 540 && turnedSplit.Players[1].RenderHeight == 1920, "a quarter turn renders the swapped shape in the same window");
+    Require(turnedSplit.Players[1].RatioWidth == 9 && turnedSplit.Players[1].RatioHeight == 32 && turnedSplit.Players[1].Square == true, "a quarter turn tells the game the swapped aspect ratio");
+    var turnedSeparate = ScreenLayout.PlanSeparate(d2, 1.0, d1, 0.5, new[] { 0, 270 });
+    Require(turnedSeparate.Players[0].RenderWidth == 5120 && turnedSeparate.Players[1].Rotation == 270 && turnedSeparate.Players[1].RenderWidth == 360 && turnedSeparate.Players[1].RenderHeight == 960, "a quarter turn on its own display uses that display's scale");
+    Require(ScreenLayout.Plan(LayoutMode.Auto, 1.0, 1920, 1080).Players[0].Rotation == 0 && ScreenLayout.CleanRotation(45) == 0 && ScreenLayout.CleanRotation(-90) == 0 && ScreenLayout.CleanRotation(270) == 270, "no rotation is the default and odd angles are ignored");
+
+    string turnTemp = Path.Combine(Path.GetTempPath(), "HyruleOnlineRotation-" + Guid.NewGuid().ToString("N"));
+    try {
+     string layer = Path.Combine(turnTemp, "layer"), cemu = Path.Combine(turnTemp, "cemu");
+     Directory.CreateDirectory(layer); Directory.CreateDirectory(cemu);
+     File.WriteAllText(Path.Combine(cemu, "Cemu.exe"), "cemu");
+     RotationMod.Apply(cemu, 0, layer);
+     Require(!RotationMod.Managed(cemu) && !File.Exists(Path.Combine(cemu, "ReShade.ini")), "no turn adds nothing to Cemu");
+     rejected = false;
+     try { RotationMod.Apply(cemu, 90, layer); } catch (FileNotFoundException) { rejected = true; }
+     Require(rejected && !File.Exists(Path.Combine(cemu, "ReShade.ini")), "a missing ReShade layer is reported before anything is written");
+     File.WriteAllText(Path.Combine(layer, "ReShade64.dll"), "dll"); File.WriteAllText(Path.Combine(layer, "ReShade64.json"), "{}");
+     RotationMod.Apply(cemu, 90, layer);
+     string preset = File.ReadAllText(Path.Combine(cemu, "hyrule-rotation", "HyruleRotate.ini"));
+     Require(RotationMod.Managed(cemu) && File.Exists(Path.Combine(cemu, "ReShade64.dll")) && File.Exists(Path.Combine(cemu, "ReShade64.json")) && preset.Contains("HyruleRotation=1") && preset.Contains("Techniques=HyruleRotate@HyruleRotate.fx"), "a turned player gets the layer, the shader and a preset");
+     Require(File.ReadAllText(Path.Combine(cemu, "hyrule-rotation", "HyruleRotate.fx")).Contains("uniform int HyruleRotation") && File.ReadAllText(Path.Combine(cemu, "ReShade.ini")).Contains("KeyOverlay=0,0,0,0"), "the effect and an overlay-free ReShade configuration are written");
+     RotationMod.Apply(cemu, 270, layer);
+     Require(File.ReadAllText(Path.Combine(cemu, "hyrule-rotation", "HyruleRotate.ini")).Contains("HyruleRotation=3"), "the turn is updated in place");
+     RotationMod.Apply(cemu, 0, layer);
+     Require(!RotationMod.Managed(cemu) && !File.Exists(Path.Combine(cemu, "ReShade64.dll")) && !File.Exists(Path.Combine(cemu, "ReShade64.json")) && !Directory.Exists(Path.Combine(cemu, "hyrule-rotation")) && File.Exists(Path.Combine(cemu, "Cemu.exe")), "turning back removes every file the launcher wrote and nothing else");
+     File.WriteAllText(Path.Combine(cemu, "ReShade.ini"), "[GENERAL]\r\n"); File.WriteAllText(Path.Combine(cemu, "ReShade64.dll"), "user");
+     rejected = false;
+     try { RotationMod.Apply(cemu, 180, layer); } catch (InvalidDataException) { rejected = true; }
+     RotationMod.Apply(cemu, 0, layer);
+     Require(rejected && File.ReadAllText(Path.Combine(cemu, "ReShade64.dll")) == "user" && File.Exists(Path.Combine(cemu, "ReShade.ini")), "a ReShade setup that is not ours is never touched");
+    }
+    finally { if (Directory.Exists(turnTemp)) Directory.Delete(turnTemp, true); }
+    Console.WriteLine("PASS: screen rotation.");
 
     var all = FpsMod.Parse(FpsRules);
     Require(all.Count == 12 && all[0].Fps == 20 && all[11].Fps == 240 && all.Any(l => l.Fps == 60 && l.Preset == "60FPS Limit (Default)"), "the mod's FPS limits are read from its rules, once each, in order");

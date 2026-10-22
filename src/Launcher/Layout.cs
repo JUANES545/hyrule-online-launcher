@@ -10,10 +10,11 @@ namespace HyruleOnline {
  struct Area { public int X, Y, Width, Height; }
 
  // What one Cemu window needs: where it sits and what the game renders and assumes about its shape.
- struct PlayerView { public Area Area; public int RenderWidth, RenderHeight, RatioWidth, RatioHeight; public bool Ultrawide, Square; }
+ // Rotation is the clockwise turn (0, 90, 180 or 270) the player's screen is shown at.
+ struct PlayerView { public Area Area; public int Rotation, RenderWidth, RenderHeight, RatioWidth, RatioHeight; public bool Ultrawide, Square; }
 
  // One display as Windows reports it: physical size, refresh rate and position on the virtual desktop.
- struct MonitorInfo { public string Device; public int X, Y, Width, Height, Hz; public bool Primary; }
+ struct MonitorInfo { public string Device, Name; public int X, Y, Width, Height, Hz; public bool Primary; }
 
  sealed class DisplayPlan { public LayoutMode Layout; public bool Separate; public PlayerView[] Players; }
 
@@ -63,13 +64,15 @@ namespace HyruleOnline {
    ratioWidth = Math.Max(1, (int)Math.Round(ratioWidth * 1000.0 / largest)); ratioHeight = Math.Max(1, (int)Math.Round(ratioHeight * 1000.0 / largest));
   }
 
-  public static DisplayPlan Plan(LayoutMode mode, double scale, int width, int height) {
+  public static DisplayPlan Plan(LayoutMode mode, double scale, int width, int height, int[] rotations = null) {
    if (width < MinDisplayWidth || height < MinDisplayHeight) throw new ArgumentOutOfRangeException("width", "The display is too small or not ready.");
    var areas = Split(mode, width, height);
    var plan = new DisplayPlan { Layout = Resolve(mode, width, height), Players = new PlayerView[2] };
-   for (int i = 0; i < 2; i++) plan.Players[i] = View(areas[i], scale);
+   for (int i = 0; i < 2; i++) plan.Players[i] = View(areas[i], scale, rotations == null ? 0 : rotations[i]);
    return plan;
   }
+
+  public static int CleanRotation(int degrees) { return degrees == 90 || degrees == 180 || degrees == 270 ? degrees : 0; }
 
   // One player: the game takes the whole display.
   public static DisplayPlan PlanSingle(double scale, int width, int height) {
@@ -77,9 +80,11 @@ namespace HyruleOnline {
    return new DisplayPlan { Layout = LayoutMode.Auto, Players = new[] { View(new Area { X = 0, Y = 0, Width = width, Height = height }, scale) } };
   }
 
-  public static PlayerView View(Area area, double scale) {
-   var view = new PlayerView { Area = area };
-   RenderSize(area, scale, out view.RenderWidth, out view.RenderHeight);
+  // A quarter turn is applied after the game has rendered, so the game renders the swapped shape and the window shows it turned.
+  public static PlayerView View(Area area, double scale, int rotation = 0) {
+   var view = new PlayerView { Area = area, Rotation = CleanRotation(rotation) };
+   var shape = view.Rotation % 180 == 90 ? new Area { X = area.X, Y = area.Y, Width = area.Height, Height = area.Width } : area;
+   RenderSize(shape, scale, out view.RenderWidth, out view.RenderHeight);
    AspectRatio(view.RenderWidth, view.RenderHeight, out view.RatioWidth, out view.RatioHeight);
    double ratio = (double)view.RenderWidth / view.RenderHeight;
    view.Ultrawide = ratio > 16.0 / 9.0 + 0.01;
@@ -88,13 +93,13 @@ namespace HyruleOnline {
   }
 
   // One display per player: each window covers its own display, and each game renders at its own scale.
-  public static DisplayPlan PlanSeparate(MonitorInfo first, double firstScale, MonitorInfo second, double secondScale) {
+  public static DisplayPlan PlanSeparate(MonitorInfo first, double firstScale, MonitorInfo second, double secondScale, int[] rotations = null) {
    var plan = new DisplayPlan { Layout = LayoutMode.Auto, Separate = true, Players = new PlayerView[2] };
    var monitors = new[] { first, second };
    var scales = new[] { firstScale, secondScale };
    for (int i = 0; i < 2; i++) {
     if (monitors[i].Width < MinDisplayWidth || monitors[i].Height < MinDisplayHeight) throw new ArgumentOutOfRangeException("first", "The display is too small or not ready.");
-    plan.Players[i] = View(new Area { X = monitors[i].X, Y = monitors[i].Y, Width = monitors[i].Width, Height = monitors[i].Height }, scales[i]);
+    plan.Players[i] = View(new Area { X = monitors[i].X, Y = monitors[i].Y, Width = monitors[i].Width, Height = monitors[i].Height }, scales[i], rotations == null ? 0 : rotations[i]);
    }
    return plan;
   }
@@ -174,6 +179,39 @@ namespace HyruleOnline {
   }
   [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern bool EnumDisplayDevices(string device, uint index, ref DisplayDevice display, uint flags);
 
+  // The model name a display reports in its EDID block (descriptor type 0xFC), or null when it has none.
+  public static string EdidName(byte[] edid) {
+   if (edid == null || edid.Length < 128) return null;
+   for (int at = 54; at <= 108; at += 18) {
+    if (edid[at] != 0 || edid[at + 1] != 0 || edid[at + 2] != 0 || edid[at + 3] != 0xFC) continue;
+    var text = System.Text.Encoding.ASCII.GetString(edid, at + 5, 13);
+    int end = text.IndexOf('\n');
+    text = (end >= 0 ? text.Substring(0, end) : text).Trim();
+    return text.Length == 0 ? null : text;
+   }
+   return null;
+  }
+
+  // Windows lists most displays as "Generic PnP Monitor", so the model comes from the EDID that Windows keeps for the monitor's hardware id.
+  static string MonitorName(string monitorId, string description) {
+   var parts = (monitorId ?? "").Split('\\');
+   if (parts.Length > 1) {
+    try {
+     using (var models = Microsoft.Win32.Registry.LocalMachine.OpenSubKey("SYSTEM\\CurrentControlSet\\Enum\\DISPLAY\\" + parts[1])) {
+      if (models != null) foreach (var instance in models.GetSubKeyNames()) {
+       using (var parameters = models.OpenSubKey(instance + "\\Device Parameters")) {
+        string name = parameters == null ? null : EdidName(parameters.GetValue("EDID") as byte[]);
+        if (name != null) return name;
+       }
+      }
+     }
+    }
+    catch (Exception) { }
+   }
+   bool generic = string.IsNullOrEmpty(description) || description.StartsWith("Generic", StringComparison.OrdinalIgnoreCase);
+   return generic ? null : description;
+  }
+
   // Every display that is part of the desktop, with its current mode. Mirrored (cloned) outputs are skipped.
   public static List<MonitorInfo> Monitors() {
    var list = new List<MonitorInfo>();
@@ -185,7 +223,10 @@ namespace HyruleOnline {
     var mode = new DevMode();
     mode.size = (ushort)Marshal.SizeOf(typeof(DevMode));
     if (!EnumDisplaySettings(device.name, -1, ref mode) || mode.width == 0 || mode.height == 0) continue;
-    list.Add(new MonitorInfo { Device = device.name, X = mode.x, Y = mode.y, Width = (int)mode.width, Height = (int)mode.height, Hz = mode.frequency > 1 ? (int)mode.frequency : 60, Primary = (device.state & 4) != 0 });
+    var attached = new DisplayDevice();
+    attached.size = Marshal.SizeOf(typeof(DisplayDevice));
+    string model = EnumDisplayDevices(device.name, 0, ref attached, 0) ? MonitorName(attached.id, attached.description) : null;
+    list.Add(new MonitorInfo { Device = device.name, Name = model, X = mode.x, Y = mode.y, Width = (int)mode.width, Height = (int)mode.height, Hz = mode.frequency > 1 ? (int)mode.frequency : 60, Primary = (device.state & 4) != 0 });
    }
    return list;
   }

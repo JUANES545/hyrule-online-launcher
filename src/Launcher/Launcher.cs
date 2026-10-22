@@ -106,6 +106,7 @@ namespace HyruleOnline {
   int playerCount = 2;
   readonly string[] displays = { null, null };
   readonly double[] scales = { GraphicsMod.DefaultScale, GraphicsMod.DefaultScale };
+  readonly int[] rotations = { 0, 0 };
   readonly int[] fpsLimits = { FpsMod.AutoFps, FpsMod.AutoFps };
   List<MonitorInfo> monitors = new List<MonitorInfo>();
   MonitorInfo[] pair;
@@ -148,6 +149,10 @@ namespace HyruleOnline {
    C<Button>("Stop").Click += (s, e) => StopSession();
    C<Button>("Swap").Click += (s, e) => router.Swap();
    C<Button>("Mode").Click += (s, e) => TogglePlayerCount();
+   for (int i = 0; i < 2; i++) {
+    int turned = i;
+    C<Button>("Turn" + (i + 1)).Click += (s, e) => { rotations[turned] = (rotations[turned] + 90) % 360; ChangedDisplayChoice(); };
+   }
    for (int i = 0; i < 2; i++) {
     int player = i;
     C<Button>("Assign" + (i + 1)).Click += (s, e) => { if (router.Snapshot().Assigning == player) router.CancelAssign(); else router.BeginAssign(player); };
@@ -346,6 +351,7 @@ namespace HyruleOnline {
      displays[i] = Saved(root, "Display" + (i + 1));
      scales[i] = double.TryParse((string)root.Element("Scale" + (i + 1)), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out saved) ? GraphicsMod.NearestScale(saved) : scale;
      fpsLimits[i] = int.TryParse((string)root.Element("Fps" + (i + 1)), out wanted) && wanted > 0 ? wanted : FpsMod.AutoFps;
+     rotations[i] = ScreenLayout.CleanRotation(int.TryParse((string)root.Element("Rotation" + (i + 1)), out wanted) ? wanted : 0);
     }
     for (int i = 0; i < 2; i++) {
      names[i] = Characters.CleanName((string)root.Element("Name" + (i + 1)), Characters.DefaultNames[i]);
@@ -579,6 +585,7 @@ namespace HyruleOnline {
      new XElement("Display1", displays[0] ?? ""), new XElement("Display2", displays[1] ?? ""),
      new XElement("Scale1", GraphicsMod.NearestScale(scales[0]).ToString(System.Globalization.CultureInfo.InvariantCulture)), new XElement("Scale2", GraphicsMod.NearestScale(scales[1]).ToString(System.Globalization.CultureInfo.InvariantCulture)),
      new XElement("Fps1", fpsLimits[0] == FpsMod.AutoFps ? "Auto" : fpsLimits[0].ToString()), new XElement("Fps2", fpsLimits[1] == FpsMod.AutoFps ? "Auto" : fpsLimits[1].ToString()),
+     new XElement("Rotation1", rotations[0]), new XElement("Rotation2", rotations[1]),
      new XElement("Name1", names[0]), new XElement("Model1", models[0]), new XElement("Name2", names[1]), new XElement("Model2", models[1]),
      new XElement("Language", language), new XElement("LauncherLanguage", launcherLanguage), new XElement("MenuLayout", Router.MenuLayout < 0 ? "Auto" : PadKind.Names[Router.MenuLayout]))).Save(PrefsFile);
    }
@@ -602,8 +609,18 @@ namespace HyruleOnline {
   FpsMod.Limit CurrentFps(int player) { return FpsMod.Pick(FpsChoices(HzOf(player)), pair != null ? fpsLimits[player] : fpsLimit, HzOf(player)); }
 
   DisplayPlan CurrentPlan() {
-   return pair != null ? ScreenLayout.PlanSeparate(pair[0], scales[0], pair[1], scales[1])
-    : playerCount == 1 ? ScreenLayout.PlanSingle(scale, displayWidth, displayHeight) : ScreenLayout.Plan(mode, scale, displayWidth, displayHeight);
+   return pair != null ? ScreenLayout.PlanSeparate(pair[0], scales[0], pair[1], scales[1], rotations)
+    : playerCount == 1 ? ScreenLayout.PlanSingle(scale, displayWidth, displayHeight) : ScreenLayout.Plan(mode, scale, displayWidth, displayHeight, rotations);
+  }
+
+  // The turn button shows the player's avatar, turned the way that player's screen will be.
+  void ShowTurn(int player) {
+   var image = C<Image>("Turn" + (player + 1) + "Image");
+   image.Source = Avatar(AvatarOf(player));
+   image.RenderTransform = new RotateTransform(rotations[player]);
+   var button = C<Button>("Turn" + (player + 1));
+   button.ToolTip = Tr("Turn the screen of player {0} a quarter turn clockwise", player + 1);
+   System.Windows.Automation.AutomationProperties.SetName(button, Tr("Turn the screen of player {0} a quarter turn clockwise", player + 1));
   }
 
   static string MonitorKey(List<MonitorInfo> list) {
@@ -618,6 +635,11 @@ namespace HyruleOnline {
    canSeparate = playerCount == 2 && ScreenLayout.Pair(monitors, null, null, out first, out second);
    pair = null;
    if (perDisplay && canSeparate && ScreenLayout.Pair(monitors, displays[0], displays[1], out first, out second)) pair = new[] { first, second };
+  }
+
+  // The model name from the display's EDID, or "Display N" when Windows does not know it.
+  string MonitorTitle(MonitorInfo monitor) {
+   return string.IsNullOrEmpty(monitor.Name) ? Tr("Display {0}", ScreenLayout.DisplayNumber(monitor.Device)) : monitor.Name;
   }
 
   string MonitorLabel(MonitorInfo monitor) {
@@ -922,7 +944,9 @@ namespace HyruleOnline {
    foreach (var name in new[] { "SplitCaption", "Preview", "Layout", "FpsBox" }) C<UIElement>(name).Visibility = separate ? Visibility.Collapsed : Visibility.Visible;
    C<UIElement>("Layout").Visibility = separate || playerCount == 1 ? Visibility.Collapsed : Visibility.Visible;
    foreach (var name in new[] { "SeparateCaption", "MonitorMap", "SeparatePanel" }) C<UIElement>(name).Visibility = separate ? Visibility.Visible : Visibility.Collapsed;
-   C<TextBlock>("ScreenInfo").Text = separate ? pair[0].Width + " × " + pair[0].Height + "  +  " + pair[1].Width + " × " + pair[1].Height : displayWidth + " × " + displayHeight + "  /  " + displayHz + " Hz";
+   var primary = monitors.FirstOrDefault(m => m.Primary);
+   C<TextBlock>("SplitCaption").Text = Tr("Primary display") + (primary.Device == null ? "" : " · " + MonitorTitle(primary));
+   C<TextBlock>("ScreenInfo").Text = separate ? MonitorTitle(pair[0]) + "  +  " + MonitorTitle(pair[1]) : displayWidth + " × " + displayHeight + "  /  " + displayHz + " Hz";
    C<Button>("Layout").Content = Tr(mode == LayoutMode.Auto ? "Split: automatic" : mode == LayoutMode.SideBySide ? "Split: side by side" : "Split: top and bottom");
    ShowDisplays();
    ShowFpsChoices();
@@ -950,7 +974,8 @@ namespace HyruleOnline {
   void ShowPlayers() {
    bool two = playerCount == 2;
    Func<bool, Visibility> show = on => on ? Visibility.Visible : Visibility.Collapsed;
-   foreach (var name in new[] { "P2Card", "Swap", "BLabel", "BDot", "BText", "BringP1", "BringP2" }) C<UIElement>(name).Visibility = show(two);
+   foreach (var name in new[] { "P2Card", "Swap", "BLabel", "BDot", "BText", "BringP1", "BringP2", "TurnPanel" }) C<UIElement>(name).Visibility = show(two);
+   if (two) { ShowTurn(0); ShowTurn(1); }
    if (!two) SetPicker(1, false);
    ShowModeSwitch();
    UpdatePlayLayout();
@@ -1048,10 +1073,16 @@ namespace HyruleOnline {
     Write("Cemu: " + api + (advanced.Api == GraphicsMod.AutoApi ? " (automatic)" : "") + ", VSync " + (advanced.VSync ? "on" : "off") + ", async shader compile " + (advanced.AsyncCompile ? "on" : "off")
      + ", upscale " + GraphicsMod.Filters[advanced.Upscale] + ", downscale " + GraphicsMod.Filters[advanced.Downscale] + (api == GraphicsMod.VulkanApi ? ", accurate barriers " + (advanced.AccurateBarriers ? "on" : "off") : "") + ".");
     Write("Game language: " + gameLanguage.Name + " (Cemu console language " + gameLanguage.Console + ").");
+    bool turned = plan.Players.Any(v => v.Rotation != 0);
+    string reshade = Path.Combine(root, ".tools", "reshade");
+    if (turned && api != GraphicsMod.VulkanApi) { Fail("Turning a screen needs Vulkan. Choose Vulkan in the graphics settings."); return false; }
+    if (turned && !RotationMod.LayerReady(reshade)) { Fail("Turning a screen needs ReShade. Copy ReShade64.dll and ReShade64.json to {0}.", reshade); return false; }
     for (int i = 0; i < plan.Players.Length; i++) {
      var view = plan.Players[i];
      var fps = CurrentFps(i);
      CemuDisplay.Apply(Path.Combine(root, ".tools", "instances", names[i]), view, fps == null ? null : fps.Preset, quality, gameLanguage.Console, advanced, vulkanAvailable);
+     RotationMod.Apply(Path.Combine(root, ".tools", "instances", names[i]), view.Rotation, reshade);
+     if (view.Rotation != 0) Write("Player " + (i + 1) + ": the screen is turned " + view.Rotation + " degrees clockwise with ReShade.");
      Write("Player " + (i + 1) + ": " + view.RenderWidth + " x " + view.RenderHeight + " (aspect " + view.RatioWidth + ":" + view.RatioHeight + ")"
       + (pair == null ? "" : " on display " + ScreenLayout.DisplayNumber(pair[i].Device) + " at " + pair[i].Hz + " Hz, render " + GraphicsMod.ScaleLabel(scales[i])) + (fps == null ? "." : ", " + fps.Fps + " FPS limit."));
     }
@@ -1256,7 +1287,7 @@ namespace HyruleOnline {
   void EnableAppearance(bool enabled) {
    foreach (var name in new[] { "P1NameBox", "P2NameBox" }) C<TextBox>(name).IsEnabled = enabled;
    foreach (var name in new[] { "RulesBox", "SpecialBox" }) C<ComboBox>(name).IsEnabled = enabled;
-   foreach (var name in new[] { "P1AvatarButton",    "P2AvatarButton", "Mode", "UseRecommendedRules" }) C<Button>(name).IsEnabled = enabled;
+   foreach (var name in new[] { "P1AvatarButton",    "P2AvatarButton", "Mode", "UseRecommendedRules", "Turn1", "Turn2" }) C<Button>(name).IsEnabled = enabled;
    C<UIElement>("ModeIcon").Opacity = enabled ? 1 : 0.4;
    if (!enabled) ClosePickers();
    foreach (var name in RuleBoxes) C<CheckBox>(name).IsEnabled = enabled;

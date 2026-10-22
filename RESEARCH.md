@@ -245,6 +245,31 @@ While a session is open, the Start button becomes "Restart session" as soon as a
 - **Applies live:** the launcher language and the live controls (time, weather, name tags, teleport). Changing a value back to what the session started with removes the prompt.
 - **Verified:** a scripted run (UI Automation) with a real server: Start stays disabled until an option changes, turns into "Restart session", turns back when the value is restored, and pressing it replaced the server process. Not verified: a full restart with both Cemu windows in the game (Cemu did not start in that scripted run, cause not found).
 
+## Monitor names
+
+The Display card shows each monitor's EDID name (for example "Odyssey G95C") instead of the resolution, in the one-display-per-player layout and in the primary-display caption. The name comes from the 0xFC descriptor of the monitor's EDID in the registry; when it is missing the card falls back to "Display N". Unit test: `EdidName` in `tests\RouterTests.cs`.
+
+## Screen rotation (built, not verified in a session)
+
+Each player's screen can be turned a quarter turn clockwise per click (0, 90, 180, 270). The avatar button beside the display preview shows the direction. It is only offered with two players, in both the primary-display split and the one-display-per-player layout. In two-display mode the user picks each player's display with the Display dropdowns; the split always uses the primary display.
+
+- Rotation uses ReShade as a Vulkan implicit layer, as the old launcher did, but only for a Cemu whose player has a turned screen. Without rotation nothing is deployed and `VK_IMPLICIT_LAYER_PATH` is not set.
+- `ReShade64.dll` and `ReShade64.json` are never committed. They are copied by hand into `.tools\reshade` (git-ignored). Rotation needs Vulkan; otherwise the launcher refuses to start and says why.
+- `RotationMod` writes a small FX shader, a preset and a managed `ReShade.ini` into the player's Cemu folder, and removes only its own files when the rotation goes back to 0. It refuses to touch a ReShade setup it did not create.
+- `Start-Online.ps1` sets `VK_IMPLICIT_LAYER_PATH` per player right before starting that player's Milk Bar launcher, so only turned players load the layer.
+- For 90 and 270 degrees the game renders the swapped shape (the window area is unchanged) and the shader rotates the picture back into the window.
+- Unit tests cover the plans and the file deployment. Not verified: ReShade loading in these Cemu instances, the shader compiling, Cemu stretching its output to the window, the visual result, and navigating the buttons with a real pad.
+
+## Milk Bar "Unexpected character encountered ... line 2, position 3" (cause found, 2026-10-23)
+
+Symptom: the session never starts ("Player A did not reach the server"), Cemu is never launched, and the Milk Bar window shows a JSON parse error with an Accept button. It is independent of Cemu and of the graphics API.
+
+- Milk Bar edits the actor packs through `Resources\aapmLib.exe`, which exchanges data with the launcher in one shared file, `%APPDATA%\BOTWM\Temp\AampTemp.txt`. When `aapmLib` crashes, the file keeps the input list of objects and Milk Bar fails to read it back as strings (the JSON error above).
+- The crash was `KeyError: ModelData`. The first 32 model lists in the merged tree (GameROMPlayer's list and animation list, `Armor_Default_Extra_00/01`, `PauseMenuPlayer` and 26 `Armor_*` packs) held ActorLink data of the 32 `Jugador*` actors instead of model lists. Those packs were written that way by a successful run earlier on 2026-10-22. The ActorLink data comes from Milk Bar's `LinkTarget` pass over the 32 Jugador packs, read back into the next pass: the shared temp file was read by a pass it did not belong to. Why that happened once is not proven (two Milk Bar processes overlapping on the shared file is the likely reason). Every later run then read the corrupt lists and crashed.
+- Repair: the 32 entries were restored from the update's own packs (`TitleBG.pack` is a plain SARC, the actor packs are Yaz0). After the repair `aapmLib.exe` processed all 419 inputs with exit code 0. The corrupt files were saved outside the tree before editing. Not verified: a full session start after the repair.
+- Check for it: any `.bmodellist` or `.baslist` in `merged\content\Actor\Pack\Armor_*` or `PauseMenuPlayer` that contains the strings `Jugador` or `MultiplayerAI` is corrupt.
+- Pitfall when scripting this with `oead`: a `Sarc` object must stay alive while its file data is used, or the data turns into garbage at random.
+
 ## Open questions
 
 0. Pipe limit: the launcher creates `languageConnectionPipe` with max 2 instances, which fits exactly two launchers on one PC. The DLL pipe name is fixed, and in the two-instance run both DLLs connected without a visible mix-up, but this was not tested on purpose.
