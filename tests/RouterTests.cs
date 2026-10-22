@@ -179,6 +179,45 @@ namespace HyruleOnline {
    return found;
   }
 
+  static void ServerRulesTest() {
+   const string ini = "\uFEFF[Connection]\r\nIP=100.1.2.3\r\nPort=5050\r\nPassword=secret\r\n\r\n[Gamemode]\r\n# keep me\r\nDefaultGamemode=False\r\n\r\n[DefaultGamemode]\r\n# rules\r\nName=Custom\r\nEnemySync=False\r\nQuestSync=True\r\n# special\r\nSpecial=0\r\n";
+   var rules = ServerRules.Parse(ini);
+   Require(rules.Quests && !rules.Enemies && !rules.Koroks && rules.Special == 0 && rules.Name == "Custom", "rules are read from the ini");
+   rules.Enemies = true; rules.Koroks = true; rules.DivineBeasts = true; rules.Special = 2; rules.Name = "Death Swap";
+   string text = rules.Apply(ini.TrimStart('\uFEFF'));
+   var back = ServerRules.Parse(text);
+   Require(back.SameRules(rules) && back.Name == "Death Swap", "written rules read back the same");
+   Require(text.Contains("IP=100.1.2.3\r\n") && text.Contains("Password=secret") && text.Contains("# keep me") && text.Contains("# rules") && text.Contains("# special"), "connection settings and comments stay");
+   Require(text.Contains("DefaultGamemode=True") && !text.Contains("DefaultGamemode=False") && text.Contains("DungeonSync=True") && text.Contains("TowerSync=False"), "missing keys are added and the prompt is turned off");
+   Require(!text.Replace("\r\n", "").Contains("\n") && text.EndsWith("\r\n") && text.Split(new[] { "EnemySync" }, StringSplitOptions.None).Length == 2, "line endings stay and keys are not repeated");
+   Require(new ServerRules().Apply("").Contains("[DefaultGamemode]") && ServerRules.Parse(new ServerRules().Apply("")).SameRules(new ServerRules()), "an empty ini gets the sections");
+
+   const string json = "[{\"SettingsName\":\"Game Completion\",\"EnemySync\":true,\"GameMode\":\"NoGamemode\",\"QuestSyncSettings\":{\"Vanilla\":false,\"Koroks\":true,\"Towers\":true,\"Shrines\":true,\"Locations\":true,\"DivineBeast\":false}},"
+    + "{\"SettingsName\":\"Hunter Vs Speedrunner\",\"EnemySync\":false,\"GameMode\":\"HunterVsSpeedrunner\",\"QuestSyncSettings\":{\"Vanilla\":true,\"Koroks\":false,\"Towers\":false,\"Shrines\":false,\"Locations\":false,\"DivineBeast\":true}},"
+    + "{\"SettingsName\":\"Prop hunt\",\"EnemySync\":false,\"GameMode\":\"PropHunt\",\"QuestSyncSettings\":{}}]";
+   var presets = ServerRules.Presets(json);
+   Require(presets.Count == 2 && presets[0].Name == "Game Completion" && presets[0].Enemies && presets[0].Koroks && presets[0].Locations && !presets[0].Quests && !presets[0].DivineBeasts && presets[0].Special == 0, "presets are read");
+   Require(presets[1].Special == 1 && presets[1].Quests && presets[1].DivineBeasts && !presets[1].Towers, "a special mode preset");
+   Require(ServerRules.Match(presets, presets[0].Copy()) == presets[0] && ServerRules.Match(presets, new ServerRules()) == null && ServerRules.Presets("").Count == 0, "a matching mix is a preset");
+
+   Require(ServerCommands.Time("7:05") == "Time Set 07:05" && ServerCommands.Time(" 23:59 ") == "Time Set 23:59" && ServerCommands.Time("24:00") == null && ServerCommands.Time("12:60") == null && ServerCommands.Time("noon") == null && ServerCommands.Time(null) == null, "time text");
+   Require(ServerCommands.SetWeather("Rain") == "Weather Set Rain" && ServerCommands.Bring("Link", "Pedro") == "Teleport Link Pedro" && ServerCommands.Bring("Sir Link", "Pedro") == "Teleport \"Sir Link\" Pedro", "weather and teleport commands");
+   Require(ServerCommands.NameTags("Activated Name Tags") == true && ServerCommands.NameTags("Deactivated Name Tags") == false && ServerCommands.NameTags("Server started") == null, "name tag lines");
+
+   string temp = Path.Combine(Path.GetTempPath(), "hyrule-rules-" + Guid.NewGuid().ToString("N"));
+   try {
+    Directory.CreateDirectory(temp);
+    string file = Path.Combine(temp, "ServerConfig.ini");
+    File.WriteAllText(file, ini.TrimStart('\uFEFF'), new System.Text.UTF8Encoding(true));
+    rules.Save(file);
+    var bytes = File.ReadAllBytes(file);
+    Require(bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF && bytes[3] == (byte)'[' && ServerRules.Load(file).SameRules(rules), "the file keeps its byte order mark");
+    Require(new ServerRules().SameRules(ServerRules.Load(Path.Combine(temp, "missing.ini"))), "a missing file gives default rules");
+   }
+   finally { if (Directory.Exists(temp)) Directory.Delete(temp, true); }
+   Console.WriteLine("PASS: server rules and commands.");
+  }
+
   static void Languages(string root) {
    var table = Lang.Table;
    Require(table.Select(r => r[0]).Distinct().Count() == table.Length, "every English text appears once in the table");
@@ -421,6 +460,7 @@ namespace HyruleOnline {
     Console.WriteLine("PASS: controller motion.");
     Navigation();
     Players();
+    ServerRulesTest();
     Languages(args.Length > 0 ? args[0] : Directory.GetCurrentDirectory());
         return 0;
        }

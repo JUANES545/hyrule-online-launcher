@@ -14,11 +14,11 @@ namespace HyruleOnline {
   // Elements whose text the launcher sets from code; the XAML walker leaves them alone.
   public static readonly string[] Dynamic = {
    "CornerServer", "P1Status", "P2Status", "P1Name", "P2Name", "ScreenInfo", "LayoutInfo", "Layout", "Assign1", "Assign2",
-   "ServerText", "AText", "BText", "Status", "Prompt", "HelpText", "Log", "ServerLog", "LanguageList"
+   "ServerText", "AText", "BText", "Status", "Prompt", "HelpText", "Log", "ServerLog", "LanguageList", "TimeBox"
   };
 
   // Text that reads the same in every language.
-  public static readonly string[] Neutral = { "THE LEGEND OF ZELDA", "BREATH OF THE WILD", "LT / RT", "LB", "RB" };
+  public static readonly string[] Neutral = { "THE LEGEND OF ZELDA", "BREATH OF THE WILD", "LT / RT", "LB", "RB", "Hunter vs Speedrunner", "Death Swap" };
 
   // English, Spanish, French.
   public static readonly string[][] Table = {
@@ -30,6 +30,45 @@ namespace HyruleOnline {
    new[] { "Next page (RB)", "Página siguiente (RB)", "Page suivante (RB)" },
    new[] { "PLAY", "JUGAR", "JOUER" },
    new[] { "GRAPHICS", "GRÁFICOS", "GRAPHISMES" },
+   new[] { "MULTIPLAYER", "MULTIJUGADOR", "MULTIJOUEUR" },
+   new[] { "WORLD RULES", "REGLAS DEL MUNDO", "RÈGLES DU MONDE" },
+   new[] { "LIVE CONTROLS", "CONTROLES EN VIVO", "COMMANDES EN DIRECT" },
+   new[] { "What the two players share. Applied when the next session starts.", "Lo que comparten los dos jugadores. Se aplica cuando inicie la próxima sesión.", "Ce que les deux joueurs partagent. S'applique au prochain démarrage d'une session." },
+   new[] { "Available while the server is running.", "Disponible mientras el servidor está en marcha.", "Disponible tant que le serveur fonctionne." },
+   new[] { "Preset", "Preajuste", "Préréglage" },
+   new[] { "Rules preset", "Preajuste de reglas", "Préréglage des règles" },
+   new[] { "Special mode", "Modo especial", "Mode spécial" },
+   new[] { "Custom", "Personalizado", "Personnalisé" },
+   new[] { "No special mode", "Sin modo especial", "Aucun mode spécial" },
+   new[] { "Enemies", "Enemigos", "Ennemis" },
+   new[] { "Quests", "Misiones", "Quêtes" },
+   new[] { "Koroks", "Koroks", "Korogus" },
+   new[] { "Towers", "Torres", "Tours" },
+   new[] { "Shrines", "Santuarios", "Sanctuaires" },
+   new[] { "Locations", "Lugares", "Lieux" },
+   new[] { "Divine Beasts", "Bestias Divinas", "Créatures divines" },
+   new[] { "Time of day (24 hour, HH:MM)", "Hora del día (24 h, HH:MM)", "Heure du jour (24 h, HH:MM)" },
+   new[] { "Time of day", "Hora del día", "Heure du jour" },
+   new[] { "Set time", "Fijar hora", "Régler l'heure" },
+   new[] { "Weather", "Clima", "Météo" },
+   new[] { "Set weather", "Fijar clima", "Régler la météo" },
+   new[] { "Automatic", "Automático", "Automatique" },
+   new[] { "Clear sky", "Cielo despejado", "Ciel dégagé" },
+   new[] { "Cloudy", "Nublado", "Nuageux" },
+   new[] { "Rain", "Lluvia", "Pluie" },
+   new[] { "Heavy rain", "Lluvia fuerte", "Forte pluie" },
+   new[] { "Snow", "Nieve", "Neige" },
+   new[] { "Heavy snow", "Nevada fuerte", "Forte neige" },
+   new[] { "Thunderstorm", "Tormenta eléctrica", "Orage" },
+   new[] { "Thunder and rain", "Truenos y lluvia", "Orage et pluie" },
+   new[] { "Clear sky with rain", "Cielo despejado con lluvia", "Ciel dégagé avec pluie" },
+   new[] { "Name tags", "Nombres sobre los jugadores", "Noms au-dessus des joueurs" },
+   new[] { "Pause sync", "Pausar sincronización", "Mettre la synchro en pause" },
+   new[] { "Resume sync", "Reanudar sincronización", "Reprendre la synchro" },
+   new[] { "Player 1 → player 2", "Jugador 1 → jugador 2", "Joueur 1 → joueur 2" },
+   new[] { "Player 2 → player 1", "Jugador 2 → jugador 1", "Joueur 2 → joueur 1" },
+   new[] { "Teleports player 1 next to player 2", "Teletransporta al jugador 1 junto al jugador 2", "Téléporte le joueur 1 près du joueur 2" },
+   new[] { "Teleports player 2 next to player 1", "Teletransporta al jugador 2 junto al jugador 1", "Téléporte le joueur 2 près du joueur 1" },
    new[] { "LANGUAGE", "IDIOMA", "LANGUE" },
    new[] { "DETAILS", "DETALLES", "DÉTAILS" },
    new[] { "CONTROLLERS", "MANDOS", "MANETTES" },
@@ -116,9 +155,9 @@ namespace HyruleOnline {
 
   // The help panel is one long text, so it is kept per language instead of in the table.
   public static readonly string[] HelpText = {
-   "SESSION: Start session opens the dedicated server, then Player 1 and Player 2 in their own Cemu windows. When each game reaches the main menu, press Continue in that window within about a minute.\n\nPAGES: LB and RB on any controller (or Ctrl+Tab) move between Play, Graphics, Language and Details while this launcher is in front.\n\nCONTROLLERS: choose a player, then press the bottom face button on a controller to assign it. Each Cemu window only sees its own controller. Vibration support depends on the controller.\n\nDISPLAY: the two Cemu windows share the primary display. Split chooses side by side or top and bottom; Auto splits wide displays side by side. Windows are placed when they open, so moving one by hand is kept.\n\nGRAPHICS: the choices come from the game's own graphics pack and apply the next time a session starts.\n\nLANGUAGE: the language you pick changes this launcher right away and the game the next time a session starts.\n\nThe preview shows the split layout, not a game screenshot. Use Alt+Tab to come back to this launcher while the game is open.",
-   "SESIÓN: Iniciar sesión abre el servidor dedicado y después al jugador 1 y al jugador 2 en sus propias ventanas de Cemu. Cuando cada juego llegue al menú principal, pulsa Continuar en esa ventana en aproximadamente un minuto.\n\nPÁGINAS: LB y RB en cualquier mando (o Ctrl+Tab) cambian entre Jugar, Gráficos, Idioma y Detalles mientras este launcher esté al frente.\n\nMANDOS: elige un jugador y pulsa el botón inferior de un mando para asignarlo. Cada ventana de Cemu solo ve su propio mando. La vibración depende del mando.\n\nPANTALLA: las dos ventanas de Cemu comparten la pantalla principal. División elige lado a lado o arriba y abajo; Auto divide las pantallas anchas lado a lado. Las ventanas se colocan al abrirse, así que si mueves una a mano se respeta.\n\nGRÁFICOS: las opciones vienen del propio paquete gráfico del juego y se aplican la próxima vez que inicies una sesión.\n\nIDIOMA: el idioma que elijas cambia este launcher al instante y el juego la próxima vez que inicies una sesión.\n\nLa vista previa muestra la división, no una captura del juego. Usa Alt+Tab para volver a este launcher con el juego abierto.",
-   "SESSION : Démarrer la session ouvre le serveur dédié, puis le joueur 1 et le joueur 2 dans leurs propres fenêtres Cemu. Quand chaque jeu arrive au menu principal, appuyez sur Continuer dans cette fenêtre dans la minute environ.\n\nPAGES : LB et RB sur n'importe quelle manette (ou Ctrl+Tab) passent de Jouer à Graphismes, Langue et Détails tant que ce launcher est au premier plan.\n\nMANETTES : choisissez un joueur, puis appuyez sur le bouton du bas d'une manette pour l'assigner. Chaque fenêtre Cemu ne voit que sa propre manette. La vibration dépend de la manette.\n\nÉCRAN : les deux fenêtres Cemu se partagent l'écran principal. Division choisit côte à côte ou haut et bas ; Auto place les écrans larges côte à côte. Les fenêtres sont placées à leur ouverture, donc un déplacement manuel est conservé.\n\nGRAPHISMES : les choix viennent du pack graphique du jeu et s'appliquent au prochain démarrage d'une session.\n\nLANGUE : la langue choisie change ce launcher immédiatement et le jeu au prochain démarrage d'une session.\n\nL'aperçu montre la division, pas une capture du jeu. Utilisez Alt+Tab pour revenir à ce launcher pendant que le jeu est ouvert."
+   "SESSION: Start session opens the dedicated server, then Player 1 and Player 2 in their own Cemu windows. When each game reaches the main menu, press Continue in that window within about a minute.\n\nPAGES: LB and RB on any controller (or Ctrl+Tab) move between Play, Graphics, Multiplayer, Language and Details while this launcher is in front.\n\nCONTROLLERS: choose a player, then press the bottom face button on a controller to assign it. Each Cemu window only sees its own controller. Vibration support depends on the controller.\n\nDISPLAY: the two Cemu windows share the primary display. Split chooses side by side or top and bottom; Auto splits wide displays side by side. Windows are placed when they open, so moving one by hand is kept.\n\nGRAPHICS: the choices come from the game's own graphics pack and apply the next time a session starts.\n\nMULTIPLAYER: the world rules choose what the two players share (enemies, quests, koroks, towers, shrines, locations, Divine Beasts) and are used when the server starts. The live controls change the time, weather and name tags, pause sync or bring one player to the other while the server runs.\n\nLANGUAGE: the language you pick changes this launcher right away and the game the next time a session starts.\n\nThe preview shows the split layout, not a game screenshot. Use Alt+Tab to come back to this launcher while the game is open.",
+   "SESIÓN: Iniciar sesión abre el servidor dedicado y después al jugador 1 y al jugador 2 en sus propias ventanas de Cemu. Cuando cada juego llegue al menú principal, pulsa Continuar en esa ventana en aproximadamente un minuto.\n\nPÁGINAS: LB y RB en cualquier mando (o Ctrl+Tab) cambian entre Jugar, Gráficos, Multijugador, Idioma y Detalles mientras este launcher esté al frente.\n\nMANDOS: elige un jugador y pulsa el botón inferior de un mando para asignarlo. Cada ventana de Cemu solo ve su propio mando. La vibración depende del mando.\n\nPANTALLA: las dos ventanas de Cemu comparten la pantalla principal. División elige lado a lado o arriba y abajo; Auto divide las pantallas anchas lado a lado. Las ventanas se colocan al abrirse, así que si mueves una a mano se respeta.\n\nGRÁFICOS: las opciones vienen del propio paquete gráfico del juego y se aplican la próxima vez que inicies una sesión.\n\nMULTIJUGADOR: las reglas del mundo eligen lo que comparten los dos jugadores (enemigos, misiones, koroks, torres, santuarios, lugares, Bestias Divinas) y se usan cuando arranca el servidor. Los controles en vivo cambian la hora, el clima y los nombres, pausan la sincronización o llevan a un jugador junto al otro mientras el servidor está en marcha.\n\nIDIOMA: el idioma que elijas cambia este launcher al instante y el juego la próxima vez que inicies una sesión.\n\nLa vista previa muestra la división, no una captura del juego. Usa Alt+Tab para volver a este launcher con el juego abierto.",
+   "SESSION : Démarrer la session ouvre le serveur dédié, puis le joueur 1 et le joueur 2 dans leurs propres fenêtres Cemu. Quand chaque jeu arrive au menu principal, appuyez sur Continuer dans cette fenêtre dans la minute environ.\n\nPAGES : LB et RB sur n'importe quelle manette (ou Ctrl+Tab) passent de Jouer à Graphismes, Multijoueur, Langue et Détails tant que ce launcher est au premier plan.\n\nMANETTES : choisissez un joueur, puis appuyez sur le bouton du bas d'une manette pour l'assigner. Chaque fenêtre Cemu ne voit que sa propre manette. La vibration dépend de la manette.\n\nÉCRAN : les deux fenêtres Cemu se partagent l'écran principal. Division choisit côte à côte ou haut et bas ; Auto place les écrans larges côte à côte. Les fenêtres sont placées à leur ouverture, donc un déplacement manuel est conservé.\n\nGRAPHISMES : les choix viennent du pack graphique du jeu et s'appliquent au prochain démarrage d'une session.\n\nMULTIJOUEUR : les règles du monde choisissent ce que les deux joueurs partagent (ennemis, quêtes, korogus, tours, sanctuaires, lieux, Créatures divines) et sont utilisées au démarrage du serveur. Les commandes en direct changent l'heure, la météo et les noms, mettent la synchro en pause ou amènent un joueur près de l'autre pendant que le serveur fonctionne.\n\nLANGUE : la langue choisie change ce launcher immédiatement et le jeu au prochain démarrage d'une session.\n\nL'aperçu montre la division, pas une capture du jeu. Utilisez Alt+Tab pour revenir à ce launcher pendant que le jeu est ouvert."
   };
 
   static readonly Dictionary<string, string[]> Map = Build();

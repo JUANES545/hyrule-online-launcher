@@ -91,6 +91,10 @@ namespace HyruleOnline {
   string shadows, shadowDistance, antiAliasing;
   readonly string[] names = (string[])Characters.DefaultNames.Clone();
   readonly string[] models = { "", "" };
+  ServerRules rules = new ServerRules();
+  List<ServerRules> presets = new List<ServerRules>();
+  static readonly string[] RuleBoxes = { "RuleEnemies", "RuleQuests", "RuleKoroks", "RuleTowers", "RuleShrines", "RuleLocations", "RuleDivineBeasts" };
+  static readonly string[] LiveControls = { "SetTime", "SetWeather", "WeatherBox", "TimeBox", "LiveNameTags", "PauseSync", "ResumeSync", "BringP1", "BringP2" };
   List<Character> characters = Characters.Parse(null);
   int fpsLimit = FpsMod.AutoFps, displayWidth, displayHeight, displayHz;
   Process script;
@@ -118,7 +122,9 @@ namespace HyruleOnline {
    characters = Characters.Read(Path.Combine(root, ".artifacts", "extract", "milkbar", "Milk Bar Launcher.dll"));
    gameLanguages = GameLanguages.Scan(GameLanguages.ContentFolder(Path.Combine(root, ".tools", "localappdata", "bcml", "settings.json")));
    language = GameLanguages.Find(gameLanguages, language).Code;
+   LoadRules();
    for (int i = 0; i < 2; i++) WatchPlayer(i);
+   WatchWorld();
    ApplyLanguage();
    router.Message += text => Window.Dispatcher.BeginInvoke(new Action(() => Write(text)));
    C<Button>("Start").Click += (s, e) => StartSession();
@@ -145,7 +151,7 @@ namespace HyruleOnline {
     fpsLimit = (int)item.Tag;
     Window.Dispatcher.BeginInvoke(new Action(ChangedDisplayChoice));
    };
-   foreach (var tab in new[] { "TabPlay", "TabGraphics", "TabLanguage", "TabDetails" }) {
+   foreach (var tab in new[] { "TabPlay", "TabGraphics", "TabMultiplayer", "TabLanguage", "TabDetails" }) {
     var button = C<Button>(tab);
     button.Click += (s, e) => ShowPage(int.Parse((string)((Button)s).Tag));
    }
@@ -155,6 +161,8 @@ namespace HyruleOnline {
     var log = C<TextBox>("ServerLog");
     log.AppendText(line + Environment.NewLine);
     log.ScrollToEnd();
+    bool? tags = ServerCommands.NameTags(line);
+    if (tags.HasValue) ShowNameTags(tags.Value);
    }));
    C<TextBox>("ServerCommand").KeyDown += (s, e) => {
     if (e.Key != Key.Enter) return;
@@ -210,9 +218,13 @@ namespace HyruleOnline {
    Grid.SetColumn(C<StackPanel>("DisplayPanel"), fit.Stacked ? 0 : 1); Grid.SetRow(C<StackPanel>("DisplayPanel"), fit.Stacked ? 1 : 0);
    C<Grid>("PlayPage").ColumnDefinitions[1].Width = fit.Stacked ? new GridLength(0) : new GridLength(0.9, GridUnitType.Star);
    C<StackPanel>("Players").Margin = fit.Stacked ? new Thickness(0, 0, 0, 18) : new Thickness(0, 0, 28, 0);
+   C<Grid>("MultiplayerPage").ColumnDefinitions[1].Width = fit.Stacked ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
+   Grid.SetColumn(C<StackPanel>("LivePanel"), fit.Stacked ? 0 : 1); Grid.SetRow(C<StackPanel>("LivePanel"), fit.Stacked ? 1 : 0);
+   C<StackPanel>("RulesPanel").Margin = fit.Stacked ? new Thickness(0, 0, 0, 18) : new Thickness(0, 0, 14, 0);
+   C<StackPanel>("LivePanel").Margin = fit.Stacked ? new Thickness(0) : new Thickness(14, 0, 0, 0);
   }
 
-  static readonly string[] PageNames = { "Play", "Graphics", "Language", "Details" };
+  static readonly string[] PageNames = { "Play", "Graphics", "Multiplayer", "Language", "Details" };
   int page;
   ushort[] previousButtons = new ushort[4];
 
@@ -239,7 +251,7 @@ namespace HyruleOnline {
   }
 
   bool AnyDropDownOpen() {
-   foreach (var name in new[] { "FpsBox", "ScaleBox", "ShadowsBox", "ShadowDistanceBox", "AntiAliasingBox", "P1ModelBox", "P2ModelBox" }) if (C<ComboBox>(name).IsDropDownOpen) return true;
+   foreach (var name in new[] { "FpsBox", "ScaleBox", "ShadowsBox", "ShadowDistanceBox", "AntiAliasingBox", "P1ModelBox", "P2ModelBox", "RulesBox", "SpecialBox", "WeatherBox" }) if (C<ComboBox>(name).IsDropDownOpen) return true;
    return false;
   }
 
@@ -300,12 +312,131 @@ namespace HyruleOnline {
    finally { filling = false; }
   }
 
+  string ServerFolder { get { return Path.Combine(root, ".artifacts", "extract", "milkbar", "DedicatedServer"); } }
+  string ServerIni { get { return Path.Combine(ServerFolder, "ServerConfig.ini"); } }
+  bool serverUp, echoing;
+
+  // Shows the name tag state without sending a command.
+  void ShowNameTags(bool on) {
+   echoing = true;
+   try { C<CheckBox>("LiveNameTags").IsChecked = on; }
+   finally { echoing = false; }
+  }
+
+  // The world rules live in the server's own ini, so what is shown is always what the server will start with.
+  void LoadRules() {
+   try {
+    rules = ServerRules.Load(ServerIni);
+    string file = Path.Combine(ServerFolder, "Gamemodes.json");
+    presets = File.Exists(file) ? ServerRules.Presets(File.ReadAllText(file)) : new List<ServerRules>();
+   }
+   catch (Exception) { rules = new ServerRules(); presets = new List<ServerRules>(); }
+  }
+
+  void SaveRules() {
+   try { if (Directory.Exists(ServerFolder)) rules.Save(ServerIni); }
+   catch (Exception error) { Write("Could not save the world rules: " + error.Message); }
+  }
+
+  void WatchWorld() {
+   C<ComboBox>("RulesBox").SelectionChanged += (s, e) => {
+    var item = ((ComboBox)s).SelectedItem as ComboBoxItem;
+    if (filling || item == null) return;
+    var preset = item.Tag as ServerRules;
+    if (preset != null) rules = preset.Copy();
+    else { rules.Name = "Custom"; }
+    SaveRules();
+    Window.Dispatcher.BeginInvoke(new Action(ShowRules));
+   };
+   C<ComboBox>("SpecialBox").SelectionChanged += (s, e) => {
+    var item = ((ComboBox)s).SelectedItem as ComboBoxItem;
+    if (filling || item == null || !(item.Tag is int)) return;
+    rules.Special = (int)item.Tag;
+    RulesChanged();
+   };
+   foreach (var name in RuleBoxes) {
+    RoutedEventHandler changed = (s, e) => {
+     if (filling) return;
+     rules.Enemies = C<CheckBox>("RuleEnemies").IsChecked == true; rules.Quests = C<CheckBox>("RuleQuests").IsChecked == true;
+     rules.Koroks = C<CheckBox>("RuleKoroks").IsChecked == true; rules.Towers = C<CheckBox>("RuleTowers").IsChecked == true;
+     rules.Shrines = C<CheckBox>("RuleShrines").IsChecked == true; rules.Locations = C<CheckBox>("RuleLocations").IsChecked == true;
+     rules.DivineBeasts = C<CheckBox>("RuleDivineBeasts").IsChecked == true;
+     RulesChanged();
+    };
+    C<CheckBox>(name).Checked += changed; C<CheckBox>(name).Unchecked += changed;
+   }
+   C<TextBox>("TimeBox").TextChanged += (s, e) => UpdateLive();
+   C<Button>("SetTime").Click += (s, e) => SendLive(ServerCommands.Time(C<TextBox>("TimeBox").Text));
+   C<Button>("SetWeather").Click += (s, e) => {
+    var item = C<ComboBox>("WeatherBox").SelectedItem as ComboBoxItem;
+    if (item != null) SendLive(ServerCommands.SetWeather((string)item.Tag));
+   };
+   RoutedEventHandler tagsChanged = (s, e) => {
+    if (echoing) return;
+    var box = C<CheckBox>("LiveNameTags");
+    if (!SendLive(ServerCommands.ToggleNameTags)) ShowNameTags(box.IsChecked != true);
+   };
+   C<CheckBox>("LiveNameTags").Checked += tagsChanged; C<CheckBox>("LiveNameTags").Unchecked += tagsChanged;
+   C<Button>("PauseSync").Click += (s, e) => SendLive(ServerCommands.PauseSync);
+   C<Button>("ResumeSync").Click += (s, e) => SendLive(ServerCommands.ResumeSync);
+   C<Button>("BringP1").Click += (s, e) =>       SendLive(ServerCommands.Bring(names[0], names[1]));
+      C<Button>("BringP2").Click += (s, e) => SendLive(ServerCommands.Bring(names[1], names[0]));
+  }
+
+  // Editing a rule by hand turns the preset into Custom, unless the rules still match one.
+  void RulesChanged() {
+   var match = ServerRules.Match(presets, rules);
+   rules.Name = match == null ? "Custom" : match.Name;
+   SaveRules();
+   Window.Dispatcher.BeginInvoke(new Action(ShowRules));
+  }
+
+  void ShowRules() {
+   filling = true;
+   try {
+    var box = C<ComboBox>("RulesBox");
+    box.Items.Clear();
+    box.Items.Add(new ComboBoxItem { Content = Tr("Custom") });
+    foreach (var preset in presets) box.Items.Add(new ComboBoxItem { Content = preset.Name, Tag = preset });
+    var match = ServerRules.Match(presets, rules);
+    box.SelectedIndex = match == null ? 0 : presets.IndexOf(match) + 1;
+    var special = C<ComboBox>("SpecialBox");
+    special.Items.Clear();
+    for (int i = 0; i < ServerRules.SpecialNames.Length; i++) special.Items.Add(new ComboBoxItem { Content = Tr(ServerRules.SpecialNames[i]), Tag = i });
+    special.SelectedIndex = rules.Special;
+    C<CheckBox>("RuleEnemies").IsChecked = rules.Enemies; C<CheckBox>("RuleQuests").IsChecked = rules.Quests;
+    C<CheckBox>("RuleKoroks").IsChecked = rules.Koroks; C<CheckBox>("RuleTowers").IsChecked = rules.Towers;
+    C<CheckBox>("RuleShrines").IsChecked = rules.Shrines; C<CheckBox>("RuleLocations").IsChecked = rules.Locations;
+    C<CheckBox>("RuleDivineBeasts").IsChecked = rules.DivineBeasts;
+    var weather = C<ComboBox>("WeatherBox");
+    int chosen = Math.Max(0, weather.SelectedIndex);
+    weather.Items.Clear();
+    foreach (var option in ServerCommands.Weather) weather.Items.Add(new ComboBoxItem { Content = Tr(option[0]), Tag = option[1] });
+    weather.SelectedIndex = chosen;
+   }
+   finally { filling = false; }
+  }
+
+  // The live controls only work while the launcher's own server is running.
+  void UpdateLive() {
+   foreach (var name in LiveControls) C<Control>(name).IsEnabled = serverUp;
+   C<Button>("SetTime").IsEnabled = serverUp && ServerCommands.Time(C<TextBox>("TimeBox").Text) != null;
+  }
+
+  bool SendLive(string command) {
+   if (command == null) return false;
+   if (serverHost.Send(command)) { Write("Server command: " + command); return true; }
+   Write("The server is not running, so the command was not sent.");
+   return false;
+  }
+
   // Switches the launcher text to the chosen language and redraws everything the code writes itself.
   void ApplyLanguage() {
    Lang.Current = Lang.Ui(language);
    translator.Apply();
    C<TextBlock>("HelpText").Text = Lang.Help();
    FillModels(0); FillModels(1);
+   ShowRules(); UpdateLive();
    FillLanguages();
    C<TextBlock>("Status").Text = Tr(statusText, statusArgs);
    C<TextBlock>("Prompt").Text = Tr(promptText, promptArgs);
@@ -542,6 +673,9 @@ namespace HyruleOnline {
    SetStatus("Starting...");
    SetPrompt("");
    ApplyPlayers();
+   SaveRules();
+   Write("World rules: " + rules.Name + ", " + ServerRules.SpecialNames[rules.Special] + ".");
+   ShowNameTags(true);
    Step("Server", "Starting", Busy); Step("A", "Waiting", Idle); Step("B", "Waiting", Idle);
    Write("Starting the session.");
    try {
@@ -643,11 +777,13 @@ namespace HyruleOnline {
    C<Button>("Start").IsEnabled = script == null && !stopping && owned.Count == 0;
    C<Button>("Stop").IsEnabled = !stopping && (script != null || owned.Count > 0);
    EnableAppearance(script == null && !stopping && owned.Count == 0);
+   if (serverUp != serverHost.Running) { serverUp = serverHost.Running; UpdateLive(); }
   }
 
   void EnableAppearance(bool enabled) {
    foreach (var name in new[] { "P1NameBox", "P2NameBox" }) C<TextBox>(name).IsEnabled = enabled;
-   foreach (var name in new[] { "P1ModelBox", "P2ModelBox" }) C<ComboBox>(name).IsEnabled = enabled;
+   foreach (var name in new[] { "P1ModelBox", "P2ModelBox", "RulesBox", "SpecialBox" }) C<ComboBox>(name).IsEnabled = enabled;
+   foreach (var name in RuleBoxes) C<CheckBox>(name).IsEnabled = enabled;
   }
 
   void SetButtons() {

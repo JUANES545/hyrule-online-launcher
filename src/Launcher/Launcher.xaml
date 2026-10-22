@@ -49,7 +49,7 @@
    <ControlTemplate.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.4"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
   </Style>
   <Style x:Key="TabButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-   <Setter Property="FontStyle" Value="Normal"/><Setter Property="FontFamily" Value="{DynamicResource TitleFont}"/><Setter Property="FontSize" Value="16"/><Setter Property="Padding" Value="26,7"/><Setter Property="Margin" Value="4,0"/>
+   <Setter Property="FontStyle" Value="Normal"/><Setter Property="FontFamily" Value="{DynamicResource TitleFont}"/><Setter Property="FontSize" Value="16"/><Setter Property="Padding" Value="18,7"/><Setter Property="Margin" Value="3,0"/>
   </Style>
   <Style TargetType="ProgressBar"><Setter Property="Height" Value="5"/><Setter Property="Background" Value="#293A42"/><Setter Property="Foreground" Value="#63E0BD"/><Setter Property="BorderThickness" Value="0"/></Style>
   <Style x:Key="NameBox" TargetType="TextBox">
@@ -59,6 +59,21 @@
     <ControlTemplate.Triggers>
      <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="Background" Value="#B0354549"/></Trigger>
      <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="#E1CFA1"/></Trigger>
+     <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.4"/></Trigger>
+    </ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+  </Style>
+  <Style x:Key="RuleToggle" TargetType="CheckBox">
+   <Setter Property="Foreground" Value="#ECF5F4"/><Setter Property="FontSize" Value="16"/><Setter Property="Cursor" Value="Hand"/><Setter Property="Margin" Value="0,0,8,8"/>
+   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="CheckBox">
+    <Border x:Name="Row" CornerRadius="5" Background="#801B252B" BorderBrush="#364E5659" BorderThickness="2" Padding="12,7">
+     <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+      <Border Width="20" Height="20" CornerRadius="3" BorderBrush="#A5BAC5" BorderThickness="2" Margin="0,0,10,0" VerticalAlignment="Center"><Path x:Name="Tick" Data="M 3,9 L 7,13 L 15,4" Stroke="#63E0BD" StrokeThickness="2.5" Visibility="Collapsed"/></Border>
+      <ContentPresenter Grid.Column="1" VerticalAlignment="Center"/>
+     </Grid></Border>
+    <ControlTemplate.Triggers>
+     <Trigger Property="IsChecked" Value="True"><Setter TargetName="Tick" Property="Visibility" Value="Visible"/><Setter TargetName="Row" Property="BorderBrush" Value="#6A8F83"/></Trigger>
+     <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Row" Property="Background" Value="#B0354549"/></Trigger>
+     <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Row" Property="BorderBrush" Value="#E1CFA1"/></Trigger>
      <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.4"/></Trigger>
     </ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
   </Style>
@@ -80,8 +95,9 @@
     <Border x:Name="NavPrev" Width="54" Height="30" CornerRadius="16,5,5,5" Background="#801B252B" BorderBrush="#A5BAC5" BorderThickness="2" Margin="0,0,14,0" VerticalAlignment="Center" ToolTip="Previous page (LB or Ctrl+Shift+Tab)" AutomationProperties.Name="Previous page (LB)"><TextBlock Text="LB" FontStyle="Normal" FontWeight="Bold" FontSize="15" Foreground="#CFE3E4" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0"/></Border>
     <Button x:Name="TabPlay" Content="PLAY" Tag="0" Style="{StaticResource TabButton}"/>
     <Button x:Name="TabGraphics" Content="GRAPHICS" Tag="1" Style="{StaticResource TabButton}"/>
-    <Button x:Name="TabLanguage" Content="LANGUAGE" Tag="2" Style="{StaticResource TabButton}"/>
-    <Button x:Name="TabDetails" Content="DETAILS" Tag="3" Style="{StaticResource TabButton}"/>
+    <Button x:Name="TabMultiplayer" Content="MULTIPLAYER" Tag="2" Style="{StaticResource TabButton}"/>
+    <Button x:Name="TabLanguage" Content="LANGUAGE" Tag="3" Style="{StaticResource TabButton}"/>
+    <Button x:Name="TabDetails" Content="DETAILS" Tag="4" Style="{StaticResource TabButton}"/>
     <Border x:Name="NavNext" Width="54" Height="30" CornerRadius="5,16,5,5" Background="#801B252B" BorderBrush="#A5BAC5" BorderThickness="2" Margin="14,0,0,0" VerticalAlignment="Center" ToolTip="Next page (RB or Ctrl+Tab)" AutomationProperties.Name="Next page (RB)"><TextBlock Text="RB" FontStyle="Normal" FontWeight="Bold" FontSize="15" Foreground="#CFE3E4" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0"/></Border>
    </StackPanel>
    <Grid Grid.Row="2" x:Name="Pages" Margin="14,0,14,6">
@@ -170,6 +186,56 @@
       <ComboBox x:Name="ShadowDistanceBox" Margin="0,4,0,14"/>
       <TextBlock Text="Anti-aliasing" FontSize="13" Foreground="#78939F"/>
       <ComboBox x:Name="AntiAliasingBox" Margin="0,4,0,0"/>
+     </StackPanel>
+    </Border>
+   </StackPanel>
+  </Grid>
+  <Grid x:Name="MultiplayerPage" Visibility="Collapsed">
+   <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+   <StackPanel x:Name="RulesPanel" Margin="0,0,14,0">
+    <TextBlock Text="WORLD RULES" TextAlignment="Center" FontFamily="{DynamicResource TitleFont}" FontStretch="Normal" FontWeight="Normal" FontSize="14" Foreground="#CBBF9F" Margin="0,0,0,12"/>
+    <Border Background="#A0152027" CornerRadius="8" Padding="24,20" BorderBrush="#3449585A" BorderThickness="1">
+     <StackPanel>
+      <TextBlock TextAlignment="Center" Foreground="#9EB2BD" FontSize="14" Margin="0,0,0,14" Text="What the two players share. Applied when the next session starts."/>
+      <TextBlock Text="Preset" FontSize="13" Foreground="#78939F"/>
+      <ComboBox x:Name="RulesBox" FontSize="17" Padding="14,8" Margin="0,4,0,12" AutomationProperties.Name="Rules preset"/>
+      <TextBlock Text="Special mode" FontSize="13" Foreground="#78939F"/>
+      <ComboBox x:Name="SpecialBox" FontSize="17" Padding="14,8" Margin="0,4,0,14" AutomationProperties.Name="Special mode"/>
+      <UniformGrid Columns="2">
+       <CheckBox x:Name="RuleEnemies" Content="Enemies" Style="{StaticResource RuleToggle}"/>
+       <CheckBox x:Name="RuleQuests" Content="Quests" Style="{StaticResource RuleToggle}"/>
+       <CheckBox x:Name="RuleKoroks" Content="Koroks" Style="{StaticResource RuleToggle}"/>
+       <CheckBox x:Name="RuleTowers" Content="Towers" Style="{StaticResource RuleToggle}"/>
+       <CheckBox x:Name="RuleShrines" Content="Shrines" Style="{StaticResource RuleToggle}"/>
+       <CheckBox x:Name="RuleLocations" Content="Locations" Style="{StaticResource RuleToggle}"/>
+       <CheckBox x:Name="RuleDivineBeasts" Content="Divine Beasts" Style="{StaticResource RuleToggle}"/>
+      </UniformGrid>
+     </StackPanel>
+    </Border>
+   </StackPanel>
+   <StackPanel x:Name="LivePanel" Grid.Column="1" Margin="14,0,0,0">
+    <TextBlock Text="LIVE CONTROLS" TextAlignment="Center" FontFamily="{DynamicResource TitleFont}" FontStretch="Normal" FontWeight="Normal" FontSize="14" Foreground="#CBBF9F" Margin="0,0,0,12"/>
+    <Border Background="#A0152027" CornerRadius="8" Padding="24,20" BorderBrush="#3449585A" BorderThickness="1">
+     <StackPanel>
+      <TextBlock TextAlignment="Center" Foreground="#9EB2BD" FontSize="14" Margin="0,0,0,14" Text="Available while the server is running."/>
+      <TextBlock Text="Time of day (24 hour, HH:MM)" FontSize="13" Foreground="#78939F"/>
+      <Grid Margin="0,4,0,12"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+       <TextBox x:Name="TimeBox" Style="{StaticResource NameBox}" Text="12:00" MaxLength="5" Height="44" FontSize="17" AutomationProperties.Name="Time of day"/>
+       <Button x:Name="SetTime" Grid.Column="1" Content="Set time" FontStyle="Normal" FontSize="16" Padding="22,9" Margin="8,0,0,0" Width="170"/>
+      </Grid>
+      <TextBlock Text="Weather" FontSize="13" Foreground="#78939F"/>
+      <Grid Margin="0,4,0,12"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+       <ComboBox x:Name="WeatherBox" FontSize="17" Padding="14,8" AutomationProperties.Name="Weather"/>
+       <Button x:Name="SetWeather" Grid.Column="1" Content="Set weather" FontStyle="Normal" FontSize="16" Padding="22,9" Margin="8,0,0,0" Width="170"/>
+      </Grid>
+      <CheckBox x:Name="LiveNameTags" Content="Name tags" IsChecked="True" Style="{StaticResource RuleToggle}" Margin="0,0,0,10"/>
+      <UniformGrid Columns="2">
+       <Button x:Name="PauseSync" Content="Pause sync" FontStyle="Normal" FontSize="16" Padding="12,9" Margin="0,0,4,8"/>
+       <Button x:Name="ResumeSync" Content="Resume sync" FontStyle="Normal" FontSize="16" Padding="12,9" Margin="4,0,0,8"/>
+       <Button x:Name="BringP1" Content="Player 1 → player 2" ToolTip="Teleports player 1 next to player 2" FontStyle="Normal" FontSize="16" Padding="12,9" Margin="0,0,4,0"/>
+       <Button x:Name="BringP2" Content="Player 2 → player 1" ToolTip="Teleports player 2 next to player 1" FontStyle="Normal" FontSize="16" Padding="12,9" Margin="4,0,0,0"/>
+      </UniformGrid>
      </StackPanel>
     </Border>
    </StackPanel>

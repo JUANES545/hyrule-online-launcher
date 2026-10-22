@@ -167,7 +167,16 @@ Each player card has a name box and a model list. They are written to each Milk 
 
 - On Connect the Milk Bar launcher rewrites `GameROMPlayer`, `Armor_Default_Extra_00/01` and `PauseMenuPlayer` in `TitleBG.pack` under `<store_dir>\merged`, and sends the name and remote model to the server. So the local model of an instance depends on its own `merged`.
 - Each instance therefore needs its own `merged`. Cemu A's graphic pack is a junction to `localappdata\bcml\merged`. Cemu B has a real copy, and `bcml-b\settings.json` now uses `store_dir` = `localappdata\bcml-b\store`, where `merged` is a junction to cemuB's `BreathOfTheWild_BCML`. With the shared `store_dir`, B's model was written into A's pack: in a first test A showed both players as Revali and B showed both as Link.
-- Other mod options not in the launcher yet: `ServerConfig.ini` (password, description, default gamemode, enemy / quest / korok / tower / shrine / location / dungeon sync), server console commands (Time, Weather, NameTags, Teleport, Landmarks, Model, DeathSwap, PropHunt) and `Gamemodes.json` presets.
+- Other mod options not in the launcher yet: the server `Password`, `Description`, IP and port, the `Landmarks`, `DeathSwap`, `Glyph` and `PropHunt` console commands. The sync rules, the preset list, Time, Weather, NameTags, sync pause / resume and Teleport are on the Multiplayer page (below).
+
+## Multiplayer page
+
+A fourth page next to Play, Graphics and Language, aimed at local play but built on the same server options an online host would use.
+
+- Rules card: preset list (`Gamemodes.json`; Prop Hunt is hidden because it needs locations), the Special mode (None, Hunter vs Speedrunner, Death Swap) and one checkbox per sync rule. The launcher rewrites only the `[DefaultGamemode]` keys of `ServerConfig.ini` (`EnemySync`, `QuestSync`, `KorokSync`, `TowerSync`, `ShrineSync`, `LocationSync`, `DungeonSync`, `Special`) plus `DefaultGamemode=True`, and keeps IP, port, password, comments, line endings and the UTF-8 BOM. Rules are locked while a session runs.
+- Live card (enabled only while the launcher's own server runs, through the server's stdin): `Time Set HH:MM`, `Weather Set <word>`, `NameTags` (toggle, the checkbox follows the server's reply), `Stop` / `Start` (pause / resume enemy and quest sync) and `Teleport <name> <name>`.
+- Teleport matches players by name (quoted when it has spaces), not by `p1` / `p2` or by join number. The server only knows a player's name once that game is in the world, so before that it answers "Could not find player" or "Destination input was not valid".
+- Checked in real sessions: the preset and each checkbox rewrite the ini; time, weather, name tags and sync pause / resume print the expected server lines; Teleport was accepted for both players once both games were in the world ("Requested teleport of 1 players to ..."). That the character visibly moves, and Prop Hunt, are not confirmed.
 
 ## Language
 
