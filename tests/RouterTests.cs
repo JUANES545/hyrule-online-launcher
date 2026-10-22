@@ -111,13 +111,18 @@ namespace HyruleOnline {
     Require(all.Count == 12 && all[0].Fps == 20 && all[11].Fps == 240 && all.Any(l => l.Fps == 60 && l.Preset == "60FPS Limit (Default)"), "the mod's FPS limits are read from its rules, once each, in order");
     Require(!all.Any(l => l.Fps == 244 || l.Fps == 48), "advanced framerate presets are not offered");
     Func<int, string> offered = hz => string.Join(",", FpsMod.Available(all, hz).Select(l => l.Fps));
-    Require(offered(240) == "20,30,45,55,60,72,75,90,120,144,165,240", "a 240 Hz display offers every limit");
-    Require(offered(120) == "20,30,45,55,60,72,75,90,120", "a 120 Hz display offers nothing above 120");
-    Require(offered(144) == "20,30,45,55,60,72,75,90,120,144" && offered(100) == "20,30,45,55,60,72,75,90" && offered(60) == "20,30,45,55,60", "limits stop at the refresh rate");
-    Require(offered(0) == "20,30,45,55,60" && offered(1) == "20,30,45,55,60", "an unknown refresh rate is treated as 60 Hz");
-    Require(offered(10) == "20", "a very slow display still offers the lowest limit");
+    Require(offered(240) == "30,45,55,60,72,75,90,120,144" && offered(360) == offered(240), "a fast display offers 30 to 144 only");
+    Require(offered(120) == "30,45,55,60,72,75,90,120", "a 120 Hz display offers nothing above 120");
+    Require(offered(144) == "30,45,55,60,72,75,90,120,144" && offered(100) == "30,45,55,60,72,75,90" && offered(60) == "30,45,55,60", "limits stop at the refresh rate");
+    Require(offered(0) == "30,45,55,60" && offered(1) == "30,45,55,60", "an unknown refresh rate is treated as 60 Hz");
+    Require(offered(10) == "30" && offered(20) == "30", "a very slow display still offers the lowest limit");
+    Func<int, int> best = hz => FpsMod.Best(FpsMod.Available(all, hz), hz).Fps;
+    Require(best(240) == 120 && best(360) == 120 && best(144) == 144 && best(120) == 120 && best(60) == 60 && best(75) == 75, "auto picks the highest rate that divides the refresh rate");
+    Require(best(143) == 144 && best(239) == 120 && best(59) == 60, "auto tolerates refresh rates reported a little low");
+    Require(best(165) == 144 && best(100) == 90 && best(0) == 60 && best(30) == 30 && FpsMod.Best(new List<FpsMod.Limit>(), 60) == null, "auto falls back to the highest offered rate");
     var at120 = FpsMod.Available(all, 120);
-    Require(FpsMod.Choose(at120, 144).Fps == 120 && FpsMod.Choose(at120, 90).Fps == 90 && FpsMod.Choose(at120, 100).Fps == 90 && FpsMod.Choose(at120, 5).Fps == 20, "a saved choice that the display cannot show is lowered");
+    Require(FpsMod.Choose(at120, 144).Fps == 120 && FpsMod.Choose(at120, 90).Fps == 90 && FpsMod.Choose(at120, 100).Fps == 90 && FpsMod.Choose(at120, 5).Fps == 30, "a saved choice that the display cannot show is lowered");
+    Require(FpsMod.Pick(at120, FpsMod.AutoFps, 120).Fps == 120 && FpsMod.Pick(FpsMod.Available(all, 240), FpsMod.AutoFps, 240).Fps == 120 && FpsMod.Pick(at120, 72, 120).Fps == 72, "auto and manual choices are told apart");
     Require(FpsMod.Choose(new List<FpsMod.Limit>(), 60) == null && FpsMod.Parse(null).Count == 0 && FpsMod.Parse("[Definition]\nname = FPS++").Count == 0, "a missing or odd pack gives no options");
     Console.WriteLine("PASS: FPS limits from the mod.");
 

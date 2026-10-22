@@ -10,7 +10,7 @@ namespace HyruleOnline {
  static class FpsMod {
   public const string PackFile = "graphicPacks\\downloadedGraphicPacks\\BreathOfTheWild\\Mods\\FPS++\\rules.txt";
   public const string ModeCategory = "Mode", NormalMode = "Normal Settings", LimitCategory = "FPS Limit";
-  public const int DefaultFps = 60;
+  public const int DefaultFps = 60, MinFps = 30, MaxFps = 144, AutoFps = 0;
 
   public sealed class Limit {
    public int Fps;
@@ -35,12 +35,29 @@ namespace HyruleOnline {
    return File.Exists(file) ? Parse(File.ReadAllText(file)) : new List<Limit>();
   }
 
+  // Between MinFps and MaxFps, and never above the display (Windows rounds 59.94 or 143.98 Hz down, so one Hz of slack).
   // Windows reports 0 or 1 when the refresh rate is not known; assume 60 then.
   public static List<Limit> Available(IEnumerable<Limit> all, int hz) {
-   int cap = hz > 1 ? hz : DefaultFps;
-   var list = all.OrderBy(l => l.Fps).ToList();
+   int cap = Math.Min(MaxFps, hz > 1 ? hz + 1 : DefaultFps);
+   var list = all.Where(l => l.Fps >= MinFps).OrderBy(l => l.Fps).ToList();
    var fit = list.Where(l => l.Fps <= cap).ToList();
    return fit.Count > 0 ? fit : list.Take(1).ToList();
+  }
+
+  // The best rate for the display: the highest one that divides the refresh rate evenly (so frames are paced
+  // evenly without VRR), as long as it stays at 60 or above; otherwise simply the highest one offered.
+  public static Limit Best(IList<Limit> options, int hz) {
+   if (options.Count == 0) return null;
+   var ordered = options.OrderByDescending(l => l.Fps).ToList();
+   if (hz > 1) {
+    var even = ordered.FirstOrDefault(l => l.Fps >= 60 && Math.Abs(hz - l.Fps * Math.Round((double)hz / l.Fps)) <= 1);
+    if (even != null) return even;
+   }
+   return ordered[0];
+  }
+
+  public static Limit Pick(IList<Limit> options, int wanted, int hz) {
+   return wanted == AutoFps ? Best(options, hz) : Choose(options, wanted);
   }
 
   // The wanted rate when it is offered, otherwise the closest lower one (or the lowest one).

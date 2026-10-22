@@ -88,7 +88,7 @@ namespace HyruleOnline {
   readonly HashSet<IntPtr> placed = new HashSet<IntPtr>(), menuHidden = new HashSet<IntPtr>();
   LayoutMode mode = LayoutMode.Auto;
   bool sharp;
-  int fpsLimit = 60, displayWidth, displayHeight, displayHz;
+  int fpsLimit = FpsMod.AutoFps, displayWidth, displayHeight, displayHz;
   Process script;
   string lastError, failure;
   bool stopping;
@@ -114,6 +114,12 @@ namespace HyruleOnline {
    }
    C<Button>("Layout").Click += (s, e) => { mode = mode == LayoutMode.Auto ? LayoutMode.SideBySide : mode == LayoutMode.SideBySide ? LayoutMode.TopBottom : LayoutMode.Auto; ChangedDisplayChoice(); };
    C<Button>("Quality").Click += (s, e) => { sharp = !sharp; ChangedDisplayChoice(); };
+   C<ComboBox>("FpsBox").SelectionChanged += (s, e) => {
+    var item = ((ComboBox)s).SelectedItem as ComboBoxItem;
+    if (fillingFps || item == null || !(item.Tag is int)) return;
+    fpsLimit = (int)item.Tag;
+    Window.Dispatcher.BeginInvoke(new Action(ChangedDisplayChoice));
+   };
    C<Button>("Details").Click += (s, e) => {
     var panel = C<Border>("DetailsPanel");
     panel.Visibility = panel.Visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;
@@ -176,14 +182,14 @@ namespace HyruleOnline {
     mode = ScreenLayout.Parse((string)root.Element("Layout"));
     sharp = (string)root.Element("Quality") == "Sharp";
     int wanted;
-    fpsLimit = int.TryParse((string)root.Element("FpsLimit"), out wanted) && wanted > 0 ? wanted : FpsMod.DefaultFps;
+    fpsLimit = int.TryParse((string)root.Element("FpsLimit"), out wanted) && wanted > 0 ? wanted : FpsMod.AutoFps;
    }
-   catch (Exception) { mode = LayoutMode.Auto; sharp = false; fpsLimit = FpsMod.DefaultFps; }
+   catch (Exception) { mode = LayoutMode.Auto; sharp = false; fpsLimit = FpsMod.AutoFps; }
   }
 
   void SavePrefs() {
    try {
-    new XDocument(new XElement("Preferences", new XElement("Layout", mode), new XElement("Quality", sharp ? "Sharp" : "Balanced"), new XElement("FpsLimit", fpsLimit))).Save(PrefsFile);
+    new XDocument(new XElement("Preferences", new XElement("Layout", mode), new XElement("Quality", sharp ? "Sharp" : "Balanced"), new XElement("FpsLimit", fpsLimit == FpsMod.AutoFps ? "Auto" : fpsLimit.ToString()))).Save(PrefsFile);
    }
    catch (Exception error) { Write("Could not save the display settings: " + error.Message); }
   }
@@ -200,23 +206,25 @@ namespace HyruleOnline {
    return FpsMod.Available(FpsMod.Read(Path.Combine(root, ".tools", "instances", "cemuA")), displayHz);
   }
 
-  FpsMod.Limit CurrentFps() { return FpsMod.Choose(FpsChoices(), fpsLimit); }
+  FpsMod.Limit CurrentFps() { return FpsMod.Pick(FpsChoices(), fpsLimit, displayHz); }
+
+  bool fillingFps;
 
   void ShowFpsChoices() {
    var choices = FpsChoices();
-   var current = FpsMod.Choose(choices, fpsLimit);
-   var panel = C<WrapPanel>("FpsOptions");
-   panel.Children.Clear();
-   C<TextBlock>("FpsTitle").Text = choices.Count == 0 ? "FPS target · FPS++ is not installed" : "FPS target · up to " + displayHz + " Hz";
-   foreach (var choice in choices) {
-    int fps = choice.Fps;
-    var button = new Button { Content = fps.ToString(), Width = 58, Padding = new Thickness(0, 5, 0, 5), Margin = new Thickness(3, 0, 3, 6), FontSize = 16, FontStyle = FontStyles.Normal, Focusable = true };
-    if (current != null && fps == current.Fps) { button.BorderBrush = Paint("#E1CFA1"); button.Background = Paint("#B0354542"); button.Foreground = Paint("#F3E7C3"); }
-    button.Click += (s, e) => { fpsLimit = fps; ChangedDisplayChoice(); };
-    panel.Children.Add(button);
+   var current = FpsMod.Pick(choices, fpsLimit, displayHz);
+   var box = C<ComboBox>("FpsBox");
+   fillingFps = true;
+   try {
+    box.Items.Clear();
+    box.IsEnabled = choices.Count > 0;
+    if (current == null) { box.Items.Add(new ComboBoxItem { Content = "FPS++ is not installed" }); box.SelectedIndex = 0; return; }
+    box.Items.Add(new ComboBoxItem { Content = "FPS target: Auto · " + FpsMod.Best(choices, displayHz).Fps + " FPS", Tag = FpsMod.AutoFps });
+    foreach (var choice in choices) box.Items.Add(new ComboBoxItem { Content = choice.Fps + " FPS", Tag = choice.Fps });
+    box.SelectedIndex = fpsLimit == FpsMod.AutoFps ? 0 : choices.FindIndex(l => l.Fps == current.Fps) + 1;
    }
+   finally { fillingFps = false; }
   }
-
   void UpdatePlan() {
    WindowPlacer.PrimaryDisplay(out displayWidth, out displayHeight, out displayHz);
    C<TextBlock>("ScreenInfo").Text = displayWidth + " × " + displayHeight + "  /  " + displayHz + " Hz";
