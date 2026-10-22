@@ -44,6 +44,23 @@ namespace HyruleOnline {
     Require(routes[0] == 2 && routes[1] == 1, "assigning a free pad changes only that player");
 
     Console.WriteLine("PASS: router reconciliation and assignment.");
+
+    Require(ScreenLayout.Resolve(LayoutMode.Auto, 1920, 1080) == LayoutMode.TopBottom, "a 16:9 display is stacked by Auto");
+    Require(ScreenLayout.Resolve(LayoutMode.Auto, 3840, 1080) == LayoutMode.SideBySide, "a 32:9 display is split side by side by Auto");
+    Require(ScreenLayout.Resolve(LayoutMode.SideBySide, 1080, 1920) == LayoutMode.SideBySide, "an explicit choice is kept");
+    var halves = ScreenLayout.Split(LayoutMode.SideBySide, 1921, 1080);
+    Require(halves[0].X == 0 && halves[0].Width + halves[1].Width == 1921 && halves[1].X == halves[0].Width && halves[1].Height == 1080, "side by side covers the display");
+    halves = ScreenLayout.Split(LayoutMode.TopBottom, 1920, 1081);
+    Require(halves[0].Y == 0 && halves[0].Height + halves[1].Height == 1081 && halves[1].Y == halves[0].Height && halves[1].Width == 1920, "top and bottom covers the display");
+    Require(halves.Length == 2 && ScreenLayout.Resolve(LayoutMode.TopBottom, 3840, 1080) == LayoutMode.TopBottom, "an explicit stacked choice is kept");
+    int rw, rh;
+    ScreenLayout.RenderSize(new Area { Width = 1920, Height = 540 }, false, out rw, out rh);
+    Require(rw == 1920 && rh == 540, "balanced renders at window size");
+    ScreenLayout.RenderSize(new Area { Width = 1920, Height = 540 }, true, out rw, out rh);
+    Require(rw == 2880 && rh == 810, "sharp renders at 150 percent");
+    Require(ScreenLayout.FrameRate(60, 90) == 60 && ScreenLayout.FrameRate(144, 90) == 90 && ScreenLayout.FrameRate(144, 60) == 60 && ScreenLayout.FrameRate(50, 60) == 48, "frame rate follows the refresh rate");
+    Require(ScreenLayout.Parse("TopBottom") == LayoutMode.TopBottom && ScreenLayout.Parse("garbage") == LayoutMode.Auto && ScreenLayout.Parse("7") == LayoutMode.Auto && ScreenLayout.Parse(null) == LayoutMode.Auto, "saved layout parsing falls back to Auto");
+    Console.WriteLine("PASS: screen layout.");
     return 0;
    }
    catch (Exception error) { Console.Error.WriteLine(error.Message); return 1; }
