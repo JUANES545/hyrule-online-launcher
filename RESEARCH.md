@@ -87,7 +87,15 @@ BCML's merged output is incomplete for this mod. Compare the mod's own packs aga
 
 `scripts/Start-Online.ps1` refuses to run if Cemu, a Milk Bar launcher or the server is already open. It then writes the controller profile of each Cemu (A = XInput 0, B = XInput 1, same bindings as the local launcher's `Configure-Cemu.ps1`), starts the server, and drives launcher A and B through `scripts/Connect-MilkBar.ps1` (UI Automation on the Connect button). It waits for "Joined server" in the DLL log before starting B. The user still presses Continue in each Cemu. Verified once end to end (both joined, "Spawned player" logged).
 
-Not done yet: routing through the local launcher's SDL3 + `xinput1_4.dll` bridge, so non-XInput controllers work too.
+`scripts/Stop-Online.ps1` closes only the Cemu, launcher, server and router processes that run from this repository.
+
+Pitfall: the DLL's address scan starts about 45-50 s after Connect and needs the save loaded. If Continue is not pressed in time it logs "Could not find map pin address" 15 times, throws a C++ exception and Cemu closes. Press Continue as soon as the main menu appears.
+
+### SDL input router (`-InputMode Routed`)
+
+`scripts/Build-Input.ps1` downloads the pinned SDL3 and GameControllerDB into `.tools/input` and builds into `.artifacts/input`: `InputRouter.exe` (headless, C# 5 with csc) and `Bridge\xinput1_4.dll` (zig, the local launcher's bridge, unchanged). With `Start-Online.ps1 -InputMode Routed` the bridge DLL is copied beside both Cemu executables and the router is started. The router reads up to four pads through SDL3, assigns the first pad to player 1 and the second to player 2, and publishes them in shared memory `Local\HyruleCoop.Routing.v2`. The bridge answers Cemu's XInput index 0 with player 1 and index 1 with player 2. If the router stops, the bridge falls back to the real XInput after 5 s. `-InputMode Native` (default) removes the bridge and uses the Cemu profiles directly. The local launcher and the router must not run together.
+
+Confirmed by the user in Routed mode: both Links visible in both windows and each pad moves only its own Link. Rumble is not verified yet.
 
 ### Result (2026-10-22)
 

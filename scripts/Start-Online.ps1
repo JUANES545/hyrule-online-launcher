@@ -1,4 +1,6 @@
 param(
+    # Native: each Cemu reads Windows XInput pads 0 and 1. Routed: scripts/Build-Input.ps1 output assigns controllers through SDL3.
+    [ValidateSet('Native', 'Routed')][string]$InputMode = 'Native',
     [int]$ContinueTimeoutSeconds = 180
 )
 $ErrorActionPreference = 'Stop'
@@ -59,8 +61,10 @@ function Wait-JoinedServer {
     return $false
 }
 
-$running = Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Name -in 'Cemu', 'Milk Bar Launcher', 'MBL.DedicatedServer' }
-if ($running) { throw 'Cemu, the Milk Bar launcher or the server is already running. Close it before starting an online session.' }
+$inputRouter = Join-Path $root '.artifacts\input'
+$running = Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Name -in 'Cemu', 'Milk Bar Launcher', 'MBL.DedicatedServer', 'InputRouter', 'HyruleCoop' }
+if ($running) { throw 'Cemu, a Milk Bar launcher, the server or an input router is already running. Close it before starting an online session.' }
+if ($InputMode -eq 'Routed' -and -not (Test-Path -LiteralPath (Join-Path $inputRouter 'InputRouter.exe'))) { throw 'Run scripts/Build-Input.ps1 first.' }
 foreach ($player in $players) {
     foreach ($path in $player.Cemu, $player.Launcher) {
         if (-not (Test-Path -LiteralPath $path)) { throw "Missing $path. Run the clean install first." }
@@ -69,6 +73,15 @@ foreach ($player in $players) {
 if (-not (Test-Path -LiteralPath (Join-Path $serverDirectory 'MBL.DedicatedServer.exe'))) { throw 'The dedicated server is missing.' }
 
 foreach ($player in $players) { Set-ControllerProfile -CemuDirectory $player.Cemu -Slot $player.Slot }
+
+if ($InputMode -eq 'Routed') {
+    foreach ($player in $players) { Copy-Item -LiteralPath (Join-Path $inputRouter 'Bridge\xinput1_4.dll') -Destination $player.Cemu -Force }
+    $router = Start-Process -FilePath (Join-Path $inputRouter 'InputRouter.exe') -WorkingDirectory $inputRouter -WindowStyle Minimized -PassThru
+    Write-Output "Input router started (pid $($router.Id))."
+}
+else {
+    foreach ($player in $players) { Remove-Item -LiteralPath (Join-Path $player.Cemu 'xinput1_4.dll') -ErrorAction SilentlyContinue }
+}
 
 $server = Start-Process -FilePath (Join-Path $serverDirectory 'MBL.DedicatedServer.exe') -WorkingDirectory $serverDirectory -PassThru
 Write-Output "Server started (pid $($server.Id))."
