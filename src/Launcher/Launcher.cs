@@ -147,8 +147,7 @@ namespace HyruleOnline {
    C<Button>("Start").Click += (s, e) => PressStart();
    C<Button>("Stop").Click += (s, e) => StopSession();
    C<Button>("Swap").Click += (s, e) => router.Swap();
-   C<Button>("Mode1").Click += (s, e) => SetPlayerCount(1);
-   C<Button>("Mode2").Click += (s, e) => SetPlayerCount(2);
+   C<Button>("Mode").Click += (s, e) => TogglePlayerCount();
    for (int i = 0; i < 2; i++) {
     int player = i;
     C<Button>("Assign" + (i + 1)).Click += (s, e) => { if (router.Snapshot().Assigning == player) router.CancelAssign(); else router.BeginAssign(player); };
@@ -313,7 +312,7 @@ namespace HyruleOnline {
    if (!Window.IsActive || AnyDropDownOpen() || HelpOpen) return;
    if (step != 0) ShowPage(PageNav.Move(page, step, PageNames.Length));
    else if (start && C<Button>("Start").IsEnabled) PressStart();
-   else if (select && page == 0 && C<Button>("Mode1").IsEnabled) SetPlayerCount(playerCount == 1 ? 2 : 1);
+   else if (select && page == 0 && C<Button>("Mode").IsEnabled) TogglePlayerCount();
   }
 
   bool AnyDropDownOpen() {
@@ -508,7 +507,7 @@ namespace HyruleOnline {
    filling = true;
    try { ShowAdvanced(); } finally { filling = false; }
    ResetHints();
-   ShowRules(); UpdateLive();
+   ShowRules(); UpdateLive(); ShowModeSwitch();
    FillLanguages();
    C<TextBlock>("Status").Text = Tr(statusText, statusArgs);
    C<TextBlock>("Prompt").Text = Tr(promptText, promptArgs);
@@ -714,8 +713,8 @@ namespace HyruleOnline {
    string hint = Tr("D-pad: move   {0}: select   {1}: back", ConfirmLabel(shown), BackLabel(shown));
    C<TextBlock>("PadHint1").Text = hint;
    C<TextBlock>("PadHint2").Text = hint;
-   C<TextBlock>("StartBadgeText").Text = PadKind.StartLabel(shown);
-   C<TextBlock>("ModeBadgeText").Text = PadKind.SelectLabel(shown);
+   C<ContentControl>("StartIcon").Content = PadIcons.Start(shown);
+   C<ContentControl>("ModeIcon").Content = PadIcons.Select(shown);
    C<TextBlock>("PadLayoutInfo").Text = parts.Count == 0 ? Tr("No controller detected: menus use the {0} layout.", PadKind.Names[shown]) : Tr("Detected: {0}", string.Join(ListSeparator, parts.ToArray()));
   }
 
@@ -953,14 +952,18 @@ namespace HyruleOnline {
    Func<bool, Visibility> show = on => on ? Visibility.Visible : Visibility.Collapsed;
    foreach (var name in new[] { "P2Card", "Swap", "BLabel", "BDot", "BText", "BringP1", "BringP2" }) C<UIElement>(name).Visibility = show(two);
    if (!two) SetPicker(1, false);
-   foreach (var entry in new[] { new KeyValuePair<string, int>("Mode1", 1), new KeyValuePair<string, int>("Mode2", 2) }) {
-    var button = C<Button>(entry.Key);
-    bool current = entry.Value == playerCount;
-    button.Background = Paint(current ? "#B03C554B" : "#801B252B");
-    button.BorderBrush = Paint(current ? "#D5C396" : "#364E5659");
-   }
+   ShowModeSwitch();
    UpdatePlayLayout();
   }
+
+  // The switch always offers the other mode, so its text and tooltip follow the current one.
+  void ShowModeSwitch() {
+   bool two = playerCount == 2;
+   C<TextBlock>("ModeText").Text = two ? Tr("Switch to single player") : Tr("Switch to multiplayer");
+   C<Button>("Mode").ToolTip = two ? Tr("Play alone: one game on the whole primary display.") : Tr("Two players on this PC, with the screen split or one display each.");
+  }
+
+  void TogglePlayerCount() { SetPlayerCount(playerCount == 1 ? 2 : 1); }
 
   void SetPlayerCount(int count) {
    if (count == playerCount) return;
@@ -1191,9 +1194,10 @@ namespace HyruleOnline {
     else if (promptText == RestartPrompt) SetPrompt("");
    }
    string label = Tr(dirty ? "RESTART SESSION" : "START SESSION");
-   if ((string)start.Content != label) start.Content = label;
+   var startText = C<TextBlock>("StartText");
+   if (startText.Text != label) startText.Text = label;
    start.IsEnabled = settled && (sessionLive ? dirty : script == null);
-   C<UIElement>("StartBadge").Opacity = start.IsEnabled ? 1 : 0.4;
+   C<UIElement>("StartIcon").Opacity = start.IsEnabled ? 1 : 0.4;
   }
 
   void StopScript() {
@@ -1252,8 +1256,8 @@ namespace HyruleOnline {
   void EnableAppearance(bool enabled) {
    foreach (var name in new[] { "P1NameBox", "P2NameBox" }) C<TextBox>(name).IsEnabled = enabled;
    foreach (var name in new[] { "RulesBox", "SpecialBox" }) C<ComboBox>(name).IsEnabled = enabled;
-   foreach (var name in new[] { "P1AvatarButton", "P2AvatarButton", "Mode1", "Mode2", "UseRecommendedRules" }) C<Button>(name).IsEnabled = enabled;
-   C<UIElement>("ModeBadge").Opacity = enabled ? 1 : 0.4;
+   foreach (var name in new[] { "P1AvatarButton",    "P2AvatarButton", "Mode", "UseRecommendedRules" }) C<Button>(name).IsEnabled = enabled;
+   C<UIElement>("ModeIcon").Opacity = enabled ? 1 : 0.4;
    if (!enabled) ClosePickers();
    foreach (var name in RuleBoxes) C<CheckBox>(name).IsEnabled = enabled;
   }
