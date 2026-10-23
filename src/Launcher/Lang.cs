@@ -14,7 +14,7 @@ namespace HyruleOnline {
   // Elements whose text the launcher sets from code; the XAML walker leaves them alone.
   public static readonly string[] Dynamic = {
    "CornerServer", "P1Status", "P2Status", "P1Name", "P2Name", "P1AvatarName", "P2AvatarName", "P1PickerName", "P2PickerName", "ScreenInfo", "LayoutInfo", "Layout", "Arrange", "Assign1", "Assign2",
-   "ServerText", "AText", "BText", "Status", "Prompt", "HelpText", "Log", "ServerLog", "LanguageList", "LauncherLanguageList", "TimeBox", "GraphicsHint", "MultiplayerHint", "Start", "HardwareText", "RecommendedText", "PresetInfo", "PresetShares", "SpecialInfo", "PadHint1", "PadHint2", "PadLayoutInfo", "StartText", "Mode", "SplitCaption"
+   "ServerText", "AText", "BText", "Status", "Prompt", "HelpText", "Log", "ServerLog", "LanguageList", "LauncherLanguageList", "TimeBox", "GraphicsHint", "MultiplayerHint", "Start", "HardwareText", "RecommendedText", "PresetInfo", "PresetShares", "SpecialInfo", "PadHint1", "PadHint2", "PadLayoutInfo", "StartText", "Mode"
   };
 
   // Text that reads the same in every language.
@@ -88,7 +88,6 @@ namespace HyruleOnline {
    new[] { "Test vibration", "Probar vibración", "Tester la vibration" },
    new[] { "⇄  Swap players", "⇄  Intercambiar jugadores", "⇄  Inverser les joueurs" },
    new[] { "DISPLAY", "PANTALLA", "ÉCRAN" },
-   new[] { "Primary display", "Pantalla principal", "Écran principal" },
    new[] { "P1", "J1", "J1" },
    new[] { "P2", "J2", "J2" },
    new[] { "SESSION", "SESIÓN", "SESSION" },
@@ -179,7 +178,6 @@ namespace HyruleOnline {
    new[] { "FPS target: Auto · {0} FPS", "Objetivo de FPS: Auto · {0} FPS", "Objectif FPS : Auto · {0} FPS" },
    new[] { "Auto · {0} FPS", "Auto · {0} FPS", "Auto · {0} FPS" },
    new[] { "FPS target", "Objetivo de FPS", "Objectif FPS" },
-   new[] { "One display per player · automatic detection", "Una pantalla por jugador · detección automática", "Un écran par joueur · détection automatique" },
    new[] { "Displays: split the primary display", "Pantallas: dividir la principal", "Écrans : diviser l'écran principal" },
    new[] { "Displays: one per player", "Pantallas: una por jugador", "Écrans : un par joueur" },
    new[] { "Display map", "Mapa de pantallas", "Carte des écrans" },
@@ -199,7 +197,8 @@ namespace HyruleOnline {
    new[] { "Session running.", "Sesión en marcha.", "Session en cours." },
    new[] { "Start failed: {0}", "No se pudo iniciar: {0}", "Échec du démarrage : {0}" },
    new[] { "The display settings could not be prepared: {0}", "No se pudo preparar la configuración de pantalla: {0}", "Les paramètres d'affichage n'ont pas pu être préparés : {0}" },
-   new[] { "Turn the screen of player {0} a quarter turn clockwise", "Girar un cuarto de vuelta, en sentido horario, la pantalla del jugador {0}", "Faire pivoter l'écran du joueur {0} d'un quart de tour dans le sens horaire" },
+   new[] { "Turn both screens back upright", "Volver a poner las dos pantallas en posición normal", "Remettre les deux écrans à l'endroit" },
+ new[] { "Turn the screen of player {0} a quarter turn clockwise", "Girar un cuarto de vuelta, en sentido horario, la pantalla del jugador {0}", "Faire pivoter l'écran du joueur {0} d'un quart de tour dans le sens horaire" },
    new[] { "Turning a screen needs Vulkan. Choose Vulkan in the graphics settings.", "Girar una pantalla requiere Vulkan. Elige Vulkan en los ajustes de gráficos.", "Faire pivoter un écran nécessite Vulkan. Choisissez Vulkan dans les paramètres graphiques." },
    new[] { "Turning a screen needs ReShade. Copy ReShade64.dll and ReShade64.json to {0}.", "Girar una pantalla requiere ReShade. Copia ReShade64.dll y ReShade64.json en {0}.", "Faire pivoter un écran nécessite ReShade. Copiez ReShade64.dll et ReShade64.json dans {0}." },
    new[] { "The dedicated server could not start: {0}", "El servidor dedicado no pudo iniciarse: {0}", "Le serveur dédié n'a pas pu démarrer : {0}" },

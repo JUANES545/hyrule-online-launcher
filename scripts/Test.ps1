@@ -9,6 +9,13 @@ if ($LASTEXITCODE -ne 0) { throw 'Test compilation failed.' }
     & (Join-Path $output 'RouterTests.exe') $root
 if ($LASTEXITCODE -ne 0) { throw 'Router tests failed.' }
 
+$wpf = Join-Path $framework 'WPF'
+& (Join-Path $framework 'csc.exe') /nologo /target:exe /platform:x64 "/out:$(Join-Path $output 'BadgeTests.exe')" "/reference:$(Join-Path $wpf 'PresentationFramework.dll')" "/reference:$(Join-Path $wpf 'PresentationCore.dll')" "/reference:$(Join-Path $wpf 'WindowsBase.dll')" /reference:System.Xaml.dll `
+    (Join-Path $root 'tests\BadgeTests.cs') (Join-Path $root 'src\Launcher\PlayerBadge.cs')
+if ($LASTEXITCODE -ne 0) { throw 'Badge test compilation failed.' }
+& (Join-Path $output 'BadgeTests.exe')
+if ($LASTEXITCODE -ne 0) { throw 'Badge tests failed.' }
+
 # The model check needs the clean install (project Python and the extracted Milk Bar launcher); without it only the unit tests run.
 if ((Test-Path -LiteralPath (Join-Path $root '.tools\python38\python.exe')) -and (Test-Path -LiteralPath (Join-Path $root '.artifacts\extract\milkbar\Milk Bar Launcher.dll'))) { & (Join-Path $PSScriptRoot 'Test-Characters.ps1') }
 else { Write-Host 'Skipping the character check: the clean install is not here.' }

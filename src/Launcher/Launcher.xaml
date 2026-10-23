@@ -60,8 +60,15 @@
      <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.4"/></Trigger>
     </ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
   </Style>
-  <Style x:Key="TurnButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-   <Setter Property="Width" Value="50"/><Setter Property="Height" Value="50"/><Setter Property="Padding" Value="4"/><Setter Property="Margin" Value="0,0,0,8"/>
+  <Style x:Key="PreviewCell" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+   <Setter Property="Padding" Value="0"/><Setter Property="BorderThickness" Value="1"/><Setter Property="BorderBrush" Value="Transparent"/><Setter Property="Cursor" Value="Hand"/>
+   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
+    <Border x:Name="Chrome" CornerRadius="3" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
+     <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+    </Border><ControlTemplate.Triggers>
+     <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="#D5C396"/></Trigger>
+     <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="#D5C396"/></Trigger>
+    </ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
   </Style>
   <Style x:Key="AvatarTile" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
    <Setter Property="Margin" Value="3"/><Setter Property="Padding" Value="0"/><Setter Property="Height" Value="86"/><Setter Property="Background" Value="#E00F171C"/>
@@ -190,22 +197,21 @@
     <TextBlock Text="DISPLAY" TextAlignment="Center" FontFamily="{DynamicResource TitleFont}" FontStretch="Normal" FontWeight="Normal" FontSize="14" Foreground="#CBBF9F" Margin="0,0,0,12"/>
     <Border Background="#A0152027" CornerRadius="8" Padding="18" BorderBrush="#3449585A" BorderThickness="1" Margin="0,0,0,12">
      <StackPanel>
-      <TextBlock x:Name="ScreenInfo" TextAlignment="Center" FontSize="23" FontWeight="Normal"/>
-      <TextBlock x:Name="SplitCaption" Text="Primary display" TextAlignment="Center" Foreground="#9EB2BD" FontSize="14" Margin="0,4,0,15"/>
-      <TextBlock x:Name="SeparateCaption" Text="One display per player · automatic detection" Visibility="Collapsed" TextAlignment="Center" Foreground="#9EB2BD" FontSize="14" Margin="0,4,0,15"/>
+      <TextBlock x:Name="ScreenInfo" TextAlignment="Center" FontSize="23" FontWeight="Normal" Margin="0,0,0,15"/>
       <Grid HorizontalAlignment="Center"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
       <Border Background="#080E13" x:Name="PreviewFrame" CornerRadius="6" Padding="6" Height="192" Width="360" HorizontalAlignment="Center"><Grid><Grid x:Name="Preview">
        <Grid.RowDefinitions><RowDefinition/><RowDefinition/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
-       <Border x:Name="View1" Background="#A629554C" CornerRadius="3" Margin="3"><Viewbox Stretch="Uniform" StretchDirection="DownOnly" Margin="3" HorizontalAlignment="Center" VerticalAlignment="Center"><StackPanel Orientation="Horizontal"><TextBlock x:Name="P1PreviewLabel" Text="P1" FontSize="24" FontWeight="Bold" Foreground="#7EE9C9" VerticalAlignment="Center"/><Image Source="{StaticResource P1Person}" Width="30" Height="30" Margin="6,0"/></StackPanel></Viewbox></Border>
-       <Border x:Name="View2" Background="#A6504631" CornerRadius="3" Margin="3"><Viewbox Stretch="Uniform" StretchDirection="DownOnly" Margin="3" HorizontalAlignment="Center" VerticalAlignment="Center"><StackPanel Orientation="Horizontal"><TextBlock x:Name="P2PreviewLabel" Text="P2" FontSize="24" FontWeight="Bold" Foreground="#E5C384" VerticalAlignment="Center"/><Image Source="{StaticResource P2Person}" Width="30" Height="30" Margin="6,0"/></StackPanel></Viewbox></Border>
+       <Button x:Name="View1" Style="{StaticResource PreviewCell}" Background="#A629554C" Margin="3"/>
+       <Button x:Name="View2" Style="{StaticResource PreviewCell}" Background="#A6504631" Margin="3"/>
       </Grid><Canvas x:Name="MonitorMap" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center" AutomationProperties.Name="Display map"/></Grid></Border>
-      <StackPanel x:Name="TurnPanel" Grid.Column="1" VerticalAlignment="Center" Margin="10,0,0,0">
-       <Button x:Name="Turn1" Style="{StaticResource TurnButton}" BorderBrush="#7EE9C9"><Image x:Name="Turn1Image" RenderTransformOrigin="0.5,0.5" RenderOptions.BitmapScalingMode="HighQuality"/></Button>
-       <Button x:Name="Turn2" Style="{StaticResource TurnButton}" BorderBrush="#E5C384" Margin="0"><Image x:Name="Turn2Image" RenderTransformOrigin="0.5,0.5" RenderOptions.BitmapScalingMode="HighQuality"/></Button>
-      </StackPanel></Grid>
+      <Button x:Name="ResetTurns" Grid.Column="1" Width="50" Height="50" Padding="0" Margin="12,0,0,0" VerticalAlignment="Center" Visibility="Collapsed">
+       <Viewbox Width="26" Height="26"><Canvas Width="24" Height="24">
+        <Path Data="M 20,12 A 8,8 0 1 1 12,4" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+        <Path Data="M 8.5,0.8 L 12.5,4 L 8.5,7.2" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+       </Canvas></Viewbox></Button></Grid>
       <TextBlock x:Name="LayoutInfo" TextAlignment="Center" Foreground="#A5BAC5" Margin="0,12,0,14"/>
-      <Button x:Name="Arrange" HorizontalAlignment="Center" Width="380" Content="Displays: split the primary display" Margin="0,0,0,10" Visibility="Collapsed"/>
       <Button x:Name="Layout" HorizontalAlignment="Center" Width="380" Content="Split: automatic" Margin="0,0,0,10"/>
+      <Button x:Name="Arrange" HorizontalAlignment="Center" Width="380" Content="Displays: split the primary display" Margin="0,0,0,10" Visibility="Collapsed"/>
       <ComboBox x:Name="FpsBox" HorizontalAlignment="Center" Width="380" Margin="0,0,0,10"/>
       <StackPanel x:Name="SeparatePanel" Visibility="Collapsed">
        <Grid Margin="0,0,0,8"><Grid.ColumnDefinitions><ColumnDefinition Width="62"/><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="84"/><ColumnDefinition Width="8"/><ColumnDefinition Width="150"/></Grid.ColumnDefinitions>
@@ -221,9 +227,10 @@
     </Border>
     <TextBlock Text="SESSION" TextAlignment="Center" FontFamily="{DynamicResource TitleFont}" FontStretch="Normal" FontWeight="Normal" FontSize="14" Foreground="#CBBF9F" Margin="0,8,0,12"/>
     <Border Background="#A0152027" CornerRadius="8" Padding="18" BorderBrush="#3449585A" BorderThickness="1">
-     <StackPanel>
-      <Grid Margin="0,0,0,8">
-       <Grid.ColumnDefinitions><ColumnDefinition Width="24"/><ColumnDefinition Width="170"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+     <Grid>
+      <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*" MinWidth="190"/></Grid.ColumnDefinitions>
+      <Grid VerticalAlignment="Center">
+       <Grid.ColumnDefinitions><ColumnDefinition Width="24"/><ColumnDefinition Width="150"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
        <Ellipse x:Name="ServerDot" Grid.Row="0" Width="12" Height="12" Fill="#4B5A60" VerticalAlignment="Center"/>
        <TextBlock Grid.Row="0" Grid.Column="1" Text="Dedicated server"/><TextBlock x:Name="ServerText" Grid.Row="0" Grid.Column="2" Foreground="#A5BAC5" Text="Stopped"/>
@@ -232,8 +239,10 @@
        <Ellipse x:Name="BDot" Grid.Row="2" Width="12" Height="12" Fill="#4B5A60" VerticalAlignment="Center"/>
        <TextBlock x:Name="BLabel" Grid.Row="2" Grid.Column="1" Text="Player 2 (Cemu B)"/><TextBlock x:Name="BText" Grid.Row="2" Grid.Column="2" Foreground="#A5BAC5" Text="Stopped"/>
       </Grid>
-      <TextBlock x:Name="Prompt" TextAlignment="Center" Foreground="#E0BE75" MinHeight="44" FontSize="15" Margin="0,4,0,0"/>
-     </StackPanel>
+      <Border Grid.Column="1" BorderBrush="#3449585A" BorderThickness="1,0,0,0" Margin="18,0,0,0" Padding="18,0,0,0">
+       <TextBlock x:Name="Prompt" TextWrapping="Wrap" TextAlignment="Left" VerticalAlignment="Center" Foreground="#E0BE75" FontSize="15"/>
+      </Border>
+     </Grid>
     </Border>
    </StackPanel>
   </Grid>

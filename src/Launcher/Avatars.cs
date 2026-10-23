@@ -94,7 +94,7 @@ namespace HyruleOnline {
   void RefreshAvatar(int player) {
    var current = AvatarOf(player);
    C<Image>("P" + (player + 1) + "AvatarImage").Source = Avatar(current);
-   if (playerCount == 2) ShowTurn(player);
+   ShowBadges();
    C<TextBlock>("P" + (player + 1) + "AvatarName").Text = current.Label;
    ShowPickerName(player, current);
    foreach (var tile in avatarTiles[player]) tile.BorderBrush = Paint(tile.Tag == current ? PlayerColors[player] : "#364E5659");

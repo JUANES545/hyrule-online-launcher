@@ -117,6 +117,8 @@ namespace HyruleOnline {
   int ticks;
   bool sessionLive, restartAfterStop, restartPending;
   string appliedSignature;
+  // The plan the running games were started with. Windows and ReShade follow it until the session restarts, because the game resolution cannot change while it runs.
+  DisplayPlan sessionPlan;
   const string RestartPrompt = "Some changes only apply after a restart. Press Restart session to apply them.";
   string language = "en", launcherLanguage = "en";
   List<GameLanguage> gameLanguages = new List<GameLanguage> { GameLanguages.English };
@@ -151,8 +153,9 @@ namespace HyruleOnline {
    C<Button>("Mode").Click += (s, e) => TogglePlayerCount();
    for (int i = 0; i < 2; i++) {
     int turned = i;
-    C<Button>("Turn" + (i + 1)).Click += (s, e) => { rotations[turned] = (rotations[turned] + 90) % 360; ChangedDisplayChoice(); };
+    C<Button>("View" + (i + 1)).Click += (s, e) => TurnScreen(turned);
    }
+   C<Button>("ResetTurns").Click += (s, e) => { rotations[0] = 0; rotations[1] = 0; ChangedDisplayChoice(); };
    for (int i = 0; i < 2; i++) {
     int player = i;
     C<Button>("Assign" + (i + 1)).Click += (s, e) => { if (router.Snapshot().Assigning == player) router.CancelAssign(); else router.BeginAssign(player); };
@@ -594,8 +597,9 @@ namespace HyruleOnline {
 
   void ChangedDisplayChoice() {
    SavePrefs();
-   placed.Clear();
    UpdatePlan();
+   if (sessionLive) return;
+   placed.Clear();
    PlaceWindows();
   }
 
@@ -613,14 +617,40 @@ namespace HyruleOnline {
     : playerCount == 1 ? ScreenLayout.PlanSingle(scale, displayWidth, displayHeight) : ScreenLayout.Plan(mode, scale, displayWidth, displayHeight, rotations);
   }
 
-  // The turn button shows the player's avatar, turned the way that player's screen will be.
-  void ShowTurn(int player) {
-   var image = C<Image>("Turn" + (player + 1) + "Image");
-   image.Source = Avatar(AvatarOf(player));
-   image.RenderTransform = new RotateTransform(rotations[player]);
-   var button = C<Button>("Turn" + (player + 1));
-   button.ToolTip = Tr("Turn the screen of player {0} a quarter turn clockwise", player + 1);
-   System.Windows.Automation.AutomationProperties.SetName(button, Tr("Turn the screen of player {0} a quarter turn clockwise", player + 1));
+  // Clicking a player's cell in the preview turns that player's screen a quarter turn clockwise.
+  void TurnScreen(int player) {
+   if (playerCount != 2) return;
+   rotations[player] = (rotations[player] + 90) % 360;
+   ChangedDisplayChoice();
+  }
+
+  // Each preview cell shows its player's avatar and label, turned like that player's screen; one player never turns.
+  void ShowBadges() {
+   for (int i = 0; i < 2; i++) {
+    var cell = C<Button>("View" + (i + 1));
+    cell.Content = PlayerBadge.Build(Avatar(AvatarOf(i)), Tr(i == 0 ? "P1" : "P2"), Paint(PlayerColors[i]), playerCount == 2 ? rotations[i] : 0);
+    cell.IsEnabled = appearanceEnabled && playerCount == 2;
+    TipTurn(cell, i);
+   }
+   var reset = C<Button>("ResetTurns");
+   reset.Visibility = playerCount == 2 ? Visibility.Visible : Visibility.Collapsed;
+   reset.IsEnabled = appearanceEnabled && (rotations[0] != 0 || rotations[1] != 0);
+   reset.ToolTip = Tr("Turn both screens back upright");
+   System.Windows.Automation.AutomationProperties.SetName(reset, Tr("Turn both screens back upright"));
+   foreach (var tile in C<Canvas>("MonitorMap").Children.OfType<Button>()) {
+    var info = (KeyValuePair<int, string>)tile.Tag;
+    tile.Content = TileContent(info.Key, info.Value);
+   }
+  }
+
+  void TipTurn(Button button, int player) {
+   string tip = Tr("Turn the screen of player {0} a quarter turn clockwise", player + 1);
+   button.ToolTip = tip;
+   System.Windows.Automation.AutomationProperties.SetName(button, tip);
+  }
+
+  UIElement TileContent(int owner, string label) {
+   return PlayerBadge.Build(Avatar(AvatarOf(owner)), label, Paint(PlayerColors[owner]), rotations[owner]);
   }
 
   static string MonitorKey(List<MonitorInfo> list) {
@@ -941,16 +971,16 @@ namespace HyruleOnline {
    bool separate = pair != null;
    C<Button>("Arrange").Visibility = canSeparate ? Visibility.Visible : Visibility.Collapsed;
    C<Button>("Arrange").Content = Tr(separate ? "Displays: one per player" : "Displays: split the primary display");
-   foreach (var name in new[] { "SplitCaption", "Preview", "Layout", "FpsBox" }) C<UIElement>(name).Visibility = separate ? Visibility.Collapsed : Visibility.Visible;
+   foreach (var name in new[] { "Preview", "Layout", "FpsBox" }) C<UIElement>(name).Visibility = separate ? Visibility.Collapsed : Visibility.Visible;
    C<UIElement>("Layout").Visibility = separate || playerCount == 1 ? Visibility.Collapsed : Visibility.Visible;
-   foreach (var name in new[] { "SeparateCaption", "MonitorMap", "SeparatePanel" }) C<UIElement>(name).Visibility = separate ? Visibility.Visible : Visibility.Collapsed;
+   foreach (var name in new[] { "MonitorMap", "SeparatePanel" }) C<UIElement>(name).Visibility = separate ? Visibility.Visible : Visibility.Collapsed;
    var primary = monitors.FirstOrDefault(m => m.Primary);
-   C<TextBlock>("SplitCaption").Text = Tr("Primary display") + (primary.Device == null ? "" : " · " + MonitorTitle(primary));
-   C<TextBlock>("ScreenInfo").Text = separate ? MonitorTitle(pair[0]) + "  +  " + MonitorTitle(pair[1]) : displayWidth + " × " + displayHeight + "  /  " + displayHz + " Hz";
+   C<TextBlock>("ScreenInfo").Text = separate ? MonitorTitle(pair[0]) + "  +  " + MonitorTitle(pair[1]) : (primary.Device == null ? displayWidth + " × " + displayHeight : MonitorTitle(primary)) + "  /  " + displayHz + " Hz";
    C<Button>("Layout").Content = Tr(mode == LayoutMode.Auto ? "Split: automatic" : mode == LayoutMode.SideBySide ? "Split: side by side" : "Split: top and bottom");
    ShowDisplays();
    ShowFpsChoices();
    ShowQuality();
+   ShowBadges();
    if (displayWidth < 320 || displayHeight < 240) { C<TextBlock>("LayoutInfo").Text = Tr("The primary display is not ready."); return; }
    var plan = CurrentPlan();
    if (separate) { ShowSeparatePlan(plan); FitPrimary(); return; }
@@ -962,7 +992,7 @@ namespace HyruleOnline {
    var frame = C<Border>("PreviewFrame");
    double ratio = (double)displayWidth / displayHeight;
    frame.Width = ratio < 1 ? 118 : Math.Min(360, 210 * ratio); frame.Height = frame.Width / ratio;
-   var a = C<Border>("View1"); var b = C<Border>("View2");
+   var a = C<Button>("View1"); var b = C<Button>("View2");
    b.Visibility = playerCount == 1 ? Visibility.Collapsed : Visibility.Visible;
    if (playerCount == 1) { Grid.SetRow(a, 0); Grid.SetColumn(a, 0); Grid.SetRowSpan(a, 2); Grid.SetColumnSpan(a, 2); FitPrimary(); return; }
    Grid.SetRow(a, 0); Grid.SetColumn(a, 0); Grid.SetRow(b, side ? 0 : 1); Grid.SetColumn(b, side ? 1 : 0);
@@ -974,8 +1004,7 @@ namespace HyruleOnline {
   void ShowPlayers() {
    bool two = playerCount == 2;
    Func<bool, Visibility> show = on => on ? Visibility.Visible : Visibility.Collapsed;
-   foreach (var name in new[] { "P2Card", "Swap", "BLabel", "BDot", "BText", "BringP1", "BringP2", "TurnPanel" }) C<UIElement>(name).Visibility = show(two);
-   if (two) { ShowTurn(0); ShowTurn(1); }
+   foreach (var name in new[] { "P2Card", "Swap", "BLabel", "BDot", "BText", "BringP1", "BringP2" }) C<UIElement>(name).Visibility = show(two);
    if (!two) SetPicker(1, false);
    ShowModeSwitch();
    UpdatePlayLayout();
@@ -1032,10 +1061,21 @@ namespace HyruleOnline {
    double offsetX = (map.Width - (right - left) * zoom) / 2, offsetY = (map.Height - (bottom - top) * zoom) / 2;
    foreach (var monitor in monitors) {
     int owner = pair[0].Device == monitor.Device ? 0 : pair[1].Device == monitor.Device ? 1 : -1;
-    var tile = new Border { Width = Math.Max(4, monitor.Width * zoom - 4), Height = Math.Max(4, monitor.Height * zoom - 4), CornerRadius = new CornerRadius(3),
-     Background = Paint(owner == 0 ? "#A629554C" : owner == 1 ? "#A6504631" : "#40303B42"), BorderBrush = Paint(monitor.Primary ? "#D5C396" : "#364E5659"), BorderThickness = new Thickness(1) };
-    tile.Child = new Viewbox { Stretch = Stretch.Uniform, StretchDirection = StretchDirection.DownOnly, Margin = new Thickness(3), Child = new TextBlock {
-     Text = (owner < 0 ? "" : Tr(owner == 0 ? "P1" : "P2") + " · ") + ScreenLayout.DisplayNumber(monitor.Device), FontSize = 24, FontWeight = FontWeights.Bold, Foreground = Paint(owner == 0 ? "#7EE9C9" : owner == 1 ? "#E5C384" : "#78939F") } };
+    double tileWidth = Math.Max(4, monitor.Width * zoom - 4), tileHeight = Math.Max(4, monitor.Height * zoom - 4);
+    FrameworkElement tile;
+    if (owner >= 0) {
+     var cell = new Button { Style = (Style)Window.FindResource("PreviewCell"), Background = Paint(owner == 0 ? "#A629554C" : "#A6504631"), IsEnabled = appearanceEnabled };
+     int turned = owner;
+     cell.Click += (s, e) => TurnScreen(turned);
+     TipTurn(cell, owner);
+     cell.Tag = new KeyValuePair<int, string>(owner, Tr(owner == 0 ? "P1" : "P2"));
+     cell.Content = TileContent(owner, ((KeyValuePair<int, string>)cell.Tag).Value);
+     tile = cell;
+    } else {
+     tile = new Border { CornerRadius = new CornerRadius(3), Background = Paint("#40303B42"), BorderBrush = Paint("#364E5659"), BorderThickness = new Thickness(1),
+      Child = new Viewbox { Stretch = Stretch.Uniform, StretchDirection = StretchDirection.DownOnly, Margin = new Thickness(3), Child = new TextBlock { Text = ScreenLayout.DisplayNumber(monitor.Device).ToString(), FontSize = 24, FontWeight = FontWeights.Bold, Foreground = Paint("#78939F") } } };
+    }
+    tile.Width = tileWidth; tile.Height = tileHeight;
     Canvas.SetLeft(tile, offsetX + (monitor.X - left) * zoom + 2); Canvas.SetTop(tile, offsetY + (monitor.Y - top) * zoom + 2);
     map.Children.Add(tile);
    }
@@ -1044,7 +1084,7 @@ namespace HyruleOnline {
   // Each Cemu window is placed once when it first appears, so moving it by hand is not undone.
   void PlaceWindows() {
    if (displayWidth < 320 || displayHeight < 240) return;
-   var areas = CurrentPlan().Players;
+   var areas = (sessionPlan ?? CurrentPlan()).Players;
    string[] folders = { "\\cemuA\\", "\\cemuB\\" };
    for (int i = 0; i < areas.Length; i++) {
     foreach (var window in WindowPlacer.CemuWindows(folders[i]).Values) {
@@ -1065,6 +1105,7 @@ namespace HyruleOnline {
    try {
     RefreshMonitors();
     var plan = CurrentPlan();
+    sessionPlan = plan;
     string[] names = { "cemuA", "cemuB" };
     var quality = CurrentQuality();
     var gameLanguage = GameLanguages.Find(gameLanguages, language);
@@ -1194,7 +1235,7 @@ namespace HyruleOnline {
    SetPrompt("");
    StopScript();
    Scripts.Run(root, "Stop-Online.ps1", "", Line, Error, code => Window.Dispatcher.BeginInvoke(new Action(() => {
-    stopping = false; failure = null; joined[0] = joined[1] = false; placed.Clear(); appliedSignature = null; RefreshProcesses();
+    stopping = false; failure = null; joined[0] = joined[1] = false; placed.Clear(); appliedSignature = null; sessionPlan = null; RefreshProcesses();
     if (!restartAfterStop) return;
     restartAfterStop = false;
     if (sessionLive) Write("The previous session did not close completely, so it was not restarted.");
@@ -1207,6 +1248,7 @@ namespace HyruleOnline {
    Func<double, string> size = v => GraphicsMod.NearestScale(v).ToString(System.Globalization.CultureInfo.InvariantCulture);
    var parts = new List<object> { shadows, shadowDistance, antiAliasing, advanced.Api, advanced.VSync, advanced.AsyncCompile, advanced.AccurateBarriers, advanced.Upscale, advanced.Downscale, language,
     rules.Special, rules.Enemies, rules.Quests, rules.Koroks, rules.Towers, rules.Shrines, rules.Locations, rules.DivineBeasts, pair != null, playerCount };
+    if (playerCount == 2) parts.AddRange(new object[] { rotations[0], rotations[1] });
    for (int i = 0; i < playerCount; i++) parts.AddRange(new object[] { Characters.CleanName(C<TextBox>("P" + (i + 1) + "NameBox").Text, Characters.DefaultNames[i]), models[i] });
    if (pair != null) for (int i = 0; i < 2; i++) parts.AddRange(new object[] { displays[i], size(scales[i]), fpsLimits[i] });
    else parts.AddRange(new object[] { playerCount == 2 ? mode.ToString() : "", size(scale), fpsLimit });
@@ -1277,17 +1319,23 @@ namespace HyruleOnline {
     else if (owned.Count == 0 && failure == null) { SetStatus("Ready."); SetPrompt(""); }
    }
    sessionLive = owned.Count > 0;
-   if (!sessionLive && script == null && !stopping) appliedSignature = null;
+   if (!sessionLive && script == null && !stopping) { appliedSignature = null; sessionPlan = null; }
    UpdateStart();
    C<Button>("Stop").IsEnabled = !stopping && (script != null || owned.Count > 0);
    EnableAppearance(!stopping && (script == null || sessionLive));
    if (serverUp != serverHost.Running) { serverUp = serverHost.Running; UpdateLive(); }
   }
 
+  bool appearanceEnabled = true;
+
   void EnableAppearance(bool enabled) {
+   appearanceEnabled = enabled;
    foreach (var name in new[] { "P1NameBox", "P2NameBox" }) C<TextBox>(name).IsEnabled = enabled;
    foreach (var name in new[] { "RulesBox", "SpecialBox" }) C<ComboBox>(name).IsEnabled = enabled;
-   foreach (var name in new[] { "P1AvatarButton",    "P2AvatarButton", "Mode", "UseRecommendedRules", "Turn1", "Turn2" }) C<Button>(name).IsEnabled = enabled;
+   foreach (var name in new[] { "P1AvatarButton",    "P2AvatarButton", "Mode", "UseRecommendedRules" }) C<Button>(name).IsEnabled = enabled;
+   foreach (var name in new[] { "View1", "View2" }) C<Button>(name).IsEnabled = enabled && playerCount == 2;
+   C<Button>("ResetTurns").IsEnabled = enabled && (rotations[0] != 0 || rotations[1] != 0);
+   foreach (var tile in C<Canvas>("MonitorMap").Children.OfType<Button>()) tile.IsEnabled = enabled;
    C<UIElement>("ModeIcon").Opacity = enabled ? 1 : 0.4;
    if (!enabled) ClosePickers();
    foreach (var name in RuleBoxes) C<CheckBox>(name).IsEnabled = enabled;
