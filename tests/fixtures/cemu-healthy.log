@@ -1,0 +1,9 @@
+[21:42:35] ------- Run title -------
+[21:42:39] Shader cache loaded with 8676 shaders. Commited mem 1678MB. Took 4515ms
+[21:43:25] Recompiler initialized. CPU extensions: LZCNT MOVBE AVX 
+[21:43:25] IOSU_ACT: using account default in first slot
+[21:43:31] Vulkan-Info: Allocated additional memory for textures from device-local memory
+[21:43:57] Vulkan-Info: Allocated additional memory for textures from device-local memory
+[21:43:57] Vulkan-Info: Allocated additional memory for textures from device-local memory
+[21:44:17] Vulkan-Info: Allocated additional memory for textures from device-local memory
+[21:44:23] Vulkan-Info: Allocated additional memory for textures from device-local memory

@@ -1,0 +1,7 @@
+[22:47:51] ------- Init Audio backend -------
+[22:47:51] ------- Run title -------
+[22:47:55] Shader cache loaded with 8676 shaders. Commited mem 1603MB. Took 4693ms
+[22:47:55] Disable multi-threaded pipeline loading due to an issue with Nvidia drivers
+[22:48:34] Recompiler initialized. CPU extensions: LZCNT MOVBE AVX 
+[22:48:35] IOSU_ACT: using account default in first slot
+[22:48:39] Vulkan-Info: Allocated additional memory for textures from device-local memory
