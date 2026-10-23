@@ -28,8 +28,7 @@ namespace HyruleOnline {
   // Models seen working as the local player in a real session; every other NPC is untested and flagged Experimental (tracked here, not shown in the UI).
   static readonly string[] Verified = { "Npc_Gerudo_Hero", "Npc_Rito_Hero", "Npc_Zora_Hero", "Npc_Gerudo_Queen" };
   // Hestu's skeleton lacks most of the bones the player animations drive (checked in the model file), so it is not offered.
-  // Paya hung the loading screen of the instance that used it in two runs in a row and Daruk in one, with no difference in the model files that explains it.
-  static readonly string[] Unsupported = { "Npc_Korogu_Minister", "Npc_Shiekah_Heir", "Npc_Goron_Hero" };
+  static readonly string[] Unsupported = { "Npc_Korogu_Minister" };
 
   public static Character Link { get { return new Character { Name = "Link", Model = Character.LinkModel, Index = 0, Label = "Link" }; } }
 
