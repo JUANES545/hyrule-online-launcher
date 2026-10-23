@@ -26,9 +26,7 @@ namespace HyruleOnline {
   public const int MaxName = 16;
   public static readonly string[] DefaultNames = { "Link", "Pedro" };
   // Models seen working as the local player in a real session; every other NPC is untested and flagged Experimental (tracked here, not shown in the UI).
-  static readonly string[] Verified = { "Npc_Gerudo_Hero" };
-  // Revali hung the loading screen when used as the local player, so it is not offered.
-  static readonly string[] Broken = { "Npc_Rito_Hero" };
+  static readonly string[] Verified = { "Npc_Gerudo_Hero", "Npc_Rito_Hero", "Npc_Zora_Hero", "Npc_Gerudo_Queen" };
 
   public static Character Link { get { return new Character { Name = "Link", Model = Character.LinkModel, Index = 0, Label = "Link" }; } }
 
@@ -41,7 +39,6 @@ namespace HyruleOnline {
     string label = name;
     if (list.Any(c => c.Name == name)) label = name + " (" + folder.Substring(folder.LastIndexOf('_') + 1) + ")";
     int position = index++;
-    if (Broken.Contains(folder)) continue;
     list.Add(new Character { Name = name, Model = folder, Index = position, Label = label, Experimental = !Verified.Contains(folder) });
    }
    return list;

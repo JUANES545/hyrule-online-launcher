@@ -5,8 +5,12 @@ Run it through scripts/Patch-Mod.ps1, which uses the project's own Python with o
 """
 import argparse
 import glob
+import io
+import json
 import os
+import shutil
 import sys
+import tempfile
 import zlib
 
 import oead
@@ -17,6 +21,8 @@ ACTOR_INFO = 'Actor/ActorInfo.product.sbyml'
 TITLE = 'Pack/TitleBG.pack'
 TITLE_ENTRIES = ['EventFlow/MultiplayerEvent.bfevfl', 'EventFlow/AddItem.bfevfl', 'EventFlow/BindEvent.bfevfl',
                  'EventFlow/ChangeFlag.bfevfl', 'Event/ResidentEvent.byml']
+TEXT_LANGUAGES = ['USes', 'USfr']
+RSTB = 'System/Resource/ResourceSizeTable.product.srsizetable'
 
 
 def decompress(data):
@@ -57,6 +63,7 @@ class Patcher:
             raise SystemExit('No merged content found. Run the clean install first.')
         updates = sorted(glob.glob(os.path.join(tools, 'instances', '*', 'mlc01', 'usr', 'title', '0005000e', '101c9400', 'content', ACTOR_INFO)))
         self.vanilla_actor_info = updates[0] if updates else None
+        self.vanilla_packs = os.path.dirname(os.path.dirname(updates[0])) + os.sep + 'Pack' if updates else None
 
     def report(self, step, target, changed):
         name = os.path.relpath(target, self.root)
@@ -143,6 +150,56 @@ class Patcher:
             self.report('actorinfo', path, changed)
 
 
+    def texts(self):
+        # BCML only merges the mod's text changes into the USen archive. Without them the game hangs while loading
+        # the save when player 2 uses an NPC avatar and the game language is Spanish or French.
+        with open(os.path.join(self.mod, 'logs', 'texts.json'), encoding='utf-8') as handle:
+            diff = json.dumps(json.load(handle)['USen'])
+        if not self.vanilla_packs:
+            raise SystemExit('The vanilla Bootup packs were not found under .tools/instances/*/mlc01.')
+        appdata = os.environ.get('LOCALAPPDATA')
+        scratch = tempfile.mkdtemp()
+        os.environ['LOCALAPPDATA'] = scratch  # keeps BCML from touching the user's own settings
+        try:
+            from bcml import bcml as rsext
+            merged = {}
+            for lang in TEXT_LANGUAGES:
+                out = os.path.join(scratch, 'Bootup_%s.pack' % lang)
+                rsext.mergers.texts.merge_language(diff, os.path.join(self.vanilla_packs, 'Bootup_%s.pack' % lang), out, True)
+                merged[lang] = read(out)
+        finally:
+            if appdata is None:
+                os.environ.pop('LOCALAPPDATA', None)
+            else:
+                os.environ['LOCALAPPDATA'] = appdata
+            shutil.rmtree(scratch, ignore_errors=True)
+        for target in self.targets:
+            for lang, data in merged.items():
+                path = os.path.join(target, 'Pack', 'Bootup_%s.pack' % lang)
+                changed = not os.path.exists(path) or read(path) != data
+                if changed and not self.check:
+                    write(path, data)
+                self.report('texts', path, changed)
+
+    def rstb(self):
+        # The merged archives are bigger than the vanilla ones; a stale size makes Cemu overflow and crash.
+        # Entries removed from the table are sized dynamically (BCML already does this for USen).
+        from rstb import ResourceSizeTable
+        names = ['Message/Msg_%s.product.sarc' % lang for lang in TEXT_LANGUAGES]
+        for target in self.targets:
+            path = os.path.join(target, RSTB)
+            raw = read(path)
+            table = ResourceSizeTable(decompress(raw), True)
+            stale = [name for name in names if table.is_in_table(name)]
+            if stale and not self.check:
+                for name in stale:
+                    table.delete_entry(name)
+                buffer = io.BytesIO()
+                table.write(buffer, True)
+                write(path, bytes(oead.yaz0.compress(buffer.getvalue())) if raw[:4] == b'Yaz0' else buffer.getvalue())
+            self.report('rstb', path, bool(stale))
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--root', required=True)
@@ -153,6 +210,8 @@ def main():
     patcher.camera()
     patcher.title()
     patcher.actor_info()
+    patcher.texts()
+    patcher.rstb()
     if args.check and patcher.pending:
         print('%d file(s) need patching.' % patcher.pending)
         return 1

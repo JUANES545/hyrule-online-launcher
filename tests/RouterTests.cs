@@ -204,17 +204,16 @@ namespace HyruleOnline {
   static void Players() {
    const string json = "[{\"Name\":\"Urbosa\",\"Folder\":\"Npc_Gerudo_Hero\"},{\"Name\":\"Revali\",\"Folder\":\"Npc_Rito_Hero\"},{\"Name\":\"Hudson\",\"Folder\":\"Npc_Hylia_Carpenter_001\"},{\"Name\":\"Hudson\",\"Folder\":\"Npc_Hylia_Carpenter_001_Wedding\"},{\"Name\":\"Hat\",\"Folder\":\"Armor_Hat\"}]";
    var list = Characters.Parse(json);
-   Require(list.Count == 4 && list[0].IsLink && list[0].Model == Character.LinkModel && list[0].Index == 0, "Link comes first");
-   Require(list[1].Index == 3 && list[1].Model == "Npc_Gerudo_Hero" && list[3].Index == 6, "NPC models follow the Milk Bar numbering, after Bumii and Environmental");
-   Require(list[2].Label == "Hudson" && list[3].Label == "Hudson (Wedding)", "repeated names stay distinguishable");
-   Require(!list[1].Experimental && list[1].Display == "Urbosa" && list[2].Experimental && list[2].Display == "Hudson" && !list[0].Experimental, "only tested models are flagged experimental and the list shows plain names");
-   Require(!list.Any(c => c.Model == "Npc_Rito_Hero"), "a model that hangs the game is not offered");
+   Require(list.Count == 5 && list[0].IsLink && list[0].Model == Character.LinkModel && list[0].Index == 0, "Link comes first");
+   Require(list[1].Index == 3 && list[1].Model == "Npc_Gerudo_Hero" && list[4].Index == 6, "NPC models follow the Milk Bar numbering, after Bumii and Environmental");
+   Require(list[3].Label == "Hudson" && list[4].Label == "Hudson (Wedding)", "repeated names stay distinguishable");
+   Require(!list[1].Experimental && list[1].Display == "Urbosa" && !list[2].Experimental && list[3].Experimental && list[3].Display == "Hudson" && !list[0].Experimental, "only tested models are flagged experimental and the list shows plain names");
    Require(Characters.Parse("").Count == 1 && Characters.Parse(null)[0].IsLink, "without the mod's list only Link is offered");
-   Require(Characters.Find(list, "Npc_Gerudo_Hero") == list[1] && Characters.Find(list, "").IsLink && Characters.Find(list, "Npc_Rito_Hero").IsLink, "a saved model that is gone falls back to Link");
+   Require(Characters.Find(list, "Npc_Gerudo_Hero") == list[1] && Characters.Find(list, "").IsLink && Characters.Find(list, "Npc_Gone").IsLink, "a saved model that is gone falls back to Link");
    Require(Characters.CleanName("Pedro", "x") == "Pedro" && Characters.CleanName("  a;b|c  d ", "x") == "abc d" && Characters.CleanName(";;", "Link") == "Link" && Characters.CleanName(null, "Link") == "Link", "names keep only safe characters");
    Require(Characters.CleanName("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "x").Length == Characters.MaxName && Characters.IsNameText("Player 1") && !Characters.IsNameText("a;b"), "names are limited in length");
    Require(Characters.DefaultNames[0] == "Link" && Characters.DefaultNames[1] == "Pedro", "default names");
-   Require(Characters.AvatarKey(list[0]) == "link" && Characters.AvatarKey(list[1]) == "gerudo_hero" && Characters.AvatarKey(list[3]) == "hylia_carpenter_001_wedding", "the bust name follows the model folder");
+   Require(Characters.AvatarKey(list[0]) == "link" && Characters.AvatarKey(list[1]) == "gerudo_hero" && Characters.AvatarKey(list[4]) == "hylia_carpenter_001_wedding", "the bust name follows the model folder");
    Require(Characters.ReadBusts("missing.dll").Count == 0, "without the Milk Bar launcher there are no busts");
    var link = Characters.ModelJson(list[0]);
    Require(link.Contains("\"ModelIndex\":0") && link.Contains("\"Type\":0") && link.Contains("\"IsArmorSync\":true"), "Link keeps armor sync");
