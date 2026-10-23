@@ -21,6 +21,9 @@ $players = @(@(
     @{ Name = 'B'; Slot = 1; Cemu = Join-Path $root '.tools\instances\cemuB'; Launcher = Join-Path $extract 'milkbarB' }
 ) | Select-Object -First $PlayerCount)
 $gameLog = Join-Path $env:APPDATA 'BOTWM\LatestLog.txt'
+. (Join-Path $PSScriptRoot 'Cemu-Stall.ps1')
+# Player B sometimes freezes while loading; it is restarted this many times before giving up.
+$maxStallRestarts = 2
 
 # Same Pro Controller bindings as the local co-op launcher (Configure-Cemu.ps1).
 $mappings = [ordered]@{
@@ -99,6 +102,38 @@ function Wait-GameLoaded {
     return $false
 }
 
+# Starts a player's Milk Bar launcher (which starts its Cemu) and waits until the server has assigned it a slot.
+function Start-Player {
+    param($Player)
+    $Player.Started = Get-Date
+    # The Vulkan loader only sees the ReShade layer in a Cemu whose player has a turned screen (see RotationMod.cs).
+    if (Test-Path -LiteralPath (Join-Path $Player.Cemu 'ReShade64.json')) {
+        $env:VK_IMPLICIT_LAYER_PATH = $Player.Cemu
+        Write-Output "Player $($Player.Name): the screen is turned, so ReShade loads in this Cemu."
+    }
+    else { Remove-Item Env:VK_IMPLICIT_LAYER_PATH -ErrorAction SilentlyContinue }
+    & (Join-Path $PSScriptRoot 'Connect-MilkBar.ps1') -LauncherDirectory $Player.Launcher -Show:$ShowMilkBar
+    Write-Output "Player $($Player.Name): wait for the game, then press Continue in its Cemu window (within ~60 s of the save loading)."
+    # The server numbers players in the order their DLLs connect, and every DLL takes whichever launcher pipe is free,
+    # so player B starts only after player A is linked. B then loads while the user presses Continue for A.
+    if (-not (Wait-LogLine -Pattern 'Assigned to player' -Since $Player.Started -TimeoutSeconds 90)) {
+        throw "Player $($Player.Name) did not reach the server. Check $gameLog."
+    }
+}
+
+# Closes one player's Cemu and Milk Bar launcher and nothing else, then gives the server a moment to free the slot.
+function Stop-Player {
+    param($Player)
+    $owned = Get-Process -Name 'Cemu', 'Milk Bar Launcher' -ErrorAction SilentlyContinue | Where-Object {
+        try { $_.Path -and ($_.Path -like "$($Player.Cemu)\*" -or $_.Path -like "$($Player.Launcher)\*") } catch { $false }
+    }
+    foreach ($process in $owned) {
+        Stop-Process -Id $process.Id -ErrorAction SilentlyContinue
+        $process.WaitForExit(10000) | Out-Null
+    }
+    Start-Sleep -Seconds 5
+}
+
 $inputRouter = Join-Path $root '.artifacts\input'
 $names = 'Cemu', 'Milk Bar Launcher', 'InputRouter', 'HyruleCoop'
 if (-not $ExternalServer) { $names += 'MBL.DedicatedServer' }
@@ -137,20 +172,7 @@ Start-Sleep -Seconds 5
 
 $sessionStart = Get-Date
 foreach ($player in $players) {
-    $started = Get-Date
-    # The Vulkan loader only sees the ReShade layer in a Cemu whose player has a turned screen (see RotationMod.cs).
-    if (Test-Path -LiteralPath (Join-Path $player.Cemu 'ReShade64.json')) {
-        $env:VK_IMPLICIT_LAYER_PATH = $player.Cemu
-        Write-Output "Player $($player.Name): the screen is turned, so ReShade loads in this Cemu."
-    }
-    else { Remove-Item Env:VK_IMPLICIT_LAYER_PATH -ErrorAction SilentlyContinue }
-    & (Join-Path $PSScriptRoot 'Connect-MilkBar.ps1') -LauncherDirectory $player.Launcher -Show:$ShowMilkBar
-    Write-Output "Player $($player.Name): wait for the game, then press Continue in its Cemu window (within ~60 s of the save loading)."
-    # The server numbers players in the order their DLLs connect, and every DLL takes whichever launcher pipe is free,
-    # so player B starts only after player A is linked. B then loads while the user presses Continue for A.
-    if (-not (Wait-LogLine -Pattern 'Assigned to player' -Since $started -TimeoutSeconds 90)) {
-        throw "Player $($player.Name) did not reach the server. Check $gameLog."
-    }
+    Start-Player -Player $player
     if ($player.Name -eq 'A' -and $PlayerCount -gt 1) {
         Write-Output 'Player B starts as soon as player A has finished loading.'
         $loading = Get-Date
@@ -162,9 +184,22 @@ foreach ($player in $players) {
 # Both DLLs write to the same log and its lines do not say which player they belong to, so count the joins.
 $deadline = (Get-Date).AddSeconds($ContinueTimeoutSeconds)
 $seen = 0
+$stallRestarts = 0
+$playerB = $players | Where-Object { $_.Name -eq 'B' }
 while ($seen -lt $PlayerCount) {
     foreach ($player in $players) {
         if (-not (Get-CemuProcess -Folder $player.Cemu)) { throw "Cemu $($player.Name) closed before the session was ready. Check $gameLog." }
+    }
+    if ($playerB -and $stallRestarts -lt $maxStallRestarts) {
+        $cemuLog = try { Get-Content -LiteralPath (Join-Path $playerB.Cemu 'log.txt') -ErrorAction Stop } catch { @() }
+        if (Test-CemuStalled -LogLines $cemuLog -Now (Get-Date) -Since $playerB.Started) {
+            $stallRestarts++
+            Write-Output "Player B stalled while loading; restarting it ($stallRestarts of $maxStallRestarts)."
+            Stop-Player -Player $playerB
+            Start-Player -Player $playerB
+            $deadline = (Get-Date).AddSeconds($ContinueTimeoutSeconds)
+            continue
+        }
     }
     $count = Get-LogCount -Pattern 'Displayed "Joined server' -Since $sessionStart
     if ($count -gt $seen) { $seen = $count;     Write-Output "$seen of $PlayerCount players joined." }

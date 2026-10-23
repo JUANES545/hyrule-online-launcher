@@ -12,3 +12,6 @@ if ($LASTEXITCODE -ne 0) { throw 'Router tests failed.' }
 # The model check needs the clean install (project Python and the extracted Milk Bar launcher); without it only the unit tests run.
 if ((Test-Path -LiteralPath (Join-Path $root '.tools\python38\python.exe')) -and (Test-Path -LiteralPath (Join-Path $root '.artifacts\extract\milkbar\Milk Bar Launcher.dll'))) { & (Join-Path $PSScriptRoot 'Test-Characters.ps1') }
 else { Write-Host 'Skipping the character check: the clean install is not here.' }
+
+& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'tests\Cemu-Stall.Tests.ps1')
+if ($LASTEXITCODE -ne 0) { throw 'Stall detection tests failed.' }
