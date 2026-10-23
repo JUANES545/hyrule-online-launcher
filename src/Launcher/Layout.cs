@@ -148,8 +148,18 @@ namespace HyruleOnline {
  // Moves a Cemu window to a screen area without a title bar or border, so the game fills the area.
  static class WindowPlacer {
   const int GwlStyle = -16, WsCaption = 0xC00000, WsThickFrame = 0x40000, WsSysMenu = 0x80000;
-  const uint SwpNoZOrder = 0x4, SwpFrameChanged = 0x20, SwpShowWindow = 0x40;
+  const uint SwpNoZOrder = 0x4, SwpFrameChanged = 0x20, SwpShowWindow = 0x40, SwpNoSize = 0x1, SwpNoMove = 0x2;
+  static readonly IntPtr HwndTopmost = new IntPtr(-1), HwndNotTopmost = new IntPtr(-2);
   const int SwRestore = 9;
+
+  [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr window);
+
+  // Puts the window above every other one, the launcher included. A topmost flip works even when Windows refuses to hand over the focus.
+  public static void BringToFront(IntPtr window) {
+   SetWindowPos(window, HwndTopmost, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpShowWindow);
+   SetWindowPos(window, HwndNotTopmost, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpShowWindow);
+   SetForegroundWindow(window);
+  }
 
   [DllImport("user32.dll")] static extern int GetWindowLong(IntPtr window, int index);
   [DllImport("user32.dll")] static extern int SetWindowLong(IntPtr window, int index, int value);
@@ -253,6 +263,7 @@ namespace HyruleOnline {
    SetWindowLong(window, GwlStyle, style & ~(WsCaption | WsThickFrame | WsSysMenu));
    SetMenu(window, IntPtr.Zero);
    SetWindowPos(window, IntPtr.Zero, area.X, area.Y, area.Width, area.Height, SwpNoZOrder | SwpFrameChanged | SwpShowWindow);
+   BringToFront(window);
    Rect client;
    GetClientRect(window, out client);
    clientWidth = client.Right - client.Left; clientHeight = client.Bottom - client.Top;

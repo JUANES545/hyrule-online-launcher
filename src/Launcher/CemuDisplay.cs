@@ -13,6 +13,8 @@ namespace HyruleOnline {
  static class CemuDisplay {
   public const string PackFile = "graphicPacks\\HyruleOnline\\Graphics\\rules.txt";
   public const string DisplayPreset = "Online Display", ResolutionPreset = "Online Resolution";
+  // The pack's own switch for shapes narrower than 16:9; without it the HUD is stretched sideways.
+  public const string SquareHudCategory = "Square HUD Mode", SquareHudMode = "Enabled (Experimental, Will Have Some Issues)";
   const string StockPack = "graphicPacks\\downloadedGraphicPacks\\BreathOfTheWild\\Graphics";
 
   public static string BuildRules(string stock, PlayerView view) {
@@ -47,10 +49,10 @@ namespace HyruleOnline {
    }
    var utf8 = new UTF8Encoding(false);
    File.WriteAllText(packFile, BuildRules(File.ReadAllText(Path.Combine(stockFolder, "rules.txt")), view), utf8);
-   WriteSettings(settingsFile, fpsPreset, quality, consoleLanguage, advanced, vulkanAvailable);
+   WriteSettings(settingsFile, view.Square, fpsPreset, quality, consoleLanguage, advanced, vulkanAvailable);
   }
 
-  static void WriteSettings(string settingsFile, string fpsPreset, GraphicsMod.Quality quality, int? consoleLanguage, GraphicsMod.Advanced advanced, bool vulkanAvailable) {
+  static void WriteSettings(string settingsFile, bool squareHud, string fpsPreset, GraphicsMod.Quality quality, int? consoleLanguage, GraphicsMod.Advanced advanced, bool vulkanAvailable) {
    var document = XDocument.Load(settingsFile);
    var content = document.Root;
    // The game language; Cemu's own menu language (<language>) is a different setting and stays as it is.
@@ -67,6 +69,7 @@ namespace HyruleOnline {
    if (entry == null) { entry = new XElement("Entry", new XAttribute("filename", PackFile)); packs.Add(entry); }
    entry.RemoveNodes();
    entry.Add(Preset("Aspect Ratio", DisplayPreset), Preset("Resolution", ResolutionPreset));
+   if (squareHud) entry.Add(Preset(SquareHudCategory, SquareHudMode));
    if (quality != null) {
     var chosen = new[] { Tuple.Create(GraphicsMod.ShadowsCategory, quality.Shadows), Tuple.Create(GraphicsMod.ShadowDistanceCategory, quality.ShadowDistance), Tuple.Create(GraphicsMod.AntiAliasingCategory, quality.AntiAliasing) };
     foreach (var item in chosen) if (!string.IsNullOrEmpty(item.Item2)) entry.Add(Preset(item.Item1, item.Item2));

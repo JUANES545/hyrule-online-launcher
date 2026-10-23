@@ -42,11 +42,11 @@ namespace HyruleOnline {
     var quality = new GraphicsMod.Quality { Shadows = "Extreme (400%, Unstable)", AntiAliasing = "None" };
     CemuDisplay.Apply(instance, view, null, quality);
     var presets = System.Xml.Linq.XDocument.Load(settingsFile).Root.Element("GraphicPack").Element("Entry").Elements("Preset").ToDictionary(p => (string)p.Element("category"), p => (string)p.Element("preset"));
-    Require(presets.Count == 4 && presets["Shadows"] == "Extreme (400%, Unstable)" && presets["Anti-Aliasing"] == "None" && !presets.ContainsKey("Shadow Draw Distance") && presets["Resolution"] == CemuDisplay.ResolutionPreset, "chosen quality presets are written, the rest stay at the pack default");
+    Require(presets.Count == 5 && presets["Shadows"] == "Extreme (400%, Unstable)" && presets["Anti-Aliasing"] == "None" && !presets.ContainsKey("Shadow Draw Distance") && presets["Resolution"] == CemuDisplay.ResolutionPreset && presets[CemuDisplay.SquareHudCategory] == CemuDisplay.SquareHudMode, "chosen quality presets are written, the rest stay at the pack default (a narrow window also gets the square HUD)");
     CemuDisplay.Apply(instance, view, null, new GraphicsMod.Quality());
-    Require(System.Xml.Linq.XDocument.Load(settingsFile).Root.Element("GraphicPack").Element("Entry").Elements("Preset").Count() == 2, "a later session without choices clears the earlier ones");
+    Require(System.Xml.Linq.XDocument.Load(settingsFile).Root.Element("GraphicPack").Element("Entry").Elements("Preset").Count() == 3, "a later session without choices clears the earlier ones");
     CemuDisplay.Apply(instance, view);
-    Require(System.Xml.Linq.XDocument.Load(settingsFile).Root.Element("GraphicPack").Element("Entry").Elements("Preset").Count() == 2, "no quality given writes only the display presets");
+    Require(System.Xml.Linq.XDocument.Load(settingsFile).Root.Element("GraphicPack").Element("Entry").Elements("Preset").Count() == 3, "no quality given writes only the display presets");
    }
    finally { if (Directory.Exists(temp)) Directory.Delete(temp, true); }
   }
@@ -657,6 +657,28 @@ namespace HyruleOnline {
      bool broken = false;
      try { CemuDisplay.BuildRules("name = something else", view); } catch (InvalidDataException) { broken = true; }
      Require(broken, "an unexpected stock pack is refused");
+
+     // Whatever the display, each window gets its own shape, and a shape narrower than the game's 16:9 turns on the pack's square HUD
+     // (without it the HUD is stretched: the minimap becomes an ellipse).
+     int sweeps = 0, squareViews = 0;
+     foreach (var display in displays) foreach (var mode in new[] { LayoutMode.Auto, LayoutMode.SideBySide, LayoutMode.TopBottom }) {
+      var shapes = new List<PlayerView>(ScreenLayout.Plan(mode, 1.0, display[0], display[1]).Players);
+      shapes.Add(ScreenLayout.PlanSingle(1.0, display[0], display[1]).Players[0]);
+      shapes.Add(ScreenLayout.Plan(mode, 1.0, display[0], display[1], new[] { 90, 270 }).Players[0]);
+      foreach (var shape in shapes) {
+       string name = display[0] + "x" + display[1] + " " + mode + " " + shape.RenderWidth + "x" + shape.RenderHeight;
+       CemuDisplay.Apply(instance, shape);
+       string written = File.ReadAllText(Path.Combine(instance, CemuDisplay.PackFile));
+       Require(written.Contains("$width = " + shape.RenderWidth + "\r\n$height = " + shape.RenderHeight) && written.Contains("$aspectRatioWidth = " + shape.RatioWidth + "\r\n$aspectRatioHeight = " + shape.RatioHeight + "\r\n"), name + ": the pack gets the window's resolution and aspect ratio");
+       var chosen = System.Xml.Linq.XDocument.Load(settingsFile).Root.Element("GraphicPack").Elements("Entry").First(e => (string)e.Attribute("filename") == CemuDisplay.PackFile)
+        .Elements("Preset").Select(p => (string)p.Element("category") + "=" + (string)p.Element("preset")).ToArray();
+       bool hud = chosen.Contains(CemuDisplay.SquareHudCategory + "=" + CemuDisplay.SquareHudMode);
+       Require(hud == shape.Square && chosen.Length == (hud ? 3 : 2), name + ": the square HUD is chosen exactly for narrow shapes");
+       if (hud) squareViews++;
+       sweeps++;
+      }
+     }
+     Require(sweeps > 200 && squareViews > 10, "the display sweep covered wide and narrow shapes");
     }
     finally { if (Directory.Exists(temp)) Directory.Delete(temp, true); }
     Console.WriteLine("PASS: Cemu display settings.");
