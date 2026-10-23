@@ -208,6 +208,7 @@ namespace HyruleOnline {
    Require(list[1].Index == 3 && list[1].Model == "Npc_Gerudo_Hero" && list[4].Index == 6, "NPC models follow the Milk Bar numbering, after Bumii and Environmental");
    Require(list[3].Label == "Hudson" && list[4].Label == "Hudson (Wedding)", "repeated names stay distinguishable");
    Require(!list.Any(c => c.Model == "Npc_Korogu_Minister"), "a model without the player's skeleton is not offered");
+   Require(!Characters.Parse("[{\"Name\":\"Paya\",\"Folder\":\"Npc_Shiekah_Heir\"},{\"Name\":\"Daruk\",\"Folder\":\"Npc_Goron_Hero\"}]").Any(c => !c.IsLink), "models that hang the loading screen are not offered");
    Require(!list[1].Experimental && list[1].Display == "Urbosa" && !list[2].Experimental && list[3].Experimental && list[3].Display == "Hudson" && !list[0].Experimental, "only tested models are flagged experimental and the list shows plain names");
    Require(Characters.Parse("").Count == 1 && Characters.Parse(null)[0].IsLink, "without the mod's list only Link is offered");
    Require(Characters.Find(list, "Npc_Gerudo_Hero") == list[1] && Characters.Find(list, "").IsLink && Characters.Find(list, "Npc_Gone").IsLink, "a saved model that is gone falls back to Link");
