@@ -27,6 +27,8 @@ namespace HyruleOnline {
   public static readonly string[] DefaultNames = { "Link", "Pedro" };
   // Models seen working as the local player in a real session; every other NPC is untested and flagged Experimental (tracked here, not shown in the UI).
   static readonly string[] Verified = { "Npc_Gerudo_Hero", "Npc_Rito_Hero", "Npc_Zora_Hero", "Npc_Gerudo_Queen" };
+  // Hestu's skeleton lacks most of the bones the player animations drive (checked in the model file), so it is not offered.
+  static readonly string[] Unsupported = { "Npc_Korogu_Minister" };
 
   public static Character Link { get { return new Character { Name = "Link", Model = Character.LinkModel, Index = 0, Label = "Link" }; } }
 
@@ -39,6 +41,7 @@ namespace HyruleOnline {
     string label = name;
     if (list.Any(c => c.Name == name)) label = name + " (" + folder.Substring(folder.LastIndexOf('_') + 1) + ")";
     int position = index++;
+    if (Unsupported.Contains(folder)) continue;
     list.Add(new Character { Name = name, Model = folder, Index = position, Label = label, Experimental = !Verified.Contains(folder) });
    }
    return list;

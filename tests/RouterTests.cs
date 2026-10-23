@@ -202,11 +202,12 @@ namespace HyruleOnline {
   }
 
   static void Players() {
-   const string json = "[{\"Name\":\"Urbosa\",\"Folder\":\"Npc_Gerudo_Hero\"},{\"Name\":\"Revali\",\"Folder\":\"Npc_Rito_Hero\"},{\"Name\":\"Hudson\",\"Folder\":\"Npc_Hylia_Carpenter_001\"},{\"Name\":\"Hudson\",\"Folder\":\"Npc_Hylia_Carpenter_001_Wedding\"},{\"Name\":\"Hat\",\"Folder\":\"Armor_Hat\"}]";
+   const string json = "[{\"Name\":\"Urbosa\",\"Folder\":\"Npc_Gerudo_Hero\"},{\"Name\":\"Revali\",\"Folder\":\"Npc_Rito_Hero\"},{\"Name\":\"Hudson\",\"Folder\":\"Npc_Hylia_Carpenter_001\"},{\"Name\":\"Hudson\",\"Folder\":\"Npc_Hylia_Carpenter_001_Wedding\"},{\"Name\":\"Hestu\",\"Folder\":\"Npc_Korogu_Minister\"},{\"Name\":\"Hat\",\"Folder\":\"Armor_Hat\"}]";
    var list = Characters.Parse(json);
    Require(list.Count == 5 && list[0].IsLink && list[0].Model == Character.LinkModel && list[0].Index == 0, "Link comes first");
    Require(list[1].Index == 3 && list[1].Model == "Npc_Gerudo_Hero" && list[4].Index == 6, "NPC models follow the Milk Bar numbering, after Bumii and Environmental");
    Require(list[3].Label == "Hudson" && list[4].Label == "Hudson (Wedding)", "repeated names stay distinguishable");
+   Require(!list.Any(c => c.Model == "Npc_Korogu_Minister"), "a model without the player's skeleton is not offered");
    Require(!list[1].Experimental && list[1].Display == "Urbosa" && !list[2].Experimental && list[3].Experimental && list[3].Display == "Hudson" && !list[0].Experimental, "only tested models are flagged experimental and the list shows plain names");
    Require(Characters.Parse("").Count == 1 && Characters.Parse(null)[0].IsLink, "without the mod's list only Link is offered");
    Require(Characters.Find(list, "Npc_Gerudo_Hero") == list[1] && Characters.Find(list, "").IsLink && Characters.Find(list, "Npc_Gone").IsLink, "a saved model that is gone falls back to Link");
