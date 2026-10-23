@@ -47,11 +47,23 @@ namespace HyruleOnline {
    return list;
   }
 
+  // The Milk Bar launcher is loaded once: the character list and the busts both come from it.
+  static string loadedPath;
+  static Assembly loadedAssembly;
+  static Assembly Load(string launcherDll) {
+   string full = Path.GetFullPath(launcherDll);
+   if (loadedAssembly == null || !string.Equals(loadedPath, full, StringComparison.OrdinalIgnoreCase)) {
+    loadedAssembly = Assembly.Load(File.ReadAllBytes(full));
+    loadedPath = full;
+   }
+   return loadedAssembly;
+  }
+
   // The list ships inside the Milk Bar launcher, so it is read from there instead of being copied here.
   public static List<Character> Read(string launcherDll) {
    try {
     if (!File.Exists(launcherDll)) return Parse(null);
-    var assembly = Assembly.Load(File.ReadAllBytes(launcherDll));
+    var assembly = Load(launcherDll);
     using (var stream = assembly.GetManifestResourceStream(ResourceName)) {
      if (stream == null) return Parse(null);
      using (var reader = new StreamReader(stream)) return Parse(reader.ReadToEnd());
@@ -73,7 +85,7 @@ namespace HyruleOnline {
    var busts = new Dictionary<string, byte[]>();
    try {
     if (!File.Exists(launcherDll)) return busts;
-    var assembly = Assembly.Load(File.ReadAllBytes(launcherDll));
+    var assembly = Load(launcherDll);
     foreach (string resource in assembly.GetManifestResourceNames().Where(n => n.EndsWith(".g.resources", StringComparison.OrdinalIgnoreCase))) {
      using (var stream = assembly.GetManifestResourceStream(resource))
      using (var reader = new System.Resources.ResourceReader(stream)) {

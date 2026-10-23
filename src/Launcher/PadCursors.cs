@@ -48,7 +48,10 @@ namespace HyruleOnline {
     var color = (Color)ColorConverter.ConvertFromString(CursorColors[i]);
     var frame = new Border { BorderBrush = new SolidColorBrush(color), BorderThickness = new Thickness(3), CornerRadius = new CornerRadius(8), Visibility = Visibility.Collapsed, IsHitTestVisible = false };
     frame.Effect = new DropShadowEffect { Color = color, BlurRadius = 14, ShadowDepth = 0, Opacity = .9 };
-    frame.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(.6, 1, TimeSpan.FromMilliseconds(650)) { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever });
+    // The default rate follows the display refresh and re-blurs the glow every frame; 20 fps is smooth for a slow pulse and far cheaper.
+    var pulse = new DoubleAnimation(.6, 1, TimeSpan.FromMilliseconds(650)) { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever };
+    Timeline.SetDesiredFrameRate(pulse, 20);
+    frame.BeginAnimation(UIElement.OpacityProperty, pulse);
     var badge = new Border { Background = new SolidColorBrush(color), CornerRadius = new CornerRadius(4), Padding = new Thickness(6, 0, 6, 0), Visibility = Visibility.Collapsed, IsHitTestVisible = false };
     badge.Child = new TextBlock { Text = CursorBadges[i], FontSize = 12, FontWeight = FontWeights.Bold, FontStyle = FontStyles.Normal, Foreground = Paint("#0B141B"), Padding = new Thickness(0) };
     layer.Children.Add(frame);

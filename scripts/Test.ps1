@@ -8,3 +8,7 @@ New-Item -ItemType Directory -Force -Path $output | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'Test compilation failed.' }
     & (Join-Path $output 'RouterTests.exe') $root
 if ($LASTEXITCODE -ne 0) { throw 'Router tests failed.' }
+
+# The model check needs the clean install (project Python and the extracted Milk Bar launcher); without it only the unit tests run.
+if ((Test-Path -LiteralPath (Join-Path $root '.tools\python38\python.exe')) -and (Test-Path -LiteralPath (Join-Path $root '.artifacts\extract\milkbar\Milk Bar Launcher.dll'))) { & (Join-Path $PSScriptRoot 'Test-Characters.ps1') }
+else { Write-Host 'Skipping the character check: the clean install is not here.' }
