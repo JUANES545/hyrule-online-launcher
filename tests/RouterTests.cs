@@ -319,6 +319,21 @@ namespace HyruleOnline {
    Console.WriteLine("PASS: server rules and commands.");
   }
 
+  // Needs the extracted Milk Bar launcher; without it (a fresh clone) the check is skipped, not failed.
+  static void Busts(string root) {
+   string dll = Path.Combine(root, ".artifacts", "extract", "milkbar", "Milk Bar Launcher.dll");
+   if (!File.Exists(dll)) { Console.WriteLine("SKIP: character busts (the Milk Bar launcher is not extracted)."); return; }
+   var characters = Characters.Read(dll);
+   var busts = Characters.ReadBusts(dll);
+   Require(characters.Count > 10 && busts.Count > 10, "the Milk Bar launcher gives a character list and bust pictures");
+   foreach (var character in characters) {
+    string key = Characters.AvatarKey(character);
+    Require(busts.ContainsKey(key) && busts[key].Length > 8 && busts[key][1] == (byte)'P' && busts[key][2] == (byte)'N' && busts[key][3] == (byte)'G', "a PNG bust for " + character.Label + " (" + key + ")");
+   }
+   Require(characters.Select(c => c.Label).Distinct().Count() == characters.Count && characters.Select(c => c.Model).Distinct().Count() == characters.Count, "every character has its own label and model in the selector");
+   Console.WriteLine("PASS: " + characters.Count + " characters, each with a bust and a unique label.");
+  }
+
   static void Languages(string root) {
    var table = Lang.Table;
    Require(table.Select(r => r[0]).Distinct().Count() == table.Length, "every English text appears once in the table");
@@ -692,6 +707,7 @@ namespace HyruleOnline {
     Players();
     ServerRulesTest();
     Languages(args.Length > 0 ? args[0] : Directory.GetCurrentDirectory());
+    Busts(args.Length > 0 ? args[0] : Directory.GetCurrentDirectory());
         return 0;
        }
    catch (Exception error) { Console.Error.WriteLine(error.Message); return 1; }
