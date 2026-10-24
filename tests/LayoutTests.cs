@@ -69,6 +69,8 @@ namespace HyruleOnline {
     while (queue.Count > 0) {
      int at = queue.Dequeue();
      for (int direction = 0; direction < 4; direction++) {
+      // Left and right adjust a slider on the pad instead of moving away from it.
+      if (direction >= 2 && items[at] is Slider) continue;
       int next = Spatial.Next(boxes[at], boxes, chrome, chrome[at], direction);
       if (next >= 0 && seen.Add(next)) queue.Enqueue(next);
      }
@@ -78,7 +80,7 @@ namespace HyruleOnline {
    if (dump) Console.WriteLine("      " + name + ": " + items.Count + " pad targets");
    Check(name + ": every control is reachable with the pad", items.Count > 0 && lost.Count == 0, items.Count == 0 ? "no controls found" : string.Join("; ", lost.Take(3).ToArray()));
    // A control type the pad code does not know about (a slider, a radio list) would be skipped silently.
-   var skipped = Descendants<FrameworkElement>((DependencyObject)window.FindName(page + "Page")).Where(e => (e is ButtonBase || e is Selector || e is Slider || e is TextBoxBase && !((TextBoxBase)e).IsReadOnly) && e.IsVisible && e.IsEnabled && e.ActualWidth > 0 && !items.Contains(e)).Select(Label).ToArray();
+   var skipped = Descendants<FrameworkElement>((DependencyObject)window.FindName(page + "Page")).Where(e => (e is ButtonBase || e is Selector || e is Slider || e is TextBoxBase && !((TextBoxBase)e).IsReadOnly) && e.IsVisible && e.IsEnabled && e.ActualWidth > 0 && !items.Contains(e) && !items.Any(i => i is Slider && e.IsDescendantOf(i))).Select(Label).ToArray();
    Check(name + ": the pad skips no control", skipped.Length == 0, string.Join(", ", skipped));
   }
 

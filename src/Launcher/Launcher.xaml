@@ -54,6 +54,32 @@
   </Style>
   <Style x:Key="FieldLabel" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}"><Setter Property="FontSize" Value="14"/><Setter Property="Foreground" Value="#8FA7B1"/></Style>
   <Style x:Key="CompactCombo" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}"><Setter Property="FontSize" Value="16"/><Setter Property="Padding" Value="12,6"/></Style>
+  <Style x:Key="FlatSlider" TargetType="Slider">
+   <Setter Property="Height" Value="33"/><Setter Property="Cursor" Value="Hand"/><Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+   <Setter Property="IsSnapToTickEnabled" Value="True"/><Setter Property="TickFrequency" Value="1"/><Setter Property="SmallChange" Value="1"/><Setter Property="LargeChange" Value="1"/><Setter Property="IsMoveToPointEnabled" Value="True"/>
+   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Slider">
+    <ControlTemplate.Resources>
+     <Style x:Key="TrackPart" TargetType="RepeatButton">
+      <Setter Property="Focusable" Value="False"/><Setter Property="IsTabStop" Value="False"/>
+      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="RepeatButton"><Border Height="4" CornerRadius="2" Background="{TemplateBinding Background}"/></ControlTemplate></Setter.Value></Setter>
+     </Style>
+    </ControlTemplate.Resources>
+    <Grid Background="Transparent">
+     <Border Height="4" CornerRadius="2" Background="#293A42"/>
+     <Track x:Name="PART_Track">
+      <Track.DecreaseRepeatButton><RepeatButton Command="Slider.DecreaseLarge" Background="#63E0BD" Style="{StaticResource TrackPart}"/></Track.DecreaseRepeatButton>
+      <Track.IncreaseRepeatButton><RepeatButton Command="Slider.IncreaseLarge" Background="Transparent" Style="{StaticResource TrackPart}"/></Track.IncreaseRepeatButton>
+      <Track.Thumb><Thumb x:Name="Knob" Width="18" Focusable="False" Background="#ECF5F4" BorderBrush="#364E5659">
+       <Thumb.Template><ControlTemplate TargetType="Thumb"><Ellipse Width="18" Height="18" Fill="{TemplateBinding Background}" Stroke="{TemplateBinding BorderBrush}" StrokeThickness="2"/></ControlTemplate></Thumb.Template>
+      </Thumb></Track.Thumb>
+     </Track>
+    </Grid>
+    <ControlTemplate.Triggers>
+     <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Knob" Property="Background" Value="#F3E7C3"/></Trigger>
+     <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Knob" Property="BorderBrush" Value="#E1CFA1"/></Trigger>
+     <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.4"/></Trigger>
+    </ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+  </Style>
   <Style x:Key="AvatarSlot" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
    <Setter Property="Margin" Value="0"/><Setter Property="Padding" Value="8,0"/><Setter Property="Height" Value="40"/><Setter Property="FontSize" Value="16"/>
    <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
@@ -306,7 +332,10 @@
       </UniformGrid>
       <StackPanel Margin="0,0,0,10">
        <StackPanel Orientation="Horizontal"><TextBlock Text="Master volume" Style="{StaticResource FieldLabel}"/></StackPanel>
-       <ComboBox x:Name="VolumeBox" Style="{StaticResource CompactCombo}" Margin="0,3,0,0" ToolTip="The sound level of every game window, for one or two players. Muted silences the games. Applied at the next session start."/>
+       <Grid Margin="0,3,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto" MinWidth="84"/></Grid.ColumnDefinitions>
+        <Slider x:Name="VolumeSlider" Style="{StaticResource FlatSlider}" Margin="0,0,8,0" ToolTip="The sound level of every game window, for one or two players. Muted silences the games. Applied at the next session start."/>
+        <TextBlock x:Name="VolumeText" Grid.Column="1" Foreground="#ECF5F4" FontSize="16" FontStyle="Italic" TextAlignment="Right" VerticalAlignment="Center"/>
+       </Grid>
       </StackPanel>
       <UniformGrid x:Name="AdvancedToggles" Columns="2">
       <CheckBox x:Name="VSyncBox" Content="VSync" Style="{StaticResource RuleToggle}" Margin="0,0,8,6" ToolTip="Waits for the display refresh to avoid screen tearing. It can cap the frame rate at the display's refresh rate and adds a little input delay. Off suits most setups."/>

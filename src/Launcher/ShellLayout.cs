@@ -27,7 +27,7 @@ namespace HyruleOnline {
    ((FrameworkElement)root.FindName("GraphicsRight")).Margin = fit.Stacked ? new Thickness(0) : new Thickness(10, 0, 0, 0);
   }
 
-  // The controls a pad cursor can reach on a page: the page's buttons, checkboxes, combos and editable text boxes, then the footer buttons.
+  // The controls a pad cursor can reach on a page: the page's buttons, checkboxes, combos, sliders and editable text boxes, then the footer buttons.
   public static List<FrameworkElement> Controls(FrameworkElement root, string pageElement) {
    var found = new List<FrameworkElement>();
    Collect((DependencyObject)root.FindName(pageElement), found);
@@ -43,7 +43,7 @@ namespace HyruleOnline {
     var child = VisualTreeHelper.GetChild(node, i);
     var element = child as FrameworkElement;
     if (element != null && !element.IsVisible) continue;
-    if (element is Button || element is CheckBox || element is ComboBox || element is TextBox && !((TextBox)element).IsReadOnly) {
+    if (element is Button || element is CheckBox || element is ComboBox || element is Slider || element is TextBox && !((TextBox)element).IsReadOnly) {
      if (element.IsEnabled && element.ActualWidth > 0) found.Add(element);
      continue;
     }

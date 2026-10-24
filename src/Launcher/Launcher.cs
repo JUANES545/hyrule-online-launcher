@@ -360,7 +360,7 @@ namespace HyruleOnline {
   }
 
   bool AnyDropDownOpen() {
-   foreach (var name in new[] { "FpsBox", "ScaleBox", "ShadowsBox", "ShadowDistanceBox", "AntiAliasingBox", "RulesBox", "SpecialBox", "WeatherBox", "Display1Box", "Display2Box", "Scale1Box", "Scale2Box", "Fps1Box", "Fps2Box", "ApiBox", "UpscaleBox", "DownscaleBox", "VolumeBox", "PadLayoutBox", "ShortcutBox" }) if (C<ComboBox>(name).IsDropDownOpen) return true;
+   foreach (var name in new[] { "FpsBox", "ScaleBox", "ShadowsBox", "ShadowDistanceBox", "AntiAliasingBox", "RulesBox", "SpecialBox", "WeatherBox", "Display1Box", "Display2Box", "Scale1Box", "Scale2Box", "Fps1Box", "Fps2Box", "ApiBox", "UpscaleBox", "DownscaleBox", "PadLayoutBox", "ShortcutBox" }) if (C<ComboBox>(name).IsDropDownOpen) return true;
    return pickerOpen[0] || pickerOpen[1] || cursors.Any(c => c != null && c.Combo != null);
   }
 
@@ -744,10 +744,10 @@ namespace HyruleOnline {
    };
    filters("UpscaleBox", advanced.Upscale);
    filters("DownscaleBox", advanced.Downscale);
-   var volume = C<ComboBox>("VolumeBox");
-   volume.Items.Clear();
-   foreach (int choice in GraphicsMod.Volumes) volume.Items.Add(new ComboBoxItem { Content = choice == 0 ? Tr("Muted") : choice + "%", Tag = choice });
-   volume.SelectedIndex = Array.IndexOf(GraphicsMod.Volumes, GraphicsMod.CleanVolume(advanced.Volume.ToString()));
+   var volume = C<Slider>("VolumeSlider");
+   volume.Maximum = GraphicsMod.Volumes.Length - 1;
+   volume.Value = Array.IndexOf(GraphicsMod.Volumes, GraphicsMod.CleanVolume(advanced.Volume.ToString()));
+   ShowVolume();
    C<CheckBox>("VSyncBox").IsChecked = advanced.VSync;
    C<CheckBox>("AsyncBox").IsChecked = advanced.AsyncCompile;
    C<CheckBox>("BarriersBox").IsChecked = advanced.AccurateBarriers;
@@ -893,6 +893,12 @@ namespace HyruleOnline {
    if (Window.IsActive) ReturnToGame(Array.IndexOf(snapshot.Routes, snapshot.ChordSlot) == 1 ? 1 : 0); else ShowFromGame();
   }
 
+  // The slider moves over the positions of GraphicsMod.Volumes, so every step is a level CleanVolume keeps.
+  void ShowVolume() {
+   int percent = GraphicsMod.Volumes[(int)Math.Round(C<Slider>("VolumeSlider").Value)];
+   C<TextBlock>("VolumeText").Text = percent == 0 ? Tr("Muted") : percent + "%";
+  }
+
   void WatchAdvanced() {
    C<ComboBox>("ShortcutBox").SelectionChanged += (s, e) => {
     var item = ((ComboBox)s).SelectedItem as ComboBoxItem;
@@ -924,7 +930,12 @@ namespace HyruleOnline {
    };
    filter("UpscaleBox", value => advanced.Upscale = value);
    filter("DownscaleBox", value => advanced.Downscale = value);
-   filter("VolumeBox", value => advanced.Volume = value);
+   C<Slider>("VolumeSlider").ValueChanged += (s, e) => {
+    ShowVolume();
+    if (filling) return;
+    advanced.Volume = GraphicsMod.Volumes[(int)Math.Round(e.NewValue)];
+    SavePrefs();
+   };
    Action<string, Action<bool>> toggle = (name, set) => {
     var box = C<CheckBox>(name);
     RoutedEventHandler changed = (s, e) => { if (filling) return; set(box.IsChecked == true); SavePrefs(); };

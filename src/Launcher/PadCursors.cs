@@ -227,6 +227,8 @@ namespace HyruleOnline {
     return;
    }
    if (cursor.Target is TextBox && cursor.Target.IsKeyboardFocused) Window.Focus();
+   var slider = cursor.Target as Slider;
+   if (slider != null && direction >= 2) { slider.Value += direction == 2 ? -slider.SmallChange : slider.SmallChange; return; }
    var all = Candidates(cursor);
    var from = cursor.Target == null ? Rect.Empty : Bounds(cursor.Target);
    if (all.Count == 0 || from.IsEmpty) return;
