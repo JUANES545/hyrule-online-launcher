@@ -151,7 +151,7 @@ namespace HyruleOnline {
    if (start == null && cursor.Picker < 0 && !HelpOpen) {
     if (page == 0 && !setupActive) start = C<Button>(cursor.Owner == 0 ? "P1AvatarButton" : cursor.Owner == 1 ? "P2AvatarButton" : "Start");
     if (start == null || !all.Contains(start)) {
-     var chrome = new[] { "Help", "Start", "Stop", "Exit" };
+     var chrome = ChromeNames;
      var content = all.Where(e => !chrome.Contains(e.Name)).ToList();
      start = (content.Count > 0 ? content : all).OrderBy(e => Math.Round(Bounds(e).Top / 12)).ThenBy(e => Bounds(e).Left).FirstOrDefault();
     }
@@ -200,7 +200,7 @@ namespace HyruleOnline {
    if (HelpOpen) return new List<FrameworkElement> { C<Button>("Help") };
    var found = new List<FrameworkElement>();
    Collect(C<FrameworkElement>(setupActive ? "SetupPage" : PageNames[page] + "Page"), found);
-   foreach (var name in new[] { "Help", "Start", "Stop", "Exit" }) {
+   foreach (var name in ChromeNames) {
     var button = C<Button>(name);
     if (button.IsVisible && button.IsEnabled) found.Add(button);
    }
@@ -213,7 +213,7 @@ namespace HyruleOnline {
    return found;
   }
 
-  static readonly string[] ChromeNames = { "Help", "Start", "Stop", "Exit" };
+  static readonly string[] ChromeNames = { "Help", "Start", "ReturnGame", "Stop", "Exit" };
 
   void MoveCursor(PadCursor cursor, int direction) {
    if (cursor.Combo != null) {

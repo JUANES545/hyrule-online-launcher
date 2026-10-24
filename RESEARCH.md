@@ -329,6 +329,13 @@ Reversible: a junction found on either cache (for example made by hand) is first
 - Now, with one player, every pad drives the Player 1 cursor, and the "taken" rule only applies in multiplayer. Switching back restores the earlier routes as before, so the two-player cursors behave as they did.
 - Checked with a moves-only pad script and screenshots: the cursor reaches the name box and the avatar button in single player. Not verified: a physical pad, and typing a name still needs a keyboard.
 
+## Session fixes: lone pad, Return to game, silent Exit, key guard
+
+- **Lone pad is Player 1:** `Router.Reconcile` now swaps the two slots when Player 1's slot is empty or disconnected and Player 2's pad is connected. A single connected pad is always Player 1; the reserved away-slot moves to Player 2 and a returning pad gets its slot back. Covered by new tests in `RouterTests`.
+- **Return to game by pad:** the footer button is now in `PadCursors.ChromeNames`, so the pad cursor can reach and accept it. Not checked with a running game (that needs the game started).
+- **Exit:** no confirmation dialog. Exit, the window close button and Alt+F4 stop any session the launcher started (`Stop-Online.ps1`) and close.
+- **D-pad opens an external window / Start closes the launcher (Ally client session only):** the cause is not confirmed and could not be reproduced. The working hypothesis is that the client's controller mapper also sends keyboard keys (Escape, Enter, arrows, the Menu key). As a defence, navigation and Escape/Enter/Space/arrow/Menu/F10 keys that arrive within 400 ms of pad activity are ignored, and the default text-box context menu is disabled. Ignored keys, Exit and Escape closes are logged to `input-trace.log` next to the preferences, so a repeat can be diagnosed. Not verified in the Ally session.
+
 ## How setup works (first run)
 
 A fresh unzip or the thin installer holds only the launcher, the input router/bridge and `scripts\`. Everything else is found or fetched on first run.

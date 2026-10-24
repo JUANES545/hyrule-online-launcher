@@ -453,6 +453,15 @@ namespace HyruleOnline {
     routes = Reconcile(new[] { 0, 1 }, false, true, true, false);
     Require(routes[0] == 2 && routes[1] == 1, "reconnection keeps player two and refills player one");
 
+    routes = Reconcile(new[] { 0, 1 }, false, true, false, false);
+    Require(routes[0] == 1 && routes[1] == 0, "a lone pad on player two becomes player one and player one's slot stays reserved");
+
+    routes = Reconcile(new[] { -1, 1 }, false, true, false, false);
+    Require(routes[0] == 1 && routes[1] == -1, "a lone pad on player two moves up when player one is empty");
+
+    routes = Reconcile(new[] { 1, 0 }, true, true, false, false);
+    Require(routes[0] == 1 && routes[1] == 0, "two pads keep their players");
+
     routes = Reconcile(new[] { 0, 1 }, false, false, false, false);
     Require(routes[0] == 0 && routes[1] == 1, "slots stay reserved while pads are away");
 
@@ -466,7 +475,8 @@ namespace HyruleOnline {
        routes = Reconcile(new[] { first, second }, present);
        Require(routes[0] < 0 || routes[0] != routes[1], "unique controller ownership");
        Require(first < 0 || !present[first] || routes[0] == first, "connected player one is kept");
-       Require(second < 0 || !present[second] || routes[1] == second, "connected player two is kept");
+       Require(second < 0 || !present[second] || routes[1] == second || routes[0] == second && (first < 0 || !present[first]), "connected player two is kept unless it is the only pad");
+       Require(count != 1 || routes[0] >= 0 && present[routes[0]], "a lone pad is player one");
        int assigned = 0;
        foreach (int route in routes) if (route >= 0 && present[route]) assigned++;
        Require(assigned == Math.Min(2, count), "every available player is filled");

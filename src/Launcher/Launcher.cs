@@ -240,7 +240,7 @@ namespace HyruleOnline {
     button.Click += (s, e) => ShowPage(int.Parse((string)((Button)s).Tag));
    }
    C<Button>("Help").Click += (s, e) => { var help = C<Border>("HelpPanel"); help.Visibility = help.Visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible; if (help.Visibility == Visibility.Visible) C<ScrollViewer>("HelpScroll").ScrollToTop(); };
-   C<Button>("Exit").Click += (s, e) => Window.Close();
+   C<Button>("Exit").Click += (s, e) => { TraceInput("Exit button pressed."); Window.Close(); };
    serverHost.Line += line => Window.Dispatcher.BeginInvoke(new Action(() => {
     var log = C<TextBox>("ServerLog");
     log.AppendText(line + Environment.NewLine);
@@ -255,6 +255,7 @@ namespace HyruleOnline {
     e.Handled = true;
    };
    Window.PreviewKeyDown += (s, e) => {
+    if (PadSentKey(e.Key)) { TraceInput("Ignored the " + e.Key + " key: a controller was pressed a moment ago, so it is a copy of that press (for example from a controller mapper)."); e.Handled = true; return; }
     if (e.Key == Key.Tab && (Keyboard.Modifiers & ModifierKeys.Control) != 0) {
      ShowPage(PageNav.Move(page, (Keyboard.Modifiers & ModifierKeys.Shift) != 0 ? -1 : 1, PageNames.Length));
      e.Handled = true;
@@ -266,9 +267,10 @@ namespace HyruleOnline {
     else if (ClosePickers()) { }
     else if (help.Visibility == Visibility.Visible) help.Visibility = Visibility.Collapsed;
     else if (GameOpen()) Window.WindowState = WindowState.Minimized;
-    else Window.Close();
+    else { TraceInput("Escape key closes the launcher."); Window.Close(); }
     e.Handled = true;
    };
+   foreach (var box in AllTextBoxes()) { box.ContextMenu = null; ContextMenuService.SetIsEnabled(box, false); }
    WireSetup();
    Window.Closing += OnClosing;
    Window.SizeChanged += (s, e) => FitShell();
@@ -894,7 +896,7 @@ namespace HyruleOnline {
     ShowShortcut();
    };
    C<Button>("ShortcutChange").Click += (s, e) => { if (capturing) EndCapture(null); else BeginCapture(); };
-   C<Button>("ReturnGame").Click += (s, e) => ReturnToGame(0);
+   C<Button>("ReturnGame").Click += (s, e) => ReturnToGame(Array.IndexOf(router.Snapshot().Routes, actorSlot) == 1 ? 1 : 0);
    C<ComboBox>("PadLayoutBox").SelectionChanged += (s, e) => {
     var item = ((ComboBox)s).SelectedItem as ComboBoxItem;
     if (filling || item == null || !(item.Tag is string)) return;
@@ -1294,6 +1296,34 @@ namespace HyruleOnline {
    Write(failure);
   }
 
+  // Keys that move or confirm in a menu. A controller mapper (Steam Input, a handheld's button mapping) can send them for the same press the launcher already reads from the controller.
+  static readonly Key[] PadKeys = { Key.Escape, Key.Enter, Key.Space, Key.Up, Key.Down, Key.Left, Key.Right, Key.Apps, Key.F10 };
+
+  bool PadSentKey(Key key) {
+   return Array.IndexOf(PadKeys, key) >= 0 && Environment.TickCount - Router.LastPadInput < 400;
+  }
+
+  IEnumerable<TextBox> AllTextBoxes() {
+   var pending = new Stack<DependencyObject>();
+   pending.Push(Window);
+   while (pending.Count > 0) {
+    var node = pending.Pop();
+    var box = node as TextBox;
+    if (box != null) yield return box;
+    foreach (object child in LogicalTreeHelper.GetChildren(node)) { var next = child as DependencyObject; if (next != null) pending.Push(next); }
+   }
+  }
+
+  // Short notes about input that closes the launcher or gets ignored, kept in input-trace.log next to the launcher for later review.
+  void TraceInput(string text) {
+   try {
+    string file = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "input-trace.log");
+    if (File.Exists(file) && new FileInfo(file).Length > 100000) return;
+    File.AppendAllText(file, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + "  " + text + Environment.NewLine);
+   }
+   catch (Exception) { }
+  }
+
   void Write(string text) {
    var log = C<TextBox>("Log");
    log.AppendText(DateTime.Now.ToString("HH:mm:ss") + "  " + text + Environment.NewLine);
@@ -1443,11 +1473,10 @@ namespace HyruleOnline {
    return script != null || Scripts.Owned(root).Exists(path => path.EndsWith("Cemu.exe", StringComparison.OrdinalIgnoreCase));
   }
 
+  // Closing never asks: an open session is stopped first so no game or server is left behind.
   void OnClosing(object sender, System.ComponentModel.CancelEventArgs e) {
    if (script == null && Scripts.Owned(root).Count == 0) return;
-   var answer = MessageBox.Show(Window, Tr("A session is still open.\n\nYes: stop the session and close.\nNo: close only the launcher. The game keeps running and the controllers fall back to Windows XInput.\nCancel: keep this window open."), "Hyrule Online", MessageBoxButton.YesNoCancel);
-   if (answer == MessageBoxResult.Cancel) { e.Cancel = true; return; }
-   if (answer != MessageBoxResult.Yes) return;
+   TraceInput("Closing the launcher and stopping the open session.");
    StopScript();
    var done = new ManualResetEvent(false);
    Scripts.Run(root, "Stop-Online.ps1", "", t => { }, t => { }, code => done.Set());

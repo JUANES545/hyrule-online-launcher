@@ -27,6 +27,8 @@ namespace HyruleOnline {
   // While it is, the games get a neutral controller so a menu press never reaches them.
   public static volatile MenuShortcut Shortcut = MenuShortcut.FromDefault();
   public static volatile bool MenuOpen;
+  // When a controller last had a button, trigger or stick pressed (Environment.TickCount); the launcher uses it to tell keys sent by a controller mapper from real typing.
+  public static volatile int LastPadInput = Environment.TickCount - 60000;
   const int PulseMs = 180;
   readonly object gate = new object();
   readonly int[] routes = { -1, -1 };
@@ -45,6 +47,7 @@ namespace HyruleOnline {
   public event Action<string> Message;
 
   // A player keeps a reserved slot while its controller is away; a newly connected controller takes a player whose slot is empty or gone.
+  // A lone controller is always player one: if it sat on player two, the two players swap and player one's reserved slot moves to player two.
   public static void Reconcile(int[] routes, bool[] connected) {
    for (int player = 0; player < 2; player++) {
     if (routes[player] >= 0 && connected[routes[player]]) continue;
@@ -53,6 +56,7 @@ namespace HyruleOnline {
      routes[player] = slot; break;
     }
    }
+   if ((routes[0] < 0 || !connected[routes[0]]) && routes[1] >= 0 && connected[routes[1]]) { int first = routes[0]; routes[0] = routes[1]; routes[1] = first; }
   }
 
   // Gives the slot to the player; if the other player held it, that player takes the old slot.
@@ -116,7 +120,13 @@ namespace HyruleOnline {
       Sdl.Refresh();
       var states = new XInputState[4];
       var present = new bool[4];
-      for (int i = 0; i < 4; i++) { present[i] = Sdl.Present(i); if (present[i]) states[i] = Sdl.Read(i); }
+      for (int i = 0; i < 4; i++) {
+       present[i] = Sdl.Present(i);
+       if (!present[i]) continue;
+       states[i] = Sdl.Read(i);
+       var pad = states[i].pad;
+       if (pad.buttons != 0 || pad.lt > 100 || pad.rt > 100 || Math.Abs((int)pad.lx) > 20000 || Math.Abs((int)pad.ly) > 20000) LastPadInput = Environment.TickCount;
+      }
       int[] current;
       var shortcut = Shortcut;
       bool menuOpen = MenuOpen;
