@@ -12,7 +12,7 @@ namespace HyruleOnline {
   public string Shadows, ShadowDistance, AntiAliasing;
   public GraphicsMod.Advanced Advanced = new GraphicsMod.Advanced();
   public int FpsLimit = FpsMod.AutoFps, PlayerCount = 2, MenuLayout = PadKind.Auto;
-  public bool PerDisplay;
+  public bool PerDisplay, SharedShaders;
   public string[] Displays = new string[2], Names = (string[])Characters.DefaultNames.Clone(), Models = { "", "" };
   public double[] Scales = { GraphicsMod.DefaultScale, GraphicsMod.DefaultScale };
   public int[] FpsLimits = { FpsMod.AutoFps, FpsMod.AutoFps }, Rotations = { 0, 0 };
@@ -47,6 +47,7 @@ namespace HyruleOnline {
      prefs.Names[i] = Characters.CleanName((string)root.Element("Name" + (i + 1)), Characters.DefaultNames[i]);
      prefs.Models[i] = (string)root.Element("Model" + (i + 1)) ?? "";
     }
+    prefs.SharedShaders = (string)root.Element("SharedShaderCache") == "1";
     prefs.Language = Saved(root, "Language") ?? "en";
     prefs.LauncherLanguage = Lang.Ui(Saved(root, "LauncherLanguage") ?? "en");
     return prefs;

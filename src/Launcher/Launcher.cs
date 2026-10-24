@@ -116,6 +116,8 @@ namespace HyruleOnline {
   int fpsLimit = FpsMod.AutoFps, displayWidth, displayHeight, displayHz;
   // One display per player: the arrangement, and what each player has (display, render scale, FPS target).
   bool perDisplay, canSeparate;
+ bool sharedShaders;
+ string shaderProblem;
   int playerCount = 2;
   readonly string[] displays = { null, null };
   readonly double[] scales = { GraphicsMod.DefaultScale, GraphicsMod.DefaultScale };
@@ -350,7 +352,7 @@ namespace HyruleOnline {
    for (int i = 0; i < 2; i++) {
     displays[i] = saved.Displays[i]; scales[i] = saved.Scales[i]; fpsLimits[i] = saved.FpsLimits[i]; rotations[i] = saved.Rotations[i]; names[i] = saved.Names[i]; models[i] = saved.Models[i];
    }
-   language = saved.Language; launcherLanguage = saved.LauncherLanguage;
+   sharedShaders = saved.SharedShaders; language = saved.Language; launcherLanguage = saved.LauncherLanguage;
   }
 
   // The name and avatar of each player sit on that player's card and are written into its Milk Bar settings when a session starts.
@@ -571,7 +573,7 @@ namespace HyruleOnline {
      new XElement("Fps1", fpsLimits[0] == FpsMod.AutoFps ? "Auto" : fpsLimits[0].ToString()), new XElement("Fps2", fpsLimits[1] == FpsMod.AutoFps ? "Auto" : fpsLimits[1].ToString()),
      new XElement("Rotation1", rotations[0]), new XElement("Rotation2", rotations[1]),
      new XElement("Name1", names[0]), new XElement("Model1", models[0]), new XElement("Name2", names[1]), new XElement("Model2", models[1]),
-     new XElement("Language", language), new XElement("LauncherLanguage", launcherLanguage), new XElement("MenuLayout", Router.MenuLayout < 0 ? "Auto" : PadKind.Names[Router.MenuLayout]))).Save(PrefsFile);
+     new XElement("SharedShaderCache", sharedShaders ? "1" : "0"), new XElement("Language", language), new XElement("LauncherLanguage", launcherLanguage), new XElement("MenuLayout", Router.MenuLayout < 0 ? "Auto" : PadKind.Names[Router.MenuLayout]))).Save(PrefsFile);
    }
    catch (Exception error) { Write("Could not save the display settings: " + error.Message); }
   }
@@ -712,6 +714,7 @@ namespace HyruleOnline {
    C<CheckBox>("AsyncBox").IsChecked = advanced.AsyncCompile;
    C<CheckBox>("BarriersBox").IsChecked = advanced.AccurateBarriers;
    C<CheckBox>("BarriersBox").IsEnabled = GraphicsMod.ResolveApi(advanced.Api, vulkanAvailable) == GraphicsMod.VulkanApi;
+   C<CheckBox>("SharedShadersBox").IsChecked = sharedShaders;
    var layout = C<ComboBox>("PadLayoutBox");
    layout.Items.Clear();
    layout.Items.Add(new ComboBoxItem { Content = Tr("Auto (match each controller)"), Tag = "Auto" });
@@ -782,6 +785,7 @@ namespace HyruleOnline {
    toggle("VSyncBox", value => advanced.VSync = value);
    toggle("AsyncBox", value => advanced.AsyncCompile = value);
    toggle("BarriersBox", value => advanced.AccurateBarriers = value);
+   toggle("SharedShadersBox", value => sharedShaders = value);
   }
 
   readonly List<TextBlock> hintBars = new List<TextBlock>();
@@ -1095,6 +1099,7 @@ namespace HyruleOnline {
     Write("Cemu: " + api + (advanced.Api == GraphicsMod.AutoApi ? " (automatic)" : "") + ", VSync " + (advanced.VSync ? "on" : "off") + ", async shader compile " + (advanced.AsyncCompile ? "on" : "off")
      + ", upscale " + GraphicsMod.Filters[advanced.Upscale] + ", downscale " + GraphicsMod.Filters[advanced.Downscale] + (api == GraphicsMod.VulkanApi ? ", accurate barriers " + (advanced.AccurateBarriers ? "on" : "off") : "") + ".");
     Write("Game language: " + gameLanguage.Name + " (Cemu console language " + gameLanguage.Console + ").");
+    PrepareShaderCache();
     bool turned = plan.Players.Any(v => v.Rotation != 0);
     string reshade = Path.Combine(root, ".tools", "reshade");
     if (turned && api != GraphicsMod.VulkanApi) { Fail("Turning a screen needs Vulkan. Choose Vulkan in the graphics settings."); return false; }
@@ -1114,6 +1119,15 @@ namespace HyruleOnline {
     Fail("The display settings could not be prepared: {0}", error.Message);
     return false;
    }
+  }
+
+  // Runs at session start, before any Cemu opens. A problem never stops the session: the games just keep their own caches.
+  void PrepareShaderCache() {
+   shaderProblem = null;
+   string instances = Path.Combine(root, ".tools", "instances");
+   var outcome = ShaderCache.Prepare(sharedShaders, Path.Combine(instances, "cemuA", "shaderCache"), Path.Combine(instances, "cemuB", "shaderCache"), Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "shader-cache.log"));
+   shaderProblem = outcome.Problem;
+   Write("Shared shader cache: " + (sharedShaders ? "on" : "off") + (outcome.Seeded ? "; player 2's cache was copied from player 1's" : "") + (outcome.Problem == null ? "." : "; it failed (" + outcome.Problem + "), so each player keeps an independent cache. See shader-cache.log."));
   }
 
   // The log keeps English; the status line follows the chosen language.
@@ -1152,9 +1166,10 @@ namespace HyruleOnline {
   }
 
   void StartSession() {
-   failure = null; lastError = null; joined[0] = joined[1] = false;
+   failure = null; lastError = null; shaderProblem = null; joined[0] = joined[1] = false;
    if (Scripts.Owned(root).Count == 0 && !PrepareDisplay()) return;
    SetStatus("Starting...");
+   if (shaderProblem != null) SetStatus("Shared shader cache is off for this session: {0}", shaderProblem);
    SetPrompt("");
    ApplyPlayers();
    SaveRules(true);
@@ -1227,7 +1242,7 @@ namespace HyruleOnline {
   // Everything a session writes before the games start. A change here only reaches the games after a restart; the launcher language and the live controls are not part of it.
   string Signature() {
    Func<double, string> size = v => GraphicsMod.NearestScale(v).ToString(System.Globalization.CultureInfo.InvariantCulture);
-   var parts = new List<object> { shadows, shadowDistance, antiAliasing, advanced.Api, advanced.VSync, advanced.AsyncCompile, advanced.AccurateBarriers, advanced.Upscale, advanced.Downscale, language,
+   var parts = new List<object> { shadows, shadowDistance, antiAliasing, advanced.Api, advanced.VSync, advanced.AsyncCompile, advanced.AccurateBarriers, advanced.Upscale, advanced.Downscale, sharedShaders, language,
     rules.Special, rules.Enemies, rules.Quests, rules.Koroks, rules.Towers, rules.Shrines, rules.Locations, rules.DivineBeasts, pair != null, playerCount };
     if (playerCount == 2) parts.AddRange(new object[] { rotations[0], rotations[1] });
    for (int i = 0; i < playerCount; i++) parts.AddRange(new object[] { Characters.CleanName(C<TextBox>("P" + (i + 1) + "NameBox").Text, Characters.DefaultNames[i]), models[i] });
