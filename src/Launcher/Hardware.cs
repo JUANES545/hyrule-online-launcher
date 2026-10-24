@@ -7,7 +7,7 @@ using Microsoft.Win32;
 
 namespace HyruleOnline {
  sealed class HardwareInfo {
-  public string Gpu = "", Cpu = "";
+  public string Gpu = "";
   public long VramMb;
   public int Threads;
   public double RamGb;
@@ -88,11 +88,6 @@ namespace HyruleOnline {
    try {
     var status = new MemoryStatus { Length = (uint)Marshal.SizeOf(typeof(MemoryStatus)) };
     if (GlobalMemoryStatusEx(ref status)) info.RamGb = Math.Round(status.TotalPhys / 1073741824.0, 1);
-   }
-   catch (Exception) { }
-   try {
-    using (var cpu = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64).OpenSubKey("HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0"))
-     if (cpu != null) info.Cpu = Regex.Replace(Convert.ToString(cpu.GetValue("ProcessorNameString")), "\\s+", " ").Trim();
    }
    catch (Exception) { }
    try {

@@ -1014,9 +1014,6 @@ namespace HyruleOnline {
    foreach (var bar in hintBars) bar.Text = Tr("Hover an option, or move the focus to it, to see what it does.");
   }
 
-  // A page's hint bar shows the tip of the option under the mouse or holding keyboard focus.
-  readonly Dictionary<string, string> hintIdle = new Dictionary<string, string>();
-
   // Shows an option's explanation in the Multiplayer hint bar while the mouse or the keyboard / pad focus is on it.
   ComboBoxItem HintItem(ComboBoxItem item, string text) {
    if (string.IsNullOrEmpty(text)) return item;

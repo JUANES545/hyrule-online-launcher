@@ -1,17 +1,13 @@
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
 
 namespace HyruleOnline {
- // Runs the dedicated server without a console window, keeps its recent output and accepts its console commands.
+ // Runs the dedicated server without a console window, passes on its output and accepts its console commands.
  sealed class ServerHost {
-  const int MaxLines = 300;
   static readonly Regex Colors = new Regex("\u001b\\[[0-9;]*[A-Za-z]");
-  readonly object gate = new object();
-  readonly List<string> lines = new List<string>();
   Process process;
 
   public event Action<string> Line;
@@ -39,7 +35,6 @@ namespace HyruleOnline {
    var started = new Process { StartInfo = info };
    started.OutputDataReceived += (s, e) => Add(e.Data);
    started.ErrorDataReceived += (s, e) => Add(e.Data);
-   lock (gate) lines.Clear();
    started.Start();
    started.BeginOutputReadLine(); started.BeginErrorReadLine();
    process = started;
@@ -48,16 +43,8 @@ namespace HyruleOnline {
   void Add(string text) {
    string line = Clean(text);
    if (line.Length == 0) return;
-   lock (gate) {
-    lines.Add(line);
-    if (lines.Count > MaxLines) lines.RemoveRange(0, lines.Count - MaxLines);
-   }
    var handler = Line;
    if (handler != null) handler(line);
-  }
-
-  public string Text() {
-   lock (gate) return string.Join(Environment.NewLine, lines.ToArray());
   }
 
   public bool Send(string command) {
