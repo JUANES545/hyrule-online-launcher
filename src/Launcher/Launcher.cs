@@ -256,9 +256,10 @@ namespace HyruleOnline {
     else Window.Close();
     e.Handled = true;
    };
+   WireSetup();
    Window.Closing += OnClosing;
    Window.SizeChanged += (s, e) => FitShell();
-   Window.Loaded += (s, e) => { FitPrimary(); ShowPage(0); UpdatePlan(); RefreshProcesses(); C<Button>("Start").Focus(); timer.Start(); };
+   Window.Loaded += (s, e) => { FitPrimary(); ShowPage(0); UpdatePlan(); RefreshProcesses(); C<Button>("Start").Focus(); timer.Start(); StartSetupCheck(); };
    timer.Interval = TimeSpan.FromMilliseconds(33);
    timer.Tick += (s, e) => Tick();
   }
@@ -303,6 +304,7 @@ namespace HyruleOnline {
   ushort[] previousButtons = new ushort[4];
 
   void ShowPage(int index) {
+   if (setupActive) return;
    ClosePickers();
    ResetCursors();
    page = PageNav.Move(0, index, PageNames.Length);
@@ -317,6 +319,7 @@ namespace HyruleOnline {
   }
 
   void PressStart() {
+   if (setupActive) return;
    if (sessionLive) { restartAfterStop = true; StopSession(); } else StartSession();
   }
 
@@ -332,7 +335,7 @@ namespace HyruleOnline {
     select |= PageNav.Pressed(previousButtons[slot], buttons, PadKind.SelectButton);
     previousButtons[slot] = buttons;
    }
-   if (!Window.IsActive || AnyDropDownOpen() || HelpOpen) return;
+   if (!Window.IsActive || AnyDropDownOpen() || HelpOpen || setupActive) return;
    if (step != 0) ShowPage(PageNav.Move(page, step, PageNames.Length));
    else if (start && C<Button>("Start").IsEnabled) PressStart();
    else if (select && page == 0 && C<Button>("Mode").IsEnabled) TogglePlayerCount();
@@ -1166,6 +1169,7 @@ namespace HyruleOnline {
   }
 
   void StartSession() {
+   if (setupActive) return;
    failure = null; lastError = null; shaderProblem = null; joined[0] = joined[1] = false;
    if (Scripts.Owned(root).Count == 0 && !PrepareDisplay()) return;
    SetStatus("Starting...");

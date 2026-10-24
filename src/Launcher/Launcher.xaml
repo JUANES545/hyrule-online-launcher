@@ -128,7 +128,7 @@
   <TextBlock Text="BREATH OF THE WILD" TextAlignment="Center" FontFamily="{DynamicResource LogoFont}" FontStretch="Normal" FontSize="40" FontWeight="Normal" Foreground="#E2D5B2" Margin="0,6,0,3"/>
   <TextBlock Text="ONLINE MULTIPLAYER" TextAlignment="Center" Foreground="#A7B5B5"   FontSize="13" Margin="1,0,0,10"/>
    </StackPanel>
-   <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,12">
+   <StackPanel x:Name="NavRow" Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,12">
     <Border x:Name="NavPrev" Width="54" Height="30" CornerRadius="16,5,5,5" Background="#801B252B" BorderBrush="#A5BAC5" BorderThickness="2" Margin="0,0,14,0" VerticalAlignment="Center" ToolTip="Previous page (LB or Ctrl+Shift+Tab)" AutomationProperties.Name="Previous page (LB)"><TextBlock Text="LB" FontStyle="Normal" FontWeight="Bold" FontSize="15" Foreground="#CFE3E4" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0"/></Border>
     <Button x:Name="TabPlay" Content="PLAY" Tag="0" Style="{StaticResource TabButton}"/>
     <Button x:Name="TabGraphics" Content="GRAPHICS" Tag="1" Style="{StaticResource TabButton}"/>
@@ -394,10 +394,31 @@
     <TextBox x:Name="ServerCommand" Grid.Row="4" ToolTip="Server command, then Enter (type help)" Margin="0,8,0,0" FontFamily="Consolas" FontStretch="Normal" FontSize="13" Background="#0F171C" Foreground="#E2D5B2" BorderBrush="#3449585A" Padding="6,4"/>
    </Grid></Border>
   </Grid>
+  <Grid x:Name="SetupPage" Visibility="Collapsed">
+   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+   <StackPanel HorizontalAlignment="Center" Width="860">
+    <TextBlock Text="FIRST-TIME SETUP" TextAlignment="Center" FontFamily="{DynamicResource TitleFont}" FontStretch="Normal" FontWeight="Normal" FontSize="14" Foreground="#CBBF9F" Margin="0,0,0,8"/>
+    <TextBlock Text="Some things this launcher needs are not here yet. Download what can be downloaded, then point it at your own copy of the game." TextAlignment="Center" TextWrapping="Wrap" Foreground="#9EB2BD" FontSize="14" Margin="0,0,0,10"/>
+   </StackPanel>
+   <Border Grid.Row="1" HorizontalAlignment="Center" Width="860" Background="#A0152027" CornerRadius="8" Padding="22,16" BorderBrush="#3449585A" BorderThickness="1">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False"><StackPanel x:Name="SetupList"/></ScrollViewer>
+   </Border>
+   <StackPanel Grid.Row="2" HorizontalAlignment="Center" Width="860" Margin="0,10,0,0">
+    <ProgressBar x:Name="SetupProgress" Maximum="100" Visibility="Collapsed" Margin="0,0,0,6"/>
+    <TextBlock x:Name="SetupProgressText" Foreground="#AEE2D2" FontSize="13" TextAlignment="Center" TextWrapping="Wrap"/>
+    <TextBlock x:Name="SetupNotes" Foreground="#E0BE75" FontSize="13" TextAlignment="Center" TextWrapping="Wrap" Margin="0,2,0,6"/>
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+     <Button x:Name="SetupDownload" Content="Download what is missing" Padding="20,12" Background="#B03C554B" BorderBrush="#D5C396"/>
+     <Button x:Name="SetupCancel" Content="Cancel" Padding="20,12" Visibility="Collapsed"/>
+     <Button x:Name="SetupLocate" Content="Locate my game files" Padding="20,12"/>
+     <Button x:Name="SetupRecheck" Content="Check again" Padding="20,12"/>
+    </StackPanel>
+   </StackPanel>
+  </Grid>
   <Border x:Name="HelpPanel" Visibility="Collapsed" VerticalAlignment="Top" CornerRadius="12" Padding="18" Background="#FC193039" BorderBrush="#3449585A" BorderThickness="1" Panel.ZIndex="5"><TextBlock x:Name="HelpText" Foreground="#C7DCDD"/></Border>
  </Grid>
  <StackPanel Grid.Row="3" Margin="14,0,14,8">
-  <Border Background="#80212E2D" CornerRadius="5" Padding="14" Margin="0,8,0,12"><TextBlock x:Name="Status" TextAlignment="Center" Text="Ready." Foreground="#AEE2D2"/></Border>
+  <Border x:Name="StatusBar" Background="#80212E2D" CornerRadius="5" Padding="14" Margin="0,8,0,12"><TextBlock x:Name="Status" TextAlignment="Center" Text="Ready." Foreground="#AEE2D2"/></Border>
   <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"><Button x:Name="Start" MinWidth="300" FontFamily="{DynamicResource TitleFont}" FontStretch="Normal" FontStyle="Normal" Background="#B03C554B" BorderBrush="#D5C396" FontSize="20" Padding="40,15"><StackPanel Orientation="Horizontal" HorizontalAlignment="Center"><TextBlock x:Name="StartText" Text="START SESSION" VerticalAlignment="Center"/><ContentControl x:Name="StartIcon" Margin="16,0,0,0" VerticalAlignment="Center"/></StackPanel></Button><Button x:Name="Stop" Content="Stop session" MinWidth="180" Padding="20,16"/><Button x:Name="Exit" Content="Exit" MinWidth="150" Padding="20,16"/></StackPanel>
  </StackPanel>
  <Canvas x:Name="CursorLayer" Grid.RowSpan="4" IsHitTestVisible="False" Panel.ZIndex="100"/>

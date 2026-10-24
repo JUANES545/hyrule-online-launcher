@@ -14,7 +14,7 @@ namespace HyruleOnline {
   // Elements whose text the launcher sets from code; the XAML walker leaves them alone.
   public static readonly string[] Dynamic = {
    "CornerServer", "P1Status", "P2Status", "P1Name", "P2Name", "P1AvatarName", "P2AvatarName", "P1PickerName", "P2PickerName", "ScreenInfo", "LayoutInfo", "Layout", "Arrange", "Assign1", "Assign2",
-   "ServerText", "AText", "BText", "Status", "Prompt", "HelpText", "Log", "ServerLog", "LanguageList", "LauncherLanguageList", "TimeBox", "GraphicsHint", "MultiplayerHint", "Start", "HardwareText", "RecommendedText", "PresetInfo", "PresetShares", "SpecialInfo", "PadHint1", "PadHint2", "PadLayoutInfo", "StartText", "Mode"
+   "ServerText", "AText", "BText", "Status", "Prompt", "HelpText", "Log", "ServerLog", "LanguageList", "LauncherLanguageList", "TimeBox", "GraphicsHint", "MultiplayerHint", "Start", "HardwareText", "RecommendedText", "PresetInfo", "PresetShares", "SpecialInfo", "PadHint1", "PadHint2", "PadLayoutInfo", "StartText", "Mode", "SetupProgressText", "SetupNotes"
   };
 
   // Text that reads the same in every language.
@@ -23,6 +23,25 @@ namespace HyruleOnline {
   // English, Spanish, French.
   public static readonly string[][] Table = {
    new[] { "Help", "Ayuda", "Aide" },
+   new[] { "System", "Sistema", "Système" },
+   new[] { "Components", "Componentes", "Composants" },
+   new[] { "Your game", "Tu juego", "Votre jeu" },
+   new[] { "Ready", "Listo", "Prêt" },
+   new[] { "Missing", "Falta", "Manquant" },
+   new[] { "Needs repair", "Necesita reparación", "À réparer" },
+   new[] { "FIRST-TIME SETUP", "PRIMERA CONFIGURACIÓN", "PREMIÈRE CONFIGURATION" },
+   new[] { "Some things this launcher needs are not here yet. Download what can be downloaded, then point it at your own copy of the game.", "Faltan algunas cosas que necesita este lanzador. Descarga lo que se pueda descargar y luego indícale tu propia copia del juego.", "Certains éléments nécessaires à ce lanceur manquent encore. Téléchargez ce qui peut l'être, puis indiquez-lui votre propre copie du jeu." },
+   new[] { "Download what is missing", "Descargar lo que falta", "Télécharger ce qui manque" },
+   new[] { "Cancel", "Cancelar", "Annuler" },
+   new[] { "Locate my game files", "Buscar mis archivos del juego", "Localiser mes fichiers de jeu" },
+   new[] { "Check again", "Comprobar de nuevo", "Vérifier à nouveau" },
+   new[] { "Checking your install...", "Comprobando tu instalación...", "Vérification de votre installation..." },
+   new[] { "Starting the download...", "Iniciando la descarga...", "Démarrage du téléchargement..." },
+   new[] { "The download failed: {0}", "La descarga ha fallado: {0}", "Le téléchargement a échoué : {0}" },
+   new[] { "Downloading and installing {0}", "Descargando e instalando {0}", "Téléchargement et installation de {0}" },
+   new[] { "Download cancelled.", "Descarga cancelada.", "Téléchargement annulé." },
+   new[] { "Looking through that folder...", "Buscando en esa carpeta...", "Recherche dans ce dossier..." },
+   new[] { "Select the folder with your game files. A Cemu folder, or a folder with your game, update and DLC.", "Elige la carpeta con tus archivos del juego. Una carpeta de Cemu, o una carpeta con tu juego, la actualización y el DLC.", "Choisissez le dossier contenant vos fichiers de jeu. Un dossier Cemu, ou un dossier avec votre jeu, la mise à jour et le DLC." },
    new[] { "Windows 10 or newer", "Windows 10 o posterior", "Windows 10 ou plus récent" },
    new[] { "Windows build {0}", "Compilación de Windows {0}", "Version de Windows {0}" },
    new[] { "This launcher needs Windows 10 version 1809 or newer.", "Este lanzador necesita Windows 10 versión 1809 o posterior.", "Ce lanceur nécessite Windows 10 version 1809 ou plus récente." },

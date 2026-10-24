@@ -426,6 +426,33 @@ namespace HyruleOnline {
    }
   }
 
+  // The first-run screen is wired in, starts hidden, and is only entered when the preflight says something required is missing.
+  static void Wizard() {
+   string launcher = Path.Combine(root, "src", "Launcher");
+   string xaml = File.ReadAllText(Path.Combine(launcher, "Launcher.xaml"));
+   foreach (string name in new[] { "SetupPage", "SetupList", "SetupProgress", "SetupProgressText", "SetupNotes", "SetupDownload", "SetupCancel", "SetupLocate", "SetupRecheck", "NavRow", "StatusBar" })
+    Require(xaml.Contains("x:Name=\"" + name + "\""), "Launcher.xaml has " + name);
+   Require(Regex.IsMatch(xaml, "<Grid x:Name=\"SetupPage\" Visibility=\"Collapsed\""), "the setup page starts hidden");
+   Require(Regex.IsMatch(xaml, "x:Name=\"SetupCancel\"[^>]*Visibility=\"Collapsed\""), "Cancel only shows while a download runs");
+   var texts = new HashSet<string>(Lang.Table.Select(r => r[0]));
+   foreach (string name in Lang.Neutral) texts.Add(name);
+   foreach (string name in new[] { "SetupDownload", "SetupCancel", "SetupLocate", "SetupRecheck" }) {
+    string english = Regex.Match(xaml, "x:Name=\"" + name + "\" Content=\"([^\"]*)\"").Groups[1].Value;
+    Require(texts.Contains(english), name + " has a translation: " + english);
+   }
+   Require(Lang.Dynamic.Contains("SetupProgressText") && Lang.Dynamic.Contains("SetupNotes"), "the texts set from code are kept out of the XAML translator");
+   string wizard = File.ReadAllText(Path.Combine(launcher, "SetupWizard.cs"));
+   foreach (Match m in Regex.Matches(wizard, "\\bTr\\(\"((?:[^\"\\\\]|\\\\.)*)\"")) Require(texts.Contains(Unescape(m.Groups[1].Value)), "no translation for: " + m.Groups[1].Value);
+   Require(!Regex.IsMatch(wizard, "\\bTr\\((?!\")"), "SetupWizard.cs: every Tr takes a plain string literal");
+   Require(Regex.Matches(wizard, "EnterSetup\\(\\)").Count == 2 && wizard.Contains("if (needed) { if (!setupActive) EnterSetup();"), "the wizard is only entered when the preflight needs setup");
+   string main = File.ReadAllText(Path.Combine(launcher, "Launcher.cs"));
+   foreach (string method in new[] { "void ShowPage(int index)", "void PressStart()", "void StartSession()" })
+    Require(Regex.IsMatch(main, Regex.Escape(method) + " \\{\\s*if \\(setupActive\\) return;"), method + " does nothing while the wizard is up");
+   Require(main.Contains("StartSetupCheck(); };"), "the check runs when the window loads");
+   Require(File.ReadAllText(Path.Combine(launcher, "PadCursors.cs")).Contains("setupActive ? \"SetupPage\""), "controller navigation follows the wizard page");
+   Require(!Preflight.NeedsSetup(new List<SetupCheck>()), "no findings never shows the wizard");
+  }
+
   static int Main(string[] args) {
    root = args.Length > 0 ? args[0] : Directory.GetCurrentDirectory();
    temp = Path.Combine(Path.GetTempPath(), "HyruleSetupTests-" + Guid.NewGuid().ToString("N").Substring(0, 8));
@@ -434,7 +461,7 @@ namespace HyruleOnline {
     foreach (var test in new KeyValuePair<string, Action>[] {
      new KeyValuePair<string, Action>("manifest", Manifest), new KeyValuePair<string, Action>("preflight", PreflightLayouts), new KeyValuePair<string, Action>("locator", Locator),
      new KeyValuePair<string, Action>("messages", Messages), new KeyValuePair<string, Action>("install script", CheckMode), new KeyValuePair<string, Action>("zip safety", ZipSafety),
-     new KeyValuePair<string, Action>("downloads", Downloads), new KeyValuePair<string, Action>("translations", Translations) }) {
+     new KeyValuePair<string, Action>("downloads", Downloads), new KeyValuePair<string, Action>("translations", Translations), new KeyValuePair<string, Action>("wizard", Wizard) }) {
      int before = failures;
      try { test.Value(); }
      catch (Exception error) { failures++; Console.WriteLine("FAIL: " + test.Key + " threw " + error); }

@@ -69,7 +69,7 @@ namespace HyruleOnline {
   }
 
   int OwnerOf(int slot, RouterSnapshot snapshot) {
-   if (page != 0) return 2;
+   if (page != 0 || setupActive) return 2;
    return snapshot.Routes[0] == slot ? 0 : playerCount == 2 && snapshot.Routes[1] == slot ? 1 : 2;
   }
 
@@ -146,7 +146,7 @@ namespace HyruleOnline {
    else if (HelpOpen) start = C<Button>("Help");
    else if (cursor.Memory.TryGetValue(page, out start) && !all.Contains(start)) start = null;
    if (start == null && cursor.Picker < 0 && !HelpOpen) {
-    if (page == 0) start = C<Button>(cursor.Owner == 0 ? "P1AvatarButton" : cursor.Owner == 1 ? "P2AvatarButton" : "Start");
+    if (page == 0 && !setupActive) start = C<Button>(cursor.Owner == 0 ? "P1AvatarButton" : cursor.Owner == 1 ? "P2AvatarButton" : "Start");
     if (start == null || !all.Contains(start)) {
      var chrome = new[] { "Help", "Start", "Stop", "Exit" };
      var content = all.Where(e => !chrome.Contains(e.Name)).ToList();
@@ -195,7 +195,7 @@ namespace HyruleOnline {
    if (cursor.Picker >= 0) return avatarTiles[cursor.Picker].Cast<FrameworkElement>().Where(t => t.IsVisible && t.IsEnabled).ToList();
    if (HelpOpen) return new List<FrameworkElement> { C<Button>("Help") };
    var found = new List<FrameworkElement>();
-   Collect(C<FrameworkElement>(PageNames[page] + "Page"), found);
+   Collect(C<FrameworkElement>(setupActive ? "SetupPage" : PageNames[page] + "Page"), found);
    foreach (var name in new[] { "Help", "Start", "Stop", "Exit" }) {
     var button = C<Button>(name);
     if (button.IsVisible && button.IsEnabled) found.Add(button);
