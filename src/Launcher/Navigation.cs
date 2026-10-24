@@ -122,6 +122,11 @@ namespace HyruleOnline {
   }
 
   // With sideways set, left and right may also reach a box that is not in the same row when nothing lines up.
+  // How far a point is from a span: zero inside it. A wide box above two narrow ones is then close to both, instead of favouring a wide box further down.
+  static double Away(double point, double start, double length) {
+   return point < start ? start - point : point > start + length ? point - (start + length) : 0;
+  }
+
   public static int Pick(Box from, IList<Box> items, int direction) { return Pick(from, items, direction, false); }
 
   public static int Pick(Box from, IList<Box> items, int direction, bool sideways) {
@@ -138,10 +143,11 @@ namespace HyruleOnline {
      case 2: if (itemX >= fromX - 1) continue; along = Math.Max(0, from.X - (item.X + item.Width)) + (fromX - itemX) * .1; break;
      default: if (itemX <= fromX + 1) continue; along = Math.Max(0, item.X - (from.X + from.Width)) + (itemX - fromX) * .1; break;
     }
-    if (vertical) { across = Gap(from.X, from.Width, item.X, item.Width); offset = Math.Abs(itemX - fromX); }
-    else { across = Gap(from.Y, from.Height, item.Y, item.Height); offset = Math.Abs(itemY - fromY); }
+    double miss;
+    if (vertical) { across = Gap(from.X, from.Width, item.X, item.Width); offset = Math.Abs(itemX - fromX); miss = Away(fromX, item.X, item.Width); }
+    else { across = Gap(from.Y, from.Height, item.Y, item.Height); offset = Math.Abs(itemY - fromY); miss = Away(fromY, item.Y, item.Height); }
     if (across <= 0) {
-     double score = along + offset * .5;
+     double score = along + miss * .5 + offset * .1;
      if (score < bestScore) { bestScore = score; best = i; }
     }
     else if (vertical || sideways) {

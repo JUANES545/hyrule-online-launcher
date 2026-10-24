@@ -317,6 +317,12 @@ Reversible: a junction found on either cache (for example made by hand) is first
 - Checked with `HYRULE_LAUNCHER_SIZE` at 1280x720, 1152x720, 1680x720, 3413x960, 960x720 and 760x900 in English, plus 1280x720, 3413x960 and 760x900 in Spanish and French with two players. The translation audit and `mode-test` (virtual pads, no game) pass.
 - Not verified: a physical pad scrolling Help, and the Start + LT shortcut after this change (`shortcut-test` starts the game).
 
+## Pad fixes: filter combos and shortcut cancel (built, checked with virtual pads)
+
+- Down from the wide Graphics API combo skipped the two half-width filter combos and landed on VSync. `Spatial.Pick` penalised the distance between box centres, so a full-width box won. It now penalises how far the source centre is from the candidate's span (zero when the candidate is below it), with the centre distance as a small tie-break. A regression test covers a wide box over two narrow boxes.
+- While a new menu shortcut is being captured, the pad is read raw and cannot press Cancel. Tapping the back button alone (B, or Circle) now ends the capture; the hint says so. Mouse and the 10 second timeout still work.
+- Checked with a pad script and screenshots: Down from the API combo reaches Upscale, Right reaches Downscale, both open and select. Not verified: capture-cancel with a physical pad.
+
 ## How setup works (first run)
 
 A fresh unzip or the thin installer holds only the launcher, the input router/bridge and `scripts\`. Everything else is found or fetched on first run.

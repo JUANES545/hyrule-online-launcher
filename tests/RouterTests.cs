@@ -253,6 +253,8 @@ namespace HyruleOnline {
    Require(Spatial.Pick(cells[0], cells, 3) == 1 && Spatial.Pick(cells[1], cells, 3) == 2 && Spatial.Pick(cells[2], cells, 3) == -1, "right walks along the row and stops at the end");
    Require(Spatial.Pick(cells[4], cells, 2) == 3 && Spatial.Pick(cells[3], cells, 2) == -1, "left walks back");
    Require(Spatial.Pick(cells[1], cells, 1) == 4 && Spatial.Pick(cells[4], cells, 0) == 1 && Spatial.Pick(cells[1], cells, 0) == -1, "down and up stay in the same column");
+   var split = new List<Box> { new Box(0, 0, 100, 10), new Box(0, 20, 48, 10), new Box(52, 20, 48, 10), new Box(0, 40, 100, 10) };
+   Require(Spatial.Pick(split[0], split, 1) >= 1 && Spatial.Pick(split[0], split, 1) <= 2 && Spatial.Pick(split[3], split, 0) >= 1 && Spatial.Pick(split[3], split, 0) <= 2, "a wide box reaches the two narrow boxes next to each other before skipping past them");
    var uneven = new List<Box> { new Box(0, 0, 100, 10), new Box(0, 20, 40, 10), new Box(60, 20, 40, 10), new Box(300, 20, 10, 10) };
    Require(Spatial.Pick(uneven[0], uneven, 1) == 1, "down from a wide box picks the nearest lined up one");
    Require(Spatial.Pick(uneven[2], uneven, 3) == 3 && Spatial.Pick(uneven[1], uneven, 3) == 2, "a far box is still reachable when nothing is closer");

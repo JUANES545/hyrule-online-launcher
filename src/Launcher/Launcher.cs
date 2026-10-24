@@ -818,7 +818,7 @@ namespace HyruleOnline {
    captureStarted = Environment.TickCount;
    Router.Shortcut = null;
    C<Button>("ShortcutChange").Content = Tr("Cancel");
-   C<TextBlock>("ShortcutInfo").Text = Tr("Hold the new shortcut on a controller (2 to 4 inputs), then let go. Nothing pressed for 10 seconds cancels.");
+   C<TextBlock>("ShortcutInfo").Text = Tr("Hold the new shortcut on a controller (2 to 4 inputs), then let go. Tap {0} alone, or press nothing for 10 seconds, to cancel.", BackLabel(shortcutLayout));
   }
 
   void EndCapture(MenuShortcut result) {
@@ -847,6 +847,8 @@ namespace HyruleOnline {
    if (!captureArmed) { if (!any) { captureArmed = true; captureStarted = Environment.TickCount; } return; }
    if (captureSlot < 0) { if (Environment.TickCount - captureStarted > 10000) EndCapture(null); return; }
    if (mine) return;
+   // The controller cannot press Cancel while it is being read, so its back button on its own ends the capture.
+   if (captureButtons == PadKind.Back(PadKind.Resolve(Router.MenuLayout, snapshot.Kinds[captureSlot])) && !captureLt && !captureRt) { EndCapture(null); return; }
    var result = MenuShortcut.Capture(captureButtons, captureLt, captureRt);
    if (result != null) { EndCapture(result); return; }
    captureSlot = -1; captureButtons = 0; captureLt = captureRt = false; captureStarted = Environment.TickCount;
