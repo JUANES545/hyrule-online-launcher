@@ -310,6 +310,13 @@ Reversible: a junction found on either cache (for example made by hand) is first
 - A controller that switches to 1 player (Select, or its cursor on the switch) becomes Player 1; `Router.Promote` uses the same swap as Assign. The routes from before are saved and `Router.SetRoutes` puts them back when multiplayer returns. A mouse click changes no routes. The saved routes live in memory only, so a launcher that starts already in single player has nothing to restore.
 - Live check (`mode-test`, no game, two virtual pads): pad 2 picks single and becomes Player 1 (routes 3,2); going back restores 2,3; the pad that is already Player 1 moves nothing; mouse clicks change nothing.
 
+## Responsive layout and simpler text (built, checked with screenshots)
+
+- Cause of the cut-off text: the page area is only about 680 design units tall (the 1030 shell minus the header and footer) and the Graphics columns needed about 1100. Nothing scrolled, so the Menu controls card, the Recommended card and the Apply button fell under the status bar.
+- Changes: the Play, Graphics and Multiplayer pages sit in a `ScrollViewer` (safety net at any size); the Graphics page is compact (shared `SectionTitle`, `FieldLabel` and `CompactCombo` styles, two explanatory notes folded into tooltips); the header and status bar are tighter; no text is below 13. Help is now 10 short sections in a scrolling panel (titles in gold) instead of one long block; D-pad up/down scrolls it. A pad cursor calls `BringIntoView` so the focused control never hides off-screen.
+- Checked with `HYRULE_LAUNCHER_SIZE` at 1280x720, 1152x720, 1680x720, 3413x960, 960x720 and 760x900 in English, plus 1280x720, 3413x960 and 760x900 in Spanish and French with two players. The translation audit and `mode-test` (virtual pads, no game) pass.
+- Not verified: a physical pad scrolling Help, and the Start + LT shortcut after this change (`shortcut-test` starts the game).
+
 ## How setup works (first run)
 
 A fresh unzip or the thin installer holds only the launcher, the input router/bridge and `scripts\`. Everything else is found or fetched on first run.

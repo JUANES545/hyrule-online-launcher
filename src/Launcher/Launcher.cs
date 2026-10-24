@@ -239,7 +239,7 @@ namespace HyruleOnline {
     var button = C<Button>(tab);
     button.Click += (s, e) => ShowPage(int.Parse((string)((Button)s).Tag));
    }
-   C<Button>("Help").Click += (s, e) => { var help = C<Border>("HelpPanel"); help.Visibility = help.Visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible; };
+   C<Button>("Help").Click += (s, e) => { var help = C<Border>("HelpPanel"); help.Visibility = help.Visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible; if (help.Visibility == Visibility.Visible) C<ScrollViewer>("HelpScroll").ScrollToTop(); };
    C<Button>("Exit").Click += (s, e) => Window.Close();
    serverHost.Line += line => Window.Dispatcher.BeginInvoke(new Action(() => {
     var log = C<TextBox>("ServerLog");
@@ -303,10 +303,10 @@ namespace HyruleOnline {
    var shell = C<Grid>("Shell");
    shell.Width = fit.Width; shell.Height = fit.Height;
    Grid.SetColumn(C<StackPanel>("DisplayPanel"), fit.Stacked ? 0 : 1); Grid.SetRow(C<StackPanel>("DisplayPanel"), fit.Stacked ? 1 : 0);
-   C<Grid>("PlayPage").ColumnDefinitions[1].Width = fit.Stacked ? new GridLength(0) : new GridLength(0.9, GridUnitType.Star);
+   C<Grid>("PlayBody").ColumnDefinitions[1].Width = fit.Stacked ? new GridLength(0) : new GridLength(0.9, GridUnitType.Star);
    stackedLayout = fit.Stacked;
    UpdatePlayLayout();
-   C<Grid>("MultiplayerPage").ColumnDefinitions[1].Width = fit.Stacked ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
+   C<Grid>("MultiplayerBody").ColumnDefinitions[1].Width = fit.Stacked ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
    Grid.SetColumn(C<StackPanel>("LivePanel"), fit.Stacked ? 0 : 1); Grid.SetRow(C<StackPanel>("LivePanel"), fit.Stacked ? 1 : 0);
    C<StackPanel>("RulesPanel").Margin = fit.Stacked ? new Thickness(0, 0, 0, 18) : new Thickness(0, 0, 14, 0);
    C<StackPanel>("LivePanel").Margin = fit.Stacked ? new Thickness(0) : new Thickness(14, 0, 0, 0);
@@ -515,10 +515,22 @@ namespace HyruleOnline {
   }
 
   // Switches the launcher text to the chosen language and redraws everything the code writes itself.
+  void BuildHelp() {
+   var panel = C<StackPanel>("HelpText");
+   panel.Children.Clear();
+   var font = Window.TryFindResource("TitleFont") as FontFamily;
+   foreach (var section in Lang.Help().Split(new[] { "\n\n" }, StringSplitOptions.RemoveEmptyEntries)) {
+    int colon = section.IndexOf(':');
+    if (colon < 0) colon = 0;
+    panel.Children.Add(new TextBlock { Text = section.Substring(0, colon).Trim(), FontFamily = font, FontSize = 15, Foreground = new SolidColorBrush(Color.FromRgb(0xCB, 0xBF, 0x9F)), Margin = new Thickness(0, panel.Children.Count == 0 ? 0 : 12, 0, 2) });
+    panel.Children.Add(new TextBlock { Text = section.Substring(colon == 0 ? 0 : colon + 1).Trim(), FontSize = 14, Foreground = new SolidColorBrush(Color.FromRgb(0xC7, 0xDC, 0xDD)), TextWrapping = TextWrapping.Wrap });
+   }
+  }
+
   void ApplyLanguage() {
    Lang.Current = launcherLanguage;
    translator.Apply();
-   C<TextBlock>("HelpText").Text = Lang.Help();
+   BuildHelp();
    filling = true;
    try { ShowAdvanced(); } finally { filling = false; }
    ResetHints();

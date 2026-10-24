@@ -167,6 +167,7 @@ namespace HyruleOnline {
    var tile = element.Tag as Character;
    if (tile != null && cursor.Picker >= 0) ShowPickerName(cursor.Picker, tile);
    ShowHint(element);
+   if (cursor.Picker < 0) element.BringIntoView();
   }
 
   void ShowHint(FrameworkElement element) {
@@ -218,6 +219,11 @@ namespace HyruleOnline {
     if (direction > 1) return;
     cursor.ComboIndex = Math.Max(0, Math.Min(cursor.Combo.Items.Count - 1, cursor.ComboIndex + (direction == 0 ? -1 : 1)));
     FocusComboItem(cursor.Combo, cursor.ComboIndex);
+    return;
+   }
+   if (HelpOpen && direction < 2) {
+    var scroll = C<ScrollViewer>("HelpScroll");
+    scroll.ScrollToVerticalOffset(Math.Max(0, scroll.VerticalOffset + (direction == 0 ? -80 : 80)));
     return;
    }
    if (cursor.Target is TextBox && cursor.Target.IsKeyboardFocused) Window.Focus();
