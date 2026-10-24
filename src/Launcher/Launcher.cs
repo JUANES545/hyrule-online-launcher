@@ -319,7 +319,7 @@ namespace HyruleOnline {
   }
 
   void PressStart() {
-   if (setupActive) return;
+   if (setupActive || seeding) return;
    if (sessionLive) { restartAfterStop = true; StopSession(); } else StartSession();
   }
 
@@ -1102,7 +1102,6 @@ namespace HyruleOnline {
     Write("Cemu: " + api + (advanced.Api == GraphicsMod.AutoApi ? " (automatic)" : "") + ", VSync " + (advanced.VSync ? "on" : "off") + ", async shader compile " + (advanced.AsyncCompile ? "on" : "off")
      + ", upscale " + GraphicsMod.Filters[advanced.Upscale] + ", downscale " + GraphicsMod.Filters[advanced.Downscale] + (api == GraphicsMod.VulkanApi ? ", accurate barriers " + (advanced.AccurateBarriers ? "on" : "off") : "") + ".");
     Write("Game language: " + gameLanguage.Name + " (Cemu console language " + gameLanguage.Console + ").");
-    PrepareShaderCache();
     bool turned = plan.Players.Any(v => v.Rotation != 0);
     string reshade = Path.Combine(root, ".tools", "reshade");
     if (turned && api != GraphicsMod.VulkanApi) { Fail("Turning a screen needs Vulkan. Choose Vulkan in the graphics settings."); return false; }
@@ -1124,13 +1123,25 @@ namespace HyruleOnline {
    }
   }
 
-  // Runs at session start, before any Cemu opens. A problem never stops the session: the games just keep their own caches.
-  void PrepareShaderCache() {
+  // Runs at session start, before any Cemu opens, on a worker thread because the first copy is about 1.2 GB; the session goes on when it is done.
+  // A problem never stops the session: the games just keep their own caches.
+  void PrepareShaderCache(Action next) {
    shaderProblem = null;
    string instances = Path.Combine(root, ".tools", "instances");
-   var outcome = ShaderCache.Prepare(sharedShaders, Path.Combine(instances, "cemuA", "shaderCache"), Path.Combine(instances, "cemuB", "shaderCache"), Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "shader-cache.log"));
-   shaderProblem = outcome.Problem;
-   Write("Shared shader cache: " + (sharedShaders ? "on" : "off") + (outcome.Seeded ? "; player 2's cache was copied from player 1's" : "") + (outcome.Problem == null ? "." : "; it failed (" + outcome.Problem + "), so each player keeps an independent cache. See shader-cache.log."));
+   string owner = Path.Combine(instances, "cemuA", "shaderCache"), follower = Path.Combine(instances, "cemuB", "shaderCache"), log = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "shader-cache.log");
+   bool on = sharedShaders;
+   seeding = true;
+   SetButtons();
+   SetStatus(ShaderCache.WillCopy(on, owner, follower) ? "Copying the shader cache for player 2 (first time only)..." : "Starting...");
+   ThreadPool.QueueUserWorkItem(state => {
+    var outcome = ShaderCache.Prepare(on, owner, follower, log);
+    Window.Dispatcher.BeginInvoke(new Action(() => {
+     seeding = false;
+     shaderProblem = outcome.Problem;
+     Write("Shared shader cache: " + (on ? "on" : "off") + (outcome.Seeded ? "; player 2's cache was copied from player 1's" : "") + (outcome.Problem == null ? "." : "; it failed (" + outcome.Problem + "), so each player keeps an independent cache. See shader-cache.log."));
+     next();
+    }));
+   });
   }
 
   // The log keeps English; the status line follows the chosen language.
@@ -1169,9 +1180,14 @@ namespace HyruleOnline {
   }
 
   void StartSession() {
-   if (setupActive) return;
+   if (setupActive || seeding) return;
    failure = null; lastError = null; shaderProblem = null; joined[0] = joined[1] = false;
-   if (Scripts.Owned(root).Count == 0 && !PrepareDisplay()) return;
+   if (Scripts.Owned(root).Count != 0) { BeginSession(); return; }
+   if (!PrepareDisplay()) return;
+   PrepareShaderCache(BeginSession);
+  }
+
+  void BeginSession() {
    SetStatus("Starting...");
    if (shaderProblem != null) SetStatus("Shared shader cache is off for this session: {0}", shaderProblem);
    SetPrompt("");
@@ -1258,7 +1274,7 @@ namespace HyruleOnline {
   // While the games run, Start becomes Restart as soon as an option that needs a restart differs from what the games were started with.
   void UpdateStart() {
    var start = C<Button>("Start");
-   bool settled = !stopping;
+   bool settled = !stopping && !seeding;
    if (sessionLive && settled && appliedSignature == null) appliedSignature = Signature();
    bool dirty = sessionLive && settled && RestartGate.Differs(appliedSignature, Signature());
    if (dirty != restartPending) {
@@ -1311,7 +1327,7 @@ namespace HyruleOnline {
    if (!b) joined[1] = false;
    C<System.Windows.Shapes.Shape>("CornerDot").Fill = server ? Good : Idle;
    C<TextBlock>("CornerServer").Text = Tr(server ? "Server running" : "Server stopped");
-   if (script == null && !stopping) {
+   if (script == null && !stopping && !seeding) {
     Step("Server", server ? "Running" : "Stopped", server ? Good : Idle);
     Step("A", a ? (joined[0] ? "Joined the server" : "Game open") : "Stopped", a ? (joined[0] ? Good : Busy) : Idle);
     Step("B", b ? (joined[1] ? "Joined the server" : "Game open") : "Stopped", b ? (joined[1] ? Good : Busy) : Idle);
@@ -1322,10 +1338,11 @@ namespace HyruleOnline {
    if (!sessionLive && script == null && !stopping) { appliedSignature = null; sessionPlan = null; }
    UpdateStart();
    C<Button>("Stop").IsEnabled = !stopping && (script != null || owned.Count > 0);
-   EnableAppearance(!stopping && (script == null || sessionLive));
+   EnableAppearance(!stopping && !seeding && (script == null || sessionLive));
    if (serverUp != serverHost.Running) { serverUp = serverHost.Running; UpdateLive(); }
   }
 
+  bool seeding;
   bool appearanceEnabled = true;
 
   void EnableAppearance(bool enabled) {

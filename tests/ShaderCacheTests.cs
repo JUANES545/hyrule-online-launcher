@@ -42,6 +42,7 @@ namespace HyruleOnline {
     var outcome = ShaderCache.Prepare(false, a, b, log);
     Require(!outcome.Seeded && outcome.Problem == null && Snapshot(a) == before && !Directory.Exists(b), "flag off leaves the instances untouched");
     Require(Log(log).Contains("Shared shader cache: off. Owner: " + a + ". Follower: " + b + "."), "the log records the flag and the paths");
+    Require(!ShaderCache.WillCopy(false, a, b) && ShaderCache.WillCopy(true, a, b) && !ShaderCache.WillCopy(true, b, a), "a copy is announced only for the flag on, a full owner and an empty follower");
 
     // Flag on: the follower is seeded with a real copy; the owner is untouched.
     root = Path.Combine(temp, "on"); a = Fill(Path.Combine(root, "a")); b = Path.Combine(root, "b"); log = Path.Combine(root, "shader-cache.log");

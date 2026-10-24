@@ -447,7 +447,7 @@ namespace HyruleOnline {
    Require(Regex.Matches(wizard, "EnterSetup\\(\\)").Count == 2 && wizard.Contains("if (needed) { if (!setupActive) EnterSetup();"), "the wizard is only entered when the preflight needs setup");
    string main = File.ReadAllText(Path.Combine(launcher, "Launcher.cs"));
    foreach (string method in new[] { "void ShowPage(int index)", "void PressStart()", "void StartSession()" })
-    Require(Regex.IsMatch(main, Regex.Escape(method) + " \\{\\s*if \\(setupActive\\) return;"), method + " does nothing while the wizard is up");
+    Require(Regex.IsMatch(main, Regex.Escape(method) + " \\{\\s*if \\(setupActive(?: \\|\\| seeding)?\\) return;"), method + " does nothing while the wizard is up");
    Require(main.Contains("StartSetupCheck(); };"), "the check runs when the window loads");
    Require(File.ReadAllText(Path.Combine(launcher, "PadCursors.cs")).Contains("setupActive ? \"SetupPage\""), "controller navigation follows the wizard page");
    Require(!Preflight.NeedsSetup(new List<SetupCheck>()), "no findings never shows the wizard");

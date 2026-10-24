@@ -18,6 +18,12 @@ namespace HyruleOnline {
 
   const long Margin = 256L << 20;
 
+  // True when Prepare has a real copy to make (a first seed or a junction to undo), so the caller can show it and run it off the UI thread.
+  public static bool WillCopy(bool enabled, string owner, string follower) {
+   if (IsLink(owner) || IsLink(follower)) return true;
+   return enabled && HasFiles(owner) && !HasFiles(follower);
+  }
+
   public static Outcome Prepare(bool enabled, string owner, string follower, string logFile, Func<string, long> freeBytes = null) {
    var outcome = new Outcome();
    string temp = null;

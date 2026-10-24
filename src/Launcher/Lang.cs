@@ -264,6 +264,7 @@ namespace HyruleOnline {
    new[] { "Stopping...", "Deteniendo...", "Arrêt..." },
    new[] { "Ready.", "Listo.", "Prêt." },
    new[] { "Session running.", "Sesión en marcha.", "Session en cours." },
+   new[] { "Copying the shader cache for player 2 (first time only)...", "Copiando la caché de shaders del jugador 2 (solo la primera vez)...", "Copie du cache de shaders du joueur 2 (la première fois seulement)..." },
    new[] { "Shared shader cache is off for this session: {0}", "La caché de shaders compartida está desactivada en esta sesión: {0}", "Le cache de shaders partagé est désactivé pour cette session : {0}" },
    new[] { "Start failed: {0}", "No se pudo iniciar: {0}", "Échec du démarrage : {0}" },
    new[] { "The display settings could not be prepared: {0}", "No se pudo preparar la configuración de pantalla: {0}", "Les paramètres d'affichage n'ont pas pu être préparés : {0}" },
