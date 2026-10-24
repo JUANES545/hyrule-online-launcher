@@ -336,6 +336,12 @@ Reversible: a junction found on either cache (for example made by hand) is first
 - **Exit:** no confirmation dialog. Exit, the window close button and Alt+F4 stop any session the launcher started (`Stop-Online.ps1`) and close.
 - **D-pad opens an external window / Start closes the launcher (Ally client session only):** the cause is not confirmed and could not be reproduced. The working hypothesis is that the client's controller mapper also sends keyboard keys (Escape, Enter, arrows, the Menu key). As a defence, navigation and Escape/Enter/Space/arrow/Menu/F10 keys that arrive within 400 ms of pad activity are ignored, and the default text-box context menu is disabled. Ignored keys, Exit and Escape closes are logged to `input-trace.log` next to the preferences, so a repeat can be diagnosed. Not verified in the Ally session.
 
+## Cemu overlay options, and why the FPS target needs a restart
+
+- Cemu 1.26.2f has an on-screen overlay in `settings.xml` (`Graphic\Overlay`: FPS, DrawCalls, CPUUsage, CPUPerCoreUsage, RAMUsage, VRAMUsage, Debug, plus position, colour and scale). The launcher now writes two of them from Graphics > Advanced (Cemu): **Show FPS** (on by default, as it was before) and **Show CPU, RAM and VRAM usage** (off by default). Both apply at the next session start; the Cemu settings file is only read when Cemu starts. Checked: build, unit tests and a screenshot of the Graphics page. Not checked: the overlay in a running game.
+- The FPS target is a preset of the FPS++ graphic pack, which patches the game's code and timing when it loads. Cemu does not reload graphic packs in a running game (Cemu wiki, graphic packs pages), and Cemu 1.26 has no frame limiter of its own to change instead. So the target cannot be applied live without writing into the game's memory, which the launcher does not do. Not tested live; this is from how Cemu and the pack work.
+- Not built, candidates: per-player volume or mute (`Audio\TVVolume`), turning off the shader-compiling notification, overlay position and scale.
+
 ## How setup works (first run)
 
 A fresh unzip or the thin installer holds only the launcher, the input router/bridge and `scripts\`. Everything else is found or fetched on first run.

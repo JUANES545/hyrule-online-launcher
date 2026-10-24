@@ -600,7 +600,7 @@ namespace HyruleOnline {
     new XDocument(new XElement("Preferences", new XElement("Layout", mode), new XElement("RenderScale", GraphicsMod.NearestScale(scale).ToString(System.Globalization.CultureInfo.InvariantCulture)),
      new XElement("Shadows", shadows ?? ""), new XElement("ShadowDistance", shadowDistance ?? ""), new XElement("AntiAliasing", antiAliasing ?? ""),
      new XElement("GraphicsApi", advanced.Api), new XElement("VSync", advanced.VSync ? "1" : "0"), new XElement("AsyncCompile", advanced.AsyncCompile ? "1" : "0"),
-     new XElement("AccurateBarriers", advanced.AccurateBarriers ? "1" : "0"), new XElement("UpscaleFilter", advanced.Upscale), new XElement("DownscaleFilter", advanced.Downscale),
+     new XElement("AccurateBarriers", advanced.AccurateBarriers ? "1" : "0"), new XElement("ShowFps", advanced.ShowFps ? "1" : "0"), new XElement("ShowUsage", advanced.ShowUsage ? "1" : "0"), new XElement("UpscaleFilter", advanced.Upscale), new XElement("DownscaleFilter", advanced.Downscale),
      new XElement("FpsLimit", fpsLimit == FpsMod.AutoFps ? "Auto" : fpsLimit.ToString()),
      new XElement("Arrangement", perDisplay ? "PerDisplay" : "Split"), new XElement("Players", playerCount),
      new XElement("Display1", displays[0] ?? ""), new XElement("Display2", displays[1] ?? ""),
@@ -748,6 +748,8 @@ namespace HyruleOnline {
    C<CheckBox>("VSyncBox").IsChecked = advanced.VSync;
    C<CheckBox>("AsyncBox").IsChecked = advanced.AsyncCompile;
    C<CheckBox>("BarriersBox").IsChecked = advanced.AccurateBarriers;
+   C<CheckBox>("ShowFpsBox").IsChecked = advanced.ShowFps;
+   C<CheckBox>("ShowUsageBox").IsChecked = advanced.ShowUsage;
    C<CheckBox>("BarriersBox").IsEnabled = GraphicsMod.ResolveApi(advanced.Api, vulkanAvailable) == GraphicsMod.VulkanApi;
    C<CheckBox>("SharedShadersBox").IsChecked = sharedShaders;
    var layout = C<ComboBox>("PadLayoutBox");
@@ -927,6 +929,8 @@ namespace HyruleOnline {
    toggle("VSyncBox", value => advanced.VSync = value);
    toggle("AsyncBox", value => advanced.AsyncCompile = value);
    toggle("BarriersBox", value => advanced.AccurateBarriers = value);
+   toggle("ShowFpsBox", value => advanced.ShowFps = value);
+   toggle("ShowUsageBox", value => advanced.ShowUsage = value);
    toggle("SharedShadersBox", value => sharedShaders = value);
   }
 
@@ -983,7 +987,9 @@ namespace HyruleOnline {
    shadows = RecommendedPreset(GraphicsMod.ShadowsCategory, Hardware.ShadowsFor(tier));
    shadowDistance = RecommendedPreset(GraphicsMod.ShadowDistanceCategory, Hardware.ShadowDistanceFor(tier));
    antiAliasing = RecommendedPreset(GraphicsMod.AntiAliasingCategory, Hardware.AntiAliasingChoice);
+   bool showFps = advanced.ShowFps, showUsage = advanced.ShowUsage;
    advanced = Hardware.AdvancedFor(tier);
+   advanced.ShowFps = showFps; advanced.ShowUsage = showUsage;
    fpsLimit = FpsMod.AutoFps; fpsLimits[0] = fpsLimits[1] = FpsMod.AutoFps;
    Write("Recommended graphics settings applied (" + Hardware.TierNames[tier] + " class).");
    ChangedDisplayChoice();
@@ -1245,7 +1251,7 @@ namespace HyruleOnline {
     string api = GraphicsMod.ResolveApi(advanced.Api, vulkanAvailable);
     Write("Graphics: " + (pair == null ? "render " + GraphicsMod.ScaleLabel(quality.Scale) + ", " : "") + "shadows " + quality.Shadows + ", shadow distance " + quality.ShadowDistance + ", anti-aliasing " + quality.AntiAliasing + ".");
     Write("Cemu: " + api + (advanced.Api == GraphicsMod.AutoApi ? " (automatic)" : "") + ", VSync " + (advanced.VSync ? "on" : "off") + ", async shader compile " + (advanced.AsyncCompile ? "on" : "off")
-     + ", upscale " + GraphicsMod.Filters[advanced.Upscale] + ", downscale " + GraphicsMod.Filters[advanced.Downscale] + (api == GraphicsMod.VulkanApi ? ", accurate barriers " + (advanced.AccurateBarriers ? "on" : "off") : "") + ".");
+     + ", upscale " + GraphicsMod.Filters[advanced.Upscale] + ", downscale " + GraphicsMod.Filters[advanced.Downscale] + (api == GraphicsMod.VulkanApi ? ", accurate barriers " + (advanced.AccurateBarriers ? "on" : "off") : "") + ", FPS counter " + (advanced.ShowFps ? "on" : "off") + ", usage counters " + (advanced.ShowUsage ? "on" : "off") + ".");
     Write("Game language: " + gameLanguage.Name + " (Cemu console language " + gameLanguage.Console + ").");
     bool turned = plan.Players.Any(v => v.Rotation != 0);
     string reshade = Path.Combine(root, ".tools", "reshade");
@@ -1435,7 +1441,7 @@ namespace HyruleOnline {
   // Everything a session writes before the games start. A change here only reaches the games after a restart; the launcher language and the live controls are not part of it.
   string Signature() {
    Func<double, string> size = v => GraphicsMod.NearestScale(v).ToString(System.Globalization.CultureInfo.InvariantCulture);
-   var parts = new List<object> { shadows, shadowDistance, antiAliasing, advanced.Api, advanced.VSync, advanced.AsyncCompile, advanced.AccurateBarriers, advanced.Upscale, advanced.Downscale, sharedShaders, language,
+   var parts = new List<object> { shadows, shadowDistance, antiAliasing, advanced.Api, advanced.VSync, advanced.AsyncCompile, advanced.AccurateBarriers, advanced.Upscale, advanced.Downscale, advanced.ShowFps, advanced.ShowUsage, sharedShaders, language,
     rules.Special, rules.Enemies, rules.Quests, rules.Koroks, rules.Towers, rules.Shrines, rules.Locations, rules.DivineBeasts, pair != null, playerCount };
     if (playerCount == 2) parts.AddRange(new object[] { rotations[0], rotations[1] });
    for (int i = 0; i < playerCount; i++) parts.AddRange(new object[] { Characters.CleanName(C<TextBox>("P" + (i + 1) + "NameBox").Text, Characters.DefaultNames[i]), models[i] });

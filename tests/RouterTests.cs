@@ -685,10 +685,16 @@ namespace HyruleOnline {
      Require(System.Xml.Linq.XDocument.Load(settingsFile).Root.Element("GraphicPack").Elements("Entry").Count() == 3, "no limit given leaves FPS++ as it was");
      Require(System.Xml.Linq.XDocument.Load(settingsFile).Root.Element("Graphic").Element("api") == null, "no advanced options leave Cemu's API alone");
 
-     var options = new GraphicsMod.Advanced { Api = GraphicsMod.AutoApi, VSync = true, AsyncCompile = true, AccurateBarriers = true, Upscale = 3, Downscale = 2 };
+     var options = new GraphicsMod.Advanced { Api = GraphicsMod.AutoApi, VSync = true, AsyncCompile = true, AccurateBarriers = true, Upscale = 3, Downscale = 2, ShowFps = false, ShowUsage = true };
+     Func<string> overlayValues = () => { var o = System.Xml.Linq.XDocument.Load(settingsFile).Root.Element("Graphic").Element("Overlay"); return string.Join(",", new[] { "FPS", "CPUUsage", "RAMUsage", "VRAMUsage", "DrawCalls" }.Select(n => (string)o.Element(n))); };
      Func<string> graphicValues = () => { var g = System.Xml.Linq.XDocument.Load(settingsFile).Root.Element("Graphic"); return string.Join(",", new[] { "api", "VSync", "AsyncCompile", "VulkanAccurateBarriers", "UpscaleFilter", "DownscaleFilter", "FullscreenScaling" }.Select(n => (string)g.Element(n))); };
      CemuDisplay.Apply(instance, view, null, null, null, options, true);
      Require(graphicValues() == "1,1,true,true,3,2,1", "advanced options are written to Cemu's graphic settings: " + graphicValues());
+     Require(overlayValues() == "false,true,true,true," || overlayValues() == "false,true,true,true", "overlay counters are written: " + overlayValues());
+     options.ShowFps = true; options.ShowUsage = false;
+     CemuDisplay.Apply(instance, view, null, null, null, options, true);
+     Require(overlayValues().StartsWith("true,false,false,false"), "overlay counters can be turned back: " + overlayValues());
+     options.ShowFps = false; options.ShowUsage = true;
      CemuDisplay.Apply(instance, view, null, null, null, options, false);
      Require(graphicValues().StartsWith("0,"), "Auto and Vulkan fall back to OpenGL when Vulkan is missing");
      options.Api = GraphicsMod.OpenGlApi; options.VSync = false; options.AsyncCompile = false; options.AccurateBarriers = false; options.Upscale = 9; options.Downscale = -1;

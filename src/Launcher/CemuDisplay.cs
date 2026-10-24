@@ -92,6 +92,10 @@ namespace HyruleOnline {
     SetValue(graphic, "VulkanAccurateBarriers", advanced.AccurateBarriers ? "true" : "false");
     SetValue(graphic, "UpscaleFilter", GraphicsMod.CleanFilter(advanced.Upscale.ToString(), 1).ToString());
     SetValue(graphic, "DownscaleFilter", GraphicsMod.CleanFilter(advanced.Downscale.ToString(), 0).ToString());
+    var overlay = graphic.Element("Overlay");
+    if (overlay == null) { overlay = new XElement("Overlay"); graphic.Add(overlay); }
+    SetValue(overlay, "FPS", advanced.ShowFps ? "true" : "false");
+    foreach (string name in new[] { "CPUUsage", "RAMUsage", "VRAMUsage" }) SetValue(overlay, name, advanced.ShowUsage ? "true" : "false");
    }
 
    var settings = new XmlWriterSettings { Indent = true, IndentChars = "    ", Encoding = new UTF8Encoding(false) };

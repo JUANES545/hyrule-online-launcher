@@ -79,6 +79,7 @@ namespace HyruleOnline {
 
   static void Defaults(Prefs p) {
    Require(p.Mode == LayoutMode.Auto && p.Scale == GraphicsMod.DefaultScale && p.Shadows == null && p.ShadowDistance == null && p.AntiAliasing == null, "default layout and graphics");
+   Require(p.Advanced.ShowFps && !p.Advanced.ShowUsage, "the FPS counter stays on and the usage counters off by default");
    Require(p.Advanced.Api == GraphicsMod.AutoApi && !p.Advanced.VSync && !p.Advanced.AsyncCompile && !p.Advanced.AccurateBarriers, "default advanced graphics");
    Require(p.FpsLimit == FpsMod.AutoFps && !p.PerDisplay && p.PlayerCount == 2 && p.MenuLayout == PadKind.Auto && p.Language == "en" && p.LauncherLanguage == "en", "default players and languages");
    Require(p.Names[0] == "Link" && p.Names[1] == "Pedro" && p.Models[0] == "" && p.Models[1] == "" && p.Displays.All(d => d == null) && p.Scales.All(s => s == GraphicsMod.DefaultScale) && p.FpsLimits.All(f => f == FpsMod.AutoFps) && p.Rotations.All(r => r == 0), "default per-player values");
@@ -99,11 +100,12 @@ namespace HyruleOnline {
 
     // What SavePrefs writes today.
     var current = Load(temp, "<?xml version=\"1.0\" encoding=\"utf-8\"?><Preferences><Layout>TopBottom</Layout><RenderScale>1.5</RenderScale><Shadows>Low (50%)</Shadows><ShadowDistance>High</ShadowDistance><AntiAliasing>None</AntiAliasing>"
-     + "<GraphicsApi>Vulkan</GraphicsApi><VSync>1</VSync><AsyncCompile>1</AsyncCompile><AccurateBarriers>1</AccurateBarriers><UpscaleFilter>2</UpscaleFilter><DownscaleFilter>1</DownscaleFilter><FpsLimit>144</FpsLimit>"
+     + "<GraphicsApi>Vulkan</GraphicsApi><VSync>1</VSync><AsyncCompile>1</AsyncCompile><AccurateBarriers>1</AccurateBarriers><ShowFps>0</ShowFps><ShowUsage>1</ShowUsage><UpscaleFilter>2</UpscaleFilter><DownscaleFilter>1</DownscaleFilter><FpsLimit>144</FpsLimit>"
      + "<Arrangement>PerDisplay</Arrangement><Players>1</Players><Display1>\\\\.\\DISPLAY2</Display1><Display2></Display2><Scale1>2</Scale1><Scale2>0.75</Scale2><Fps1>60</Fps1><Fps2>Auto</Fps2>"
      + "<Rotation1>90</Rotation1><Rotation2>270</Rotation2><Name1>Zelda</Name1><Model1>Npc_Gerudo_Hero</Model1><Name2>Ana</Name2><Model2></Model2><Language>fr</Language><LauncherLanguage>es</LauncherLanguage><MenuLayout>Xbox</MenuLayout></Preferences>");
     Require(current.Mode == LayoutMode.TopBottom && current.Scale == 1.5 && current.Shadows == "Low (50%)" && current.ShadowDistance == "High" && current.AntiAliasing == "None", "layout and graphics are read");
     Require(current.Advanced.Api == "Vulkan" && current.Advanced.VSync && current.Advanced.AsyncCompile && current.Advanced.AccurateBarriers && current.Advanced.Upscale == 2 && current.Advanced.Downscale == 1, "advanced graphics are read");
+    Require(!current.Advanced.ShowFps && current.Advanced.ShowUsage, "overlay counters are read");
     Require(current.FpsLimit == 144 && current.PerDisplay && current.PlayerCount == 1 && current.MenuLayout == Array.IndexOf(PadKind.Names, "Xbox") && current.Language == "fr" && current.LauncherLanguage == "es", "players and languages are read");
     Require(current.Displays[0] == "\\\\.\\DISPLAY2" && current.Displays[1] == null && current.Scales[0] == 2.0 && current.Scales[1] == 0.75 && current.FpsLimits[0] == 60 && current.FpsLimits[1] == FpsMod.AutoFps && current.Rotations[0] == 90 && current.Rotations[1] == 270, "per-player values are read, an empty display is none");
     Require(current.Names[0] == "Zelda" && current.Names[1] == "Ana" && current.Models[0] == "Npc_Gerudo_Hero" && current.Models[1] == "", "names and models are read");

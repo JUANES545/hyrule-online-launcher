@@ -33,7 +33,7 @@ namespace HyruleOnline {
 
   public sealed class Advanced {
    public string Api = AutoApi;
-   public bool VSync, AsyncCompile, AccurateBarriers;
+   public bool VSync, AsyncCompile, AccurateBarriers, ShowFps = true, ShowUsage;
    public int Upscale = 1, Downscale = 0;
   }
 
