@@ -308,16 +308,9 @@ namespace HyruleOnline {
   void FitShell() {
    if (C<Grid>("Shell") == null) return;
    var fit = ShellFit.For(Window.ActualWidth > 0 ? Window.ActualWidth : Window.Width, Window.ActualHeight > 0 ? Window.ActualHeight : Window.Height);
-   var shell = C<Grid>("Shell");
-   shell.Width = fit.Width; shell.Height = fit.Height;
-   Grid.SetColumn(C<StackPanel>("DisplayPanel"), fit.Stacked ? 0 : 1); Grid.SetRow(C<StackPanel>("DisplayPanel"), fit.Stacked ? 1 : 0);
-   C<Grid>("PlayBody").ColumnDefinitions[1].Width = fit.Stacked ? new GridLength(0) : new GridLength(0.9, GridUnitType.Star);
+   ShellLayout.Apply(Window, fit);
    stackedLayout = fit.Stacked;
    UpdatePlayLayout();
-   C<Grid>("MultiplayerBody").ColumnDefinitions[1].Width = fit.Stacked ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
-   Grid.SetColumn(C<StackPanel>("LivePanel"), fit.Stacked ? 0 : 1); Grid.SetRow(C<StackPanel>("LivePanel"), fit.Stacked ? 1 : 0);
-   C<StackPanel>("RulesPanel").Margin = fit.Stacked ? new Thickness(0, 0, 0, 18) : new Thickness(0, 0, 14, 0);
-   C<StackPanel>("LivePanel").Margin = fit.Stacked ? new Thickness(0) : new Thickness(14, 0, 0, 0);
   }
 
   static readonly string[] PageNames = { "Play", "Graphics", "Multiplayer", "Language", "Details" };
