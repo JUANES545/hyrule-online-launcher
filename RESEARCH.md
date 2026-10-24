@@ -323,6 +323,12 @@ Reversible: a junction found on either cache (for example made by hand) is first
 - While a new menu shortcut is being captured, the pad is read raw and cannot press Cancel. Tapping the back button alone (B, or Circle) now ends the capture; the hint says so. Mouse and the 10 second timeout still work.
 - Checked with a pad script and screenshots: Down from the API combo reaches Upscale, Right reaches Downscale, both open and select. Not verified: capture-cancel with a physical pad.
 
+## Single player: Player 1 profile reachable by pad (built, checked with virtual pads)
+
+- In single player a pad that was not routed to Player 1 got the shared white cursor, and `PadCursors.Candidates` hid Player 1's card from it whenever the green cursor was active ("taken" by the other player). The name box and the avatar button could not be reached.
+- Now, with one player, every pad drives the Player 1 cursor, and the "taken" rule only applies in multiplayer. Switching back restores the earlier routes as before, so the two-player cursors behave as they did.
+- Checked with a moves-only pad script and screenshots: the cursor reaches the name box and the avatar button in single player. Not verified: a physical pad, and typing a name still needs a keyboard.
+
 ## How setup works (first run)
 
 A fresh unzip or the thin installer holds only the launcher, the input router/bridge and `scripts\`. Everything else is found or fetched on first run.

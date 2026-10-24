@@ -70,7 +70,8 @@ namespace HyruleOnline {
 
   int OwnerOf(int slot, RouterSnapshot snapshot) {
    if (page != 0 || setupActive) return 2;
-   return snapshot.Routes[0] == slot ? 0 : playerCount == 2 && snapshot.Routes[1] == slot ? 1 : 2;
+   if (playerCount == 1) return 0;
+   return snapshot.Routes[0] == slot ? 0 : snapshot.Routes[1] == slot ? 1 : 2;
   }
 
   // Reads every pad once per tick, then lets each cursor act on what its pads did.
@@ -206,7 +207,7 @@ namespace HyruleOnline {
    for (int player = 0; player < 2; player++) {
     var card = C<Border>("P" + (player + 1) + "Card");
     var mosaic = C<FrameworkElement>("P" + (player + 1) + "Picker");
-    bool taken = player != cursor.Owner && cursors[player].Active && page == 0;
+    bool taken = playerCount == 2 && player != cursor.Owner && cursors[player].Active && page == 0;
     found.RemoveAll(e => e.IsDescendantOf(mosaic) || taken && e.IsDescendantOf(card));
    }
    return found;
