@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace HyruleOnline {
  // LB and RB move between the launcher pages, wrapping around at the ends.
@@ -99,6 +100,17 @@ namespace HyruleOnline {
   }
 
   public static int Pick(Box from, IList<Box> items, int direction) { return Pick(from, items, direction, false); }
+
+  // One controller step. Left and right from a content control may also cross to a content control on another row (player 1's cards sit higher than the display options); the footer and Help never do.
+  public static int Next(Box from, IList<Box> items, IList<bool> chrome, bool fromChrome, int direction) {
+   int pick = Pick(from, items, direction);
+   if (pick < 0 && direction >= 2 && !fromChrome) {
+    var content = Enumerable.Range(0, items.Count).Where(i => !chrome[i]).ToList();
+    int side = Pick(from, content.Select(i => items[i]).ToList(), direction, true);
+    if (side >= 0) pick = content[side];
+   }
+   return pick;
+  }
 
   public static int Pick(Box from, IList<Box> items, int direction, bool sideways) {
    if (direction < 0 || direction > 3) return -1;
