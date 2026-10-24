@@ -66,7 +66,7 @@ namespace HyruleOnline {
    new[] { "Reinstall Hyrule Online, or run scripts/Build.ps1 when working from source.", "Reinstala Hyrule Online o ejecuta scripts/Build.ps1 si trabajas desde el código fuente.", "Réinstallez Hyrule Online, ou lancez scripts/Build.ps1 si vous travaillez depuis les sources." },
    new[] { "Multiplayer mod merged in BCML", "Mod multijugador fusionado en BCML", "Mod multijoueur fusionné dans BCML" },
    new[] { "Install MilkBarLauncher.bnp in BCML and run scripts/Patch-Mod.ps1. The steps are in RESEARCH.md.", "Instala MilkBarLauncher.bnp en BCML y ejecuta scripts/Patch-Mod.ps1. Los pasos están en RESEARCH.md.", "Installez MilkBarLauncher.bnp dans BCML et lancez scripts/Patch-Mod.ps1. Les étapes sont dans RESEARCH.md." },
-   new[] { "Zelda: Breath of the Wild (base game)", "Zelda: Breath of the Wild (juego base)", "Zelda : Breath of the Wild (jeu de base)" },
+   new[] { "{0} (base game)", "{0} (juego base)", "{0} (jeu de base)" },
    new[] { "Game folder known to BCML", "Carpeta del juego conocida por BCML", "Dossier du jeu connu de BCML" },
    new[] { "Use Locate my game files and pick the folder with your game dump.", "Usa Buscar mis archivos del juego y elige la carpeta con tu copia del juego.", "Utilisez Localiser mes fichiers de jeu et choisissez le dossier contenant votre copie du jeu." },
    new[] { "Game update v{0}", "Actualización del juego v{0}", "Mise à jour du jeu v{0}" },

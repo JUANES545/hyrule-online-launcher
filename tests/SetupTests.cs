@@ -98,7 +98,7 @@ namespace HyruleOnline {
 
   static string TinyJson(string zipHash) { return TinyManifest("https://example.invalid/pack.zip", zipHash, Hash("hello"), 100); }
 
-  static SetupCheck Find(List<SetupCheck> checks, string english) { return checks.FirstOrDefault(c => c.Item.English == english || (c.Item.Plain && c.Item.English.StartsWith(english))); }
+  static SetupCheck Find(List<SetupCheck> checks, string english) { return checks.FirstOrDefault(c => c.Item.ToString() == english || (c.Item.Plain && c.Item.English.StartsWith(english))); }
 
   static void Manifest() {
    var manifest = SetupManifest.Load(root);

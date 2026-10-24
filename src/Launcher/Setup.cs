@@ -180,9 +180,8 @@ namespace HyruleOnline {
  }
 
  static class Preflight {
-  // TODO(path guard): the path guard branch adds src/Launcher/PathGuard.cs. Point this hook at it so that an install folder it rejects
-  // (for example one with spaces or non-ASCII characters, or inside OneDrive) shows up in the checklist. It returns null for a good folder
-  // or the reason otherwise.
+  // Too long and network folders are already stopped by PathGuard before the launcher opens, so the wizard never sees them.
+  // The hook stays for callers (and tests) that want the checklist to list a folder problem.
   public static Func<string, string> RootPathHook = null;
 
   public static List<SetupCheck> Run(string root, SetupManifest manifest, SetupFacts facts) {
@@ -282,7 +281,7 @@ namespace HyruleOnline {
     string folder = GameLanguages.ContentFolder(SetupPaths.Bcml(root, name));
     content.Add(folder != null && File.Exists(Path.Combine(Path.GetDirectoryName(folder.TrimEnd('\\', '/')) ?? "", "code", "U-King.rpx")) ? null : name);
    }
-   yield return Make("Your game", Msg.Say("Zelda: Breath of the Wild (base game)"), content.All(c => c == null) ? SetupStatus.Ok : SetupStatus.Missing,
+   yield return Make("Your game", Msg.Say("{0} (base game)", "Zelda: Breath of the Wild"), content.All(c => c == null) ? SetupStatus.Ok : SetupStatus.Missing,
     Msg.Say("Game folder known to BCML"), Msg.Say("Use Locate my game files and pick the folder with your game dump."), SetupAction.Locate, true);
    yield return Title(root, manifest, "0005000e", manifest.UpdateTitleId, manifest.UpdateVersion, Msg.Say("Game update v{0}", manifest.UpdateVersion));
    yield return Title(root, manifest, "0005000c", manifest.DlcTitleId, manifest.DlcVersion, Msg.Say("DLC v{0}", manifest.DlcVersion));

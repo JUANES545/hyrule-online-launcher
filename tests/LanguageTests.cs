@@ -24,7 +24,8 @@ namespace HyruleOnline {
    new[] { "LAUNCHER", "es", "fr" },              // Used as a loan word in both.
    new[] { "Auto · {0} FPS", "es", "fr" },        // Unit and number.
    new[] { "{0} · {1} threads", "fr" },           // "threads" is used as is in French.
-   new[] { "Ultra", "es", "fr" },                 // Performance class name.
+   new[] { "Ultra", "es", "fr" },
+   new[] { "DLC v{0}", "es", "fr" },              // DLC is the same abbreviation in both.                 // Performance class name.
   };
 
   // Expressions that may be passed to a translation call instead of a literal because the values come from a list the test checks below (see CheckComputed).
@@ -38,6 +39,8 @@ namespace HyruleOnline {
    "Launcher.cs: Hardware.TierNames[hardware.Tier]", // CheckComputed reads TierNames.
    "Launcher.cs: n",                              // CheckComputed reads ServerRules.Shared.
    "Launcher.cs: text",                           // CheckComputed reads GraphicsMod.ScaleLabel.
+   "Setup.cs: English",                           // The setup checklist texts, listed with Msg.Say and checked there.
+   "SetupWizard.cs: group",                       // CheckComputed reads the setup group names.
    "Translator.cs: item.English",                 // The XAML text, checked from the XAML.
   };
 
@@ -441,6 +444,7 @@ namespace HyruleOnline {
    foreach (string name in ServerRules.SpecialNames) need(name, "ServerRules.SpecialNames");
    foreach (string name in Hardware.TierNames) need(name, "Hardware.TierNames");
    foreach (var option in ServerCommands.Weather) need(option[0], "ServerCommands.Weather");
+   foreach (string name in new[] { "System", "Components", "Your game" }) need(name, "Preflight groups");
    var rules = new ServerRules();
    foreach (string name in rules.Shared(true).Concat(rules.Shared(false))) need(name, "ServerRules.Shared");
    foreach (double scale in GraphicsMod.Scales) GraphicsMod.ScaleLabel(scale, text => { need(text, "GraphicsMod.ScaleLabel"); return text; });
