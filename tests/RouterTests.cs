@@ -312,7 +312,9 @@ namespace HyruleOnline {
     Lang.Current = "es";
     Require(Lang.T("PLAY") == "JUGAR" && Lang.T("Unknown text") == "Unknown text" && Lang.T("Each game renders {0} × {1}", 1920, 1080) == "Cada juego se renderiza a 1920 × 1080", "Spanish text, English fallback and placeholders");
     Require(GraphicsMod.ScaleLabel(1.5, t => Lang.T(t)) == "150% (más nítido)" && GraphicsMod.ScaleLabel(1.0) == "100% (window size)", "render scale labels follow the language");
+    Require(GraphicsMod.Label("Medium (100%, Default)", t => Lang.T(t)) == "Media (100%, Predeterminado)" && GraphicsMod.Label("Very High (Recommended)", t => Lang.T(t)) == "Muy alta (Recomendado)" && GraphicsMod.Label("Disabled (Default)", t => Lang.T(t)) == "Desactivado (Predeterminado)" && GraphicsMod.Label("NVIDIA FXAA", t => Lang.T(t)) == "NVIDIA FXAA", "preset labels follow the language");
     Lang.Current = "fr";
+    Require(GraphicsMod.Label("Extreme (400%, Unstable)", t => Lang.T(t)) == "Extrême (400%, Instable)", "preset labels in French");
     Require(Lang.T("PLAY") == "JOUER" && Lang.Help().StartsWith("SESSION :"), "French text");
     Lang.Current = Lang.Ui("de");
     Require(Lang.Current == "en" && Lang.T("PLAY") == "PLAY" && Lang.Help().StartsWith("SESSION: Start"), "a language without a translation shows English");

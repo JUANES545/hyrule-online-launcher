@@ -25,6 +25,7 @@ namespace HyruleOnline {
    new[] { "Auto · {0} FPS", "es", "fr" },        // Unit and number.
    new[] { "{0} · {1} threads", "fr" },           // "threads" is used as is in French.
    new[] { "Ultra", "es", "fr" },
+   new[] { "Experimental", "es" },               // Same word in Spanish.
    new[] { "DLC v{0}", "es", "fr" },              // DLC is the same abbreviation in both.                 // Performance class name.
   };
 
@@ -447,6 +448,7 @@ namespace HyruleOnline {
    foreach (string name in new[] { "System", "Components", "Your game" }) need(name, "Preflight groups");
    var rules = new ServerRules();
    foreach (string name in rules.Shared(true).Concat(rules.Shared(false))) need(name, "ServerRules.Shared");
+   foreach (string word in GraphicsMod.LabelWords) need(word, "GraphicsMod.LabelWords");
    foreach (double scale in GraphicsMod.Scales) GraphicsMod.ScaleLabel(scale, text => { need(text, "GraphicsMod.ScaleLabel"); return text; });
   }
  }

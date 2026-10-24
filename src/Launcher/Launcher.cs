@@ -817,7 +817,7 @@ namespace HyruleOnline {
 
   string RecommendedPreset(string category, string wanted) { return Hardware.PickPreset(GraphicsMod.Read(InstanceFolder, category), wanted); }
 
-  string PresetLabel(string name) { return name == null ? Tr("Not available") : GraphicsMod.Label(name); }
+  string PresetLabel(string name) { return name == null ? Tr("Not available") : GraphicsMod.Label(name, text => Tr(text)); }
 
   void ShowRecommended() {
    var lines = new List<string>();
@@ -917,7 +917,7 @@ namespace HyruleOnline {
    box.IsEnabled = choices.Count > 0;
    if (choices.Count == 0) { box.Items.Add(new ComboBoxItem { Content = Tr("Not available") }); box.SelectedIndex = 0; return; }
    var current = GraphicsMod.Pick(choices, wanted);
-   foreach (var choice in choices) box.Items.Add(new ComboBoxItem { Content = choice.Label, ToolTip = choice.Name, Tag = choice.Name });
+   foreach (var choice in choices) box.Items.Add(new ComboBoxItem { Content = GraphicsMod.Label(choice.Name, text => Tr(text)), ToolTip = choice.Name, Tag = choice.Name });
    box.SelectedIndex = choices.IndexOf(current);
   }
 

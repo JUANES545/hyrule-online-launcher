@@ -18,7 +18,7 @@ namespace HyruleOnline {
   };
 
   // Text that reads the same in every language.
-  public static readonly string[] Neutral = { "Hyrule Online", "THE LEGEND OF ZELDA", "BREATH OF THE WILD", "LT / RT", "LB", "RB", "Hunter vs Speedrunner", "Death Swap", ".NET Framework 4.8" };
+  public static readonly string[] Neutral = { "Hyrule Online", "THE LEGEND OF ZELDA", "BREATH OF THE WILD", "LT / RT", "LB", "RB", "Hunter vs Speedrunner", "Death Swap", "NVIDIA FXAA", ".NET Framework 4.8" };
 
   // English, Spanish, French.
   public static readonly string[][] Table = {
@@ -305,6 +305,16 @@ namespace HyruleOnline {
    new[] { "Balanced", "Equilibrada", "Équilibrée" },
    new[] { "High", "Alta", "Élevée" },
    new[] { "Ultra", "Ultra", "Ultra" },
+   new[] { "Disabled", "Desactivado", "Désactivé" },
+   new[] { "Normal FXAA", "FXAA normal", "FXAA normal" },
+   new[] { "Low", "Baja", "Faible" },
+   new[] { "Medium", "Media", "Moyenne" },
+   new[] { "Very High", "Muy alta", "Très élevée" },
+   new[] { "Extreme", "Extrema", "Extrême" },
+   new[] { "Default", "Predeterminado", "Par défaut" },
+   new[] { "Recommended", "Recomendado", "Recommandé" },
+   new[] { "Unstable", "Inestable", "Instable" },
+   new[] { "Experimental", "Experimental", "Expérimental" },
    new[] { "Recommended: render {0}, shadows {1}, shadow distance {2}, anti-aliasing {3}.", "Recomendado: renderizado {0}, sombras {1}, distancia de sombras {2}, suavizado {3}.", "Recommandé : rendu {0}, ombres {1}, distance des ombres {2}, anticrénelage {3}." },
    new[] { "Cemu: automatic API, {0} upscale filter, asynchronous shaders on, VSync off. FPS target Auto.", "Cemu: API automática, filtro de ampliación {0}, shaders asíncronos activados, VSync desactivado. Objetivo de FPS Auto.", "Cemu : API automatique, filtre d'agrandissement {0}, shaders asynchrones activés, VSync désactivée. Objectif FPS Auto." },
    new[] { "For playing the whole game together. Defeated enemies, Korok seeds, towers, shrines and map locations are shared; quests and Divine Beasts stay separate for each player.", "Para jugar el juego entero en equipo. Se comparten los enemigos derrotados, las semillas Kolog, las torres, los santuarios y los lugares del mapa; las misiones y las Bestias Divinas son separadas para cada jugador.", "Pour jouer au jeu entier ensemble. Les ennemis vaincus, les graines Korogu, les tours, les sanctuaires et les lieux de la carte sont partagés ; les quêtes et les Créatures divines restent séparées pour chaque joueur." },
