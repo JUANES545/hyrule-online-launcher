@@ -278,6 +278,12 @@ Symptom: the session never starts ("Player A did not reach the server"), Cemu is
 - Check for it: any `.bmodellist` or `.baslist` in `merged\content\Actor\Pack\Armor_*` or `PauseMenuPlayer` that contains the strings `Jugador` or `MultiplayerAI` is corrupt.
 - Pitfall when scripting this with `oead`: a `Sarc` object must stay alive while its file data is used, or the data turns into garbage at random.
 
+## Install folder (path guard)
+
+- Long paths break BCML, Cemu and the Milk Bar launcher, so the launcher checks its folder before it starts (`src/Launcher/PathGuard.cs`; the same limit is in `scripts/Path-Guard.ps1`, which `Start-Online.ps1` runs, and `installer/HyruleOnline.iss`, which warns on the folder page). `tests/StartupTests.cs` fails if the three numbers differ.
+- The limit comes from the deepest file known under the root, measured on the clean install: 166 characters (a graphic pack of another game that Cemu downloads, `.tools\instances\cemuA\graphicPacks\downloadedGraphicPacks\XenobladeChroniclesX\Mods\HudNoBattleUI\...`). The deepest BOTW file is 153 (a graphic pack workaround); the BCML content and `mlc01` stay under 105. Root limit = 260 - 1 (the NUL that MAX_PATH counts) - 166 - 10 (headroom for graphic packs added later) = 83 characters. `C:\HyruleOnline` (the installer default) is 15.
+- Too long and network (UNC or mapped drive) folders stop the launcher. Program Files, OneDrive (the environment folders or any path part starting with `OneDrive`) and non-ASCII characters only warn: nothing here records a non-ASCII path breaking BCML (Python 3.8) or Cemu, so that rule stays a warning until it is observed.
+
 ## Open questions
 
 0. Pipe limit: the launcher creates `languageConnectionPipe` with max 2 instances, which fits exactly two launchers on one PC. The DLL pipe name is fixed, and in the two-instance run both DLLs connected without a visible mix-up, but this was not tested on purpose.

@@ -26,3 +26,11 @@ function Test-CemuStalled {
     if (-not $start -or $allocations -eq 0) { return $false }
     return $allocations -lt 3 -and ($Now - $start).TotalSeconds -ge $StallSeconds
 }
+
+# Only player B is restarted, and only a limited number of times before giving up.
+# $Since is when this attempt of the player started, so the log of the attempt before it does not count.
+function Test-RestartPlayer {
+    param($Player, [int]$Restarts, [int]$MaxRestarts, [string[]]$LogLines, [datetime]$Now)
+    if (-not $Player -or $Player.Name -ne 'B' -or $Restarts -ge $MaxRestarts) { return $false }
+    return Test-CemuStalled -LogLines $LogLines -Now $Now -Since $Player.Started
+}

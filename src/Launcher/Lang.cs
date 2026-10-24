@@ -261,7 +261,16 @@ namespace HyruleOnline {
    new[] { "Cemu settings are missing from {0}.", "Faltan los ajustes de Cemu en {0}.", "Les paramètres de Cemu sont absents de {0}." },
    new[] { "Cemu already has its own ReShade setup in {0}.", "Cemu ya tiene su propia configuración de ReShade en {0}.", "Cemu a déjà sa propre configuration ReShade dans {0}." },
    new[] { "ReShade64.dll and ReShade64.json are missing from {0}.", "Faltan ReShade64.dll y ReShade64.json en {0}.", "ReShade64.dll et ReShade64.json sont absents de {0}." },
-   new[] { "The dedicated server is missing.", "Falta el servidor dedicado.", "Le serveur dédié est absent." }
+   new[] { "The dedicated server is missing.", "Falta el servidor dedicado.", "Le serveur dédié est absent." },
+   new[] { "Hyrule Online cannot start from this folder:", "Hyrule Online no puede iniciarse desde esta carpeta:", "Hyrule Online ne peut pas démarrer depuis ce dossier :" },
+   new[] { "Hyrule Online may have problems in this folder:", "Hyrule Online puede tener problemas en esta carpeta:", "Hyrule Online peut avoir des problèmes dans ce dossier :" },
+   new[] { "The folder path is {0} characters long and the limit is {1}. BCML, Cemu and the Milk Bar launcher fail on long paths.", "La ruta de la carpeta tiene {0} caracteres y el límite es {1}. BCML, Cemu y el launcher de Milk Bar fallan con rutas largas.", "Le chemin du dossier compte {0} caractères et la limite est de {1}. BCML, Cemu et le launcher de Milk Bar échouent avec les chemins longs." },
+   new[] { "The folder is on a network location. The game and its tools need a local drive.", "La carpeta está en una ubicación de red. El juego y sus herramientas necesitan una unidad local.", "Le dossier est sur un emplacement réseau. Le jeu et ses outils ont besoin d'un lecteur local." },
+   new[] { "The folder is under Program Files, which Windows protects from changes by regular programs.", "La carpeta está dentro de Archivos de programa, que Windows protege contra los cambios de programas normales.", "Le dossier est dans Program Files, que Windows protège contre les modifications par les programmes ordinaires." },
+   new[] { "The folder is synced by OneDrive, which can lock or rewrite files while the game uses them.", "La carpeta está sincronizada con OneDrive, que puede bloquear o reescribir archivos mientras el juego los usa.", "Le dossier est synchronisé par OneDrive, qui peut verrouiller ou réécrire des fichiers pendant que le jeu les utilise." },
+   new[] { "The folder path has characters that are not plain ASCII, which some of the tools may not handle.", "La ruta de la carpeta tiene caracteres que no son ASCII simple, y algunas herramientas podrían no manejarlos.", "Le chemin du dossier contient des caractères qui ne sont pas de l'ASCII simple, que certains outils pourraient ne pas gérer." },
+   new[] { "Move the whole folder to a short local path such as {0} and start it from there.", "Mueve toda la carpeta a una ruta local corta como {0} e inicia desde allí.", "Déplacez tout le dossier vers un chemin local court comme {0} et lancez-le depuis là." },
+   new[] { "Continue anyway?", "¿Continuar de todos modos?", "Continuer quand même ?" }
   };
 
   // The help panel is one long text, so it is kept per language instead of in the table.

@@ -47,7 +47,7 @@ namespace HyruleOnline {
     foreach (var process in Process.GetProcessesByName(name)) {
      try {
       string path = process.MainModule.FileName;
-      if (path.StartsWith(root, StringComparison.OrdinalIgnoreCase)) paths.Add(path);
+      if (path.StartsWith(root.TrimEnd('\\') + "\\", StringComparison.OrdinalIgnoreCase)) paths.Add(path);
      }
      catch (Exception) { }
      finally { process.Dispose(); }
@@ -58,6 +58,16 @@ namespace HyruleOnline {
  }
 
  static class Entry {
+  // Long or unsafe folders are caught before anything starts; only the hard failures stop the launcher.
+  static bool RootAllowed(string root) {
+   var issues = PathGuard.Check(root);
+   if (issues.Count == 0) return true;
+   Lang.Current = Prefs.Read(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "preferences.xml")).LauncherLanguage;
+   string text = PathGuard.Describe(root, issues);
+   if (issues.Any(PathGuard.Blocks)) { MessageBox.Show(text, "Hyrule Online", MessageBoxButton.OK, MessageBoxImage.Error); return false; }
+   return MessageBox.Show(text, "Hyrule Online", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) == MessageBoxResult.Yes;
+  }
+
   [STAThread] static void Main() {
    bool first;
    // Nothing is loaded yet, so these messages follow the Windows display language.
@@ -69,6 +79,7 @@ namespace HyruleOnline {
     }
     string root = Scripts.FindRoot();
     if (root == null) { MessageBox.Show(Lang.T("Run Hyrule Online from the project's .artifacts\\app folder."), "Hyrule Online"); return; }
+    if (!RootAllowed(root)) return;
     using (var router = new Router()) {
      try { router.Start(); }
      catch (Exception error) { MessageBox.Show(Lang.T("Controller input could not start.\n\n{0}", error.Message), "Hyrule Online"); return; }
@@ -333,43 +344,13 @@ namespace HyruleOnline {
   static string PrefsFile { get { return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "preferences.xml"); } }
 
   void ReadPrefs() {
-   try {
-    if (!File.Exists(PrefsFile)) return;
-    var root = XDocument.Load(PrefsFile).Root;
-    mode = ScreenLayout.Parse((string)root.Element("Layout"));
-    double saved;
-    // Older preferences only knew a balanced or sharper switch.
-    scale = double.TryParse((string)root.Element("RenderScale"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out saved) ? GraphicsMod.NearestScale(saved)
-     : (string)root.Element("Quality") == "Sharp" ? 1.5 : GraphicsMod.DefaultScale;
-    shadows = Saved(root, "Shadows"); shadowDistance = Saved(root, "ShadowDistance"); antiAliasing = Saved(root, "AntiAliasing");
-    advanced = new GraphicsMod.Advanced {
-     Api = GraphicsMod.CleanApi(Saved(root, "GraphicsApi")), VSync = (string)root.Element("VSync") == "1", AsyncCompile = (string)root.Element("AsyncCompile") == "1",
-     AccurateBarriers = (string)root.Element("AccurateBarriers") == "1",
-     Upscale = GraphicsMod.CleanFilter((string)root.Element("UpscaleFilter"), 1), Downscale = GraphicsMod.CleanFilter((string)root.Element("DownscaleFilter"), 0)
-    };
-    int wanted;
-    fpsLimit = int.TryParse((string)root.Element("FpsLimit"), out wanted) && wanted > 0 ? wanted : FpsMod.AutoFps;
-    perDisplay = (string)root.Element("Arrangement") == "PerDisplay";
-    playerCount = (string)root.Element("Players") == "1" ? 1 : 2;
-    Router.MenuLayout = Array.IndexOf(PadKind.Names, (string)root.Element("MenuLayout"));
-    for (int i = 0; i < 2; i++) {
-     displays[i] = Saved(root, "Display" + (i + 1));
-     scales[i] = double.TryParse((string)root.Element("Scale" + (i + 1)), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out saved) ? GraphicsMod.NearestScale(saved) : scale;
-     fpsLimits[i] = int.TryParse((string)root.Element("Fps" + (i + 1)), out wanted) && wanted > 0 ? wanted : FpsMod.AutoFps;
-     rotations[i] = ScreenLayout.CleanRotation(int.TryParse((string)root.Element("Rotation" + (i + 1)), out wanted) ? wanted : 0);
-    }
-    for (int i = 0; i < 2; i++) {
-     names[i] = Characters.CleanName((string)root.Element("Name" + (i + 1)), Characters.DefaultNames[i]);
-     models[i] = (string)root.Element("Model" + (i + 1)) ?? "";
-    }
-    language = Saved(root, "Language") ?? "en";
-    launcherLanguage = Lang.Ui(Saved(root, "LauncherLanguage") ?? "en");
+   var saved = Prefs.Read(PrefsFile);
+   mode = saved.Mode; scale = saved.Scale; shadows = saved.Shadows; shadowDistance = saved.ShadowDistance; antiAliasing = saved.AntiAliasing; advanced = saved.Advanced;
+   fpsLimit = saved.FpsLimit; perDisplay = saved.PerDisplay; playerCount = saved.PlayerCount; Router.MenuLayout = saved.MenuLayout;
+   for (int i = 0; i < 2; i++) {
+    displays[i] = saved.Displays[i]; scales[i] = saved.Scales[i]; fpsLimits[i] = saved.FpsLimits[i]; rotations[i] = saved.Rotations[i]; names[i] = saved.Names[i]; models[i] = saved.Models[i];
    }
-   catch (Exception) {
-    mode = LayoutMode.Auto; scale = GraphicsMod.DefaultScale; shadows = shadowDistance = antiAliasing = null; advanced = new GraphicsMod.Advanced(); fpsLimit = FpsMod.AutoFps; language = launcherLanguage = "en";
-    perDisplay = false; playerCount = 2; Router.MenuLayout = PadKind.Auto;
-    for (int i = 0; i < 2; i++) { displays[i] = null; scales[i] = GraphicsMod.DefaultScale; fpsLimits[i] = FpsMod.AutoFps; }
-   }
+   language = saved.Language; launcherLanguage = saved.LauncherLanguage;
   }
 
   // The name and avatar of each player sit on that player's card and are written into its Milk Bar settings when a session starts.
@@ -576,8 +557,6 @@ namespace HyruleOnline {
    promptText = english; promptArgs = args;
    C<TextBlock>("Prompt").Text = Tr(english, args);
   }
-
-  static string Saved(XElement root, string name) { string value = (string)root.Element(name); return string.IsNullOrEmpty(value) ? null : value; }
 
   void SavePrefs() {
    try {
@@ -1262,7 +1241,7 @@ namespace HyruleOnline {
    var start = C<Button>("Start");
    bool settled = !stopping;
    if (sessionLive && settled && appliedSignature == null) appliedSignature = Signature();
-   bool dirty = sessionLive && settled && appliedSignature != null && appliedSignature != Signature();
+   bool dirty = sessionLive && settled && RestartGate.Differs(appliedSignature, Signature());
    if (dirty != restartPending) {
     restartPending = dirty;
     if (dirty) SetPrompt(RestartPrompt);

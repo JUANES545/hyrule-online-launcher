@@ -18,6 +18,11 @@ namespace HyruleOnline {
 
  sealed class DisplayPlan { public LayoutMode Layout; public bool Separate; public PlayerView[] Players; }
 
+ static class RestartGate {
+  // The games were started with the applied signature; any other one means the options changed and only a restart can apply them.
+  public static bool Differs(string applied, string current) { return applied != null && applied != current; }
+ }
+
  // Splits the primary display between the two Cemu windows. Same Auto rule as the local co-op launcher:
  // a wide display (2:1 or more) goes side by side, anything else is stacked.
  static class ScreenLayout {

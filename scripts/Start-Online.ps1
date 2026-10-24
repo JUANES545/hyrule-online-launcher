@@ -14,6 +14,8 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $root = Split-Path -Parent $PSScriptRoot
+. (Join-Path $PSScriptRoot 'Path-Guard.ps1')
+Assert-RootPath -Root $root
 $extract = Join-Path $root '.artifacts\extract'
 $serverDirectory = Join-Path $extract 'milkbar\DedicatedServer'
 $players = @(@(
@@ -192,7 +194,7 @@ while ($seen -lt $PlayerCount) {
     }
     if ($playerB -and $stallRestarts -lt $maxStallRestarts) {
         $cemuLog = try { Get-Content -LiteralPath (Join-Path $playerB.Cemu 'log.txt') -ErrorAction Stop } catch { @() }
-        if (Test-CemuStalled -LogLines $cemuLog -Now (Get-Date) -Since $playerB.Started) {
+        if (Test-RestartPlayer -Player $playerB -Restarts $stallRestarts -MaxRestarts $maxStallRestarts -LogLines $cemuLog -Now (Get-Date)) {
             $stallRestarts++
             Write-Output "Player B stalled while loading; restarting it ($stallRestarts of $maxStallRestarts)."
             Stop-Player -Player $playerB
