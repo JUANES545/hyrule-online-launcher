@@ -88,6 +88,8 @@ namespace HyruleOnline {
   public void BeginAssign(int player) { lock (gate) assigning = player; }
   public void CancelAssign() { lock (gate) assigning = -1; }
   public void Swap() { lock (gate) { int first = routes[0]; routes[0] = routes[1]; routes[1] = first; } }
+  public void Promote(int slot) { lock (gate) Assign(routes, 0, slot); }
+  public void SetRoutes(int[] saved) { lock (gate) Array.Copy(saved, routes, 2); }
   public void TestRumble(int player) { lock (gate) testRequested[player] = true; }
 
   void Notify(string text) { var handler = Message; if (handler != null) handler(text); }

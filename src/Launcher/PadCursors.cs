@@ -79,6 +79,7 @@ namespace HyruleOnline {
    long now = Environment.TickCount;
    bool listening = (Window.IsActive || padScript != null) && snapshot.Assigning < 0 && !capturing;
    var active = new bool[3];
+   var acceptSlots = new[] { -1, -1, -1 };
    var presses = new List<KeyValuePair<int, PadPress>>();
    for (int slot = 0; slot < 4; slot++) {
     if (snapshot.Names[slot] == null) { slotNavs[slot] = new PadNav(); continue; }
@@ -89,6 +90,7 @@ namespace HyruleOnline {
     var press = slotNavs[slot].Update(state.buttons, state.lx, state.ly, now);
     if (snapshot.Assigning >= 0 && press.Back) router.CancelAssign();
     if (listening) presses.Add(new KeyValuePair<int, PadPress>(owner, press));
+    if (press.Accept) acceptSlots[owner] = slot;
    }
    if (padScript != null) {
     for (int i = 0; i < 3; i++) if (scriptOwners[i]) active[page == 0 ? i : 2] = true;
@@ -112,7 +114,7 @@ namespace HyruleOnline {
     var cursor = cursors[entry.Key];
     if (!cursor.Active) continue;
     if (entry.Value.Direction >= 0) MoveCursor(cursor, entry.Value.Direction);
-    if (entry.Value.Accept) { AcceptCursor(cursor); var shown = cursor.Target; Window.Dispatcher.BeginInvoke(new Action(() => ShowHint(shown)), DispatcherPriority.Background); }
+    if (entry.Value.Accept) { actorSlot = acceptSlots[entry.Key]; AcceptCursor(cursor); actorSlot = -1; var shown = cursor.Target; Window.Dispatcher.BeginInvoke(new Action(() => ShowHint(shown)), DispatcherPriority.Background); }
     if (entry.Value.Back) BackCursor(cursor);
    }
    DrawCursors();

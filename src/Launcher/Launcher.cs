@@ -128,6 +128,10 @@ namespace HyruleOnline {
   readonly TapGuard[] startGuards = { new TapGuard(), new TapGuard(), new TapGuard(), new TapGuard() };
   readonly TapGuard[] selectGuards = { new TapGuard(), new TapGuard(), new TapGuard(), new TapGuard() };
   int playerCount = 2;
+  // The controller routes from before a controller chose single player, put back when multiplayer returns.
+  int[] routesBeforeSingle;
+  // The controller whose press is being handled, so choosing single player can make it player 1 (-1 for the mouse).
+  int actorSlot = -1;
   readonly string[] displays = { null, null };
   readonly double[] scales = { GraphicsMod.DefaultScale, GraphicsMod.DefaultScale };
   readonly int[] rotations = { 0, 0 };
@@ -337,6 +341,7 @@ namespace HyruleOnline {
   void NavigateWithPads(RouterSnapshot snapshot) {
    int step = 0;
    bool start = false, select = false;
+   int selectSlot = -1;
    var shortcut = Router.Shortcut;
    for (int slot = 0; slot < 4; slot++) {
     bool present = snapshot.Names[slot] != null;
@@ -344,13 +349,13 @@ namespace HyruleOnline {
     byte lt = present ? snapshot.Pads[slot].lt : (byte)0, rt = present ? snapshot.Pads[slot].rt : (byte)0;
     if (step == 0 && !snapshot.Engaged[slot]) step = PageNav.Step(previousButtons[slot], buttons);
     start |= startGuards[slot].Update(buttons, lt, rt, PadKind.StartButton, shortcut != null && (shortcut.Buttons & PadKind.StartButton) != 0);
-    select |= selectGuards[slot].Update(buttons, lt, rt, PadKind.SelectButton, shortcut != null && (shortcut.Buttons & PadKind.SelectButton) != 0);
+    if (selectGuards[slot].Update(buttons, lt, rt, PadKind.SelectButton, shortcut != null && (shortcut.Buttons & PadKind.SelectButton) != 0)) { select = true; if (selectSlot < 0) selectSlot = slot; }
     previousButtons[slot] = buttons;
    }
    if (capturing || !Window.IsActive || AnyDropDownOpen() || HelpOpen || setupActive) return;
    if (step != 0) ShowPage(PageNav.Move(page, step, PageNames.Length));
    else if (start && C<Button>("Start").IsEnabled) PressStart();
-   else if (select && page == 0 && C<Button>("Mode").IsEnabled) TogglePlayerCount();
+   else if (select && page == 0 && C<Button>("Mode").IsEnabled) SetPlayerCount(playerCount == 1 ? 2 : 1, selectSlot);
   }
 
   bool AnyDropDownOpen() {
@@ -1123,10 +1128,16 @@ namespace HyruleOnline {
    C<Button>("Mode").ToolTip = two ? Tr("Play alone: one game on the whole primary display.") : Tr("Two players on this PC, with the screen split or one display each.");
   }
 
-  void TogglePlayerCount() { SetPlayerCount(playerCount == 1 ? 2 : 1); }
+  void TogglePlayerCount() { SetPlayerCount(playerCount == 1 ? 2 : 1, actorSlot); }
 
-  void SetPlayerCount(int count) {
+  // The controller that picks single player becomes player 1; going back to two players restores the routes it replaced.
+  void SetPlayerCount(int count, int slot) {
    if (count == playerCount) return;
+   if (count == 1) {
+    routesBeforeSingle = null;
+    if (slot >= 0) { routesBeforeSingle = router.Snapshot().Routes; router.Promote(slot); }
+   }
+   else if (routesBeforeSingle != null) { router.SetRoutes(routesBeforeSingle); routesBeforeSingle = null; }
    playerCount = count;
    ChangedDisplayChoice();
    UpdateStart();

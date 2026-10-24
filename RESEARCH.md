@@ -304,6 +304,12 @@ Reversible: a junction found on either cache (for example made by hand) is first
 - Start still means "Restart session" only when settings changed; a TapGuard fires it on release and only if nothing else was held, so the chord cannot trigger it.
 - Live check (`shortcut-test`, 26 of 26 passed): chord hidden from the game, no restart, same Cemu processes, neutral input while open, return to the right Cemu for each player, toggle, short press ignored, capture, refusal of Start + Back, cancel, and the new chord replacing the old one.
 - Not verified: a physical pad through Steam Input / Moonlight. BOTW uses ZL for lock-on and shield, so Start + LT may collide with play; Start + LT + RT or L3 + R3 are the fallbacks.
+
+## Single player picks the main controller (built, verified with virtual pads)
+
+- A controller that switches to 1 player (Select, or its cursor on the switch) becomes Player 1; `Router.Promote` uses the same swap as Assign. The routes from before are saved and `Router.SetRoutes` puts them back when multiplayer returns. A mouse click changes no routes. The saved routes live in memory only, so a launcher that starts already in single player has nothing to restore.
+- Live check (`mode-test`, no game, two virtual pads): pad 2 picks single and becomes Player 1 (routes 3,2); going back restores 2,3; the pad that is already Player 1 moves nothing; mouse clicks change nothing.
+
 ## How setup works (first run)
 
 A fresh unzip or the thin installer holds only the launcher, the input router/bridge and `scripts\`. Everything else is found or fetched on first run.
