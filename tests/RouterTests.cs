@@ -251,35 +251,6 @@ namespace HyruleOnline {
 
   static void Require(bool ok, string message) { if (!ok) throw new Exception("TEST: " + message); }
 
-  // The text of every string literal inside the calls to the given methods.
-  static List<string> CallLiterals(string source, params string[] calls) {
-   var found = new List<string>();
-   foreach (string call in calls) {
-    int at = 0;
-    while ((at = source.IndexOf(call + "(", at, StringComparison.Ordinal)) >= 0) {
-     if (at > 0 && (char.IsLetterOrDigit(source[at - 1]) || source[at - 1] == '_' || source[at - 1] == '.')) { at += call.Length; continue; }
-     int i = at + call.Length + 1, depth = 1;
-     while (i < source.Length && depth > 0) {
-      char c = source[i];
-      if (c == '"') {
-       var text = new System.Text.StringBuilder();
-       i++;
-       while (source[i] != '"') {
-        if (source[i] == '\\') { char next = source[i + 1]; text.Append(next == 'n' ? '\n' : next); i += 2; }
-        else text.Append(source[i++]);
-       }
-       found.Add(text.ToString());
-      }
-      else if (c == '(') depth++;
-      else if (c == ')') depth--;
-      i++;
-     }
-     at = i;
-    }
-   }
-   return found;
-  }
-
   static void ServerRulesTest() {
    const string ini = "\uFEFF[Connection]\r\nIP=100.1.2.3\r\nPort=5050\r\nPassword=secret\r\n\r\n[Gamemode]\r\n# keep me\r\nDefaultGamemode=False\r\n\r\n[DefaultGamemode]\r\n# rules\r\nName=Custom\r\nEnemySync=False\r\nQuestSync=True\r\n# special\r\nSpecial=0\r\n";
    var rules = ServerRules.Parse(ini);
@@ -335,15 +306,7 @@ namespace HyruleOnline {
   }
 
   static void Languages(string root) {
-   var table = Lang.Table;
-   Require(table.Select(r => r[0]).Distinct().Count() == table.Length, "every English text appears once in the table");
-   Func<string, string> holes = text => string.Join(",", System.Text.RegularExpressions.Regex.Matches(text, "\\{\\d+\\}").Cast<System.Text.RegularExpressions.Match>().Select(m => m.Value).OrderBy(v => v));
-   foreach (var row in table) {
-    Require(row.Length == Lang.Supported.Length && row.All(t => !string.IsNullOrWhiteSpace(t)), "every language has text for: " + row[0]);
-    Require(row.All(t => holes(t) == holes(row[0])), "the same placeholders in every language: " + row[0]);
-    Require(row.All(t => t.Split('\n').Length == row[0].Split('\n').Length), "the same line breaks in every language: " + row[0]);
-   }
-   Require(Lang.HelpText.Length == Lang.Supported.Length && Lang.HelpText.All(t => t.Split(new[] { "\n\n" }, StringSplitOptions.None).Length == Lang.HelpText[0].Split(new[] { "\n\n" }, StringSplitOptions.None).Length), "the help text has the same sections in every language");
+   LanguageTests.Audit(root);
 
    try {
     Lang.Current = "es";
@@ -355,24 +318,6 @@ namespace HyruleOnline {
     Require(Lang.Current == "en" && Lang.T("PLAY") == "PLAY" && Lang.Help().StartsWith("SESSION: Start"), "a language without a translation shows English");
    }
    finally { Lang.Current = "en"; }
-
-   // Nothing the launcher writes may be missing from the table.
-   var known = new HashSet<string>(table.Select(r => r[0]).Concat(Lang.Neutral));
-   var xaml = System.Xml.Linq.XDocument.Load(Path.Combine(root, "src", "Launcher", "Launcher.xaml"));
-   System.Xml.Linq.XNamespace x = "http://schemas.microsoft.com/winfx/2006/xaml";
-   foreach (var element in xaml.Descendants()) {
-    if (element.AncestorsAndSelf().Any(e => e.Name.LocalName == "Window.Resources" || Lang.Dynamic.Contains((string)e.Attribute(x + "Name")))) continue;
-    foreach (string attribute in new[] { "Text", "Content", "ToolTip", "AutomationProperties.Name" }) {
-     string value = (string)element.Attribute(attribute);
-     if (string.IsNullOrEmpty(value) || value.StartsWith("{")) continue;
-     Require(known.Contains(value), "the XAML text is translated: " + value);
-    }
-   }
-   string code = File.ReadAllText(Path.Combine(root, "src", "Launcher", "Launcher.cs"));
-   var skipped = new[] { "", "Server", "A", "B" };
-   var literals = CallLiterals(code, "Tr", "Fail", "SetStatus", "SetPrompt", "Step").Where(t => !skipped.Contains(t)).ToList();
-   Require(literals.Count > 40, "the launcher code uses the translation helpers");
-   foreach (string literal in literals) Require(known.Contains(literal), "the launcher text is translated: " + literal);
 
    string temp = Path.Combine(Path.GetTempPath(), "hyrule-lang-" + Guid.NewGuid().ToString("N"));
    try {
