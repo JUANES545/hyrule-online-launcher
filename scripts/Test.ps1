@@ -14,6 +14,11 @@ if ($LASTEXITCODE -ne 0) { throw 'Router tests failed.' }
 if ($LASTEXITCODE -ne 0) { throw 'Startup test compilation failed.' }
 & (Join-Path $output 'StartupTests.exe') $root
 if ($LASTEXITCODE -ne 0) { throw 'Startup tests failed.' }
+& (Join-Path $framework 'csc.exe') /nologo /target:exe /platform:x64 "/out:$(Join-Path $output 'SetupTests.exe')" /reference:System.Xml.Linq.dll /reference:System.Web.Extensions.dll /reference:System.IO.Compression.dll /reference:System.IO.Compression.FileSystem.dll `
+    (Join-Path $root 'tests\SetupTests.cs') (Join-Path $root 'src\Launcher\Setup.cs') (Join-Path $root 'src\Launcher\GraphicsMod.cs') (Join-Path $root 'src\Launcher\Hardware.cs') (Join-Path $root 'src\Launcher\Lang.cs')
+if ($LASTEXITCODE -ne 0) { throw 'Setup test compilation failed.' }
+& (Join-Path $output 'SetupTests.exe') $root
+if ($LASTEXITCODE -ne 0) { throw 'Setup tests failed.' }
 
 $wpf = Join-Path $framework 'WPF'
 & (Join-Path $framework 'csc.exe') /nologo /target:exe /platform:x64 "/out:$(Join-Path $output 'BadgeTests.exe')" "/reference:$(Join-Path $wpf 'PresentationFramework.dll')" "/reference:$(Join-Path $wpf 'PresentationCore.dll')" "/reference:$(Join-Path $wpf 'WindowsBase.dll')" /reference:System.Xaml.dll `

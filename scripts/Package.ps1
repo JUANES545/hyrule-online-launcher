@@ -22,7 +22,7 @@ foreach ($name in 'HyruleOnline.exe', 'SDL3.dll', 'gamecontrollerdb.txt', 'GameC
 Copy-Item -LiteralPath (Join-Path $app 'Fonts') -Destination (Join-Path $stage '.artifacts\app') -Recurse
 Copy-Item -Path (Join-Path $input '*') -Destination (Join-Path $stage '.artifacts\input') -Recurse
 Get-ChildItem -LiteralPath (Join-Path $stage '.artifacts\input') -Recurse -File | Where-Object { $_.Extension -in '.pdb', '.lib' } | ForEach-Object { Remove-Item -LiteralPath $_.FullName }
-foreach ($name in 'Start-Online.ps1', 'Stop-Online.ps1', 'Cemu-Stall.ps1', 'Path-Guard.ps1', 'Connect-MilkBar.ps1', 'New-Shortcut.ps1', 'Patch-Mod.ps1', 'patch_mod.py') {
+foreach ($name in 'Start-Online.ps1', 'Stop-Online.ps1', 'Cemu-Stall.ps1', 'Path-Guard.ps1', 'Connect-MilkBar.ps1', 'New-Shortcut.ps1', 'Patch-Mod.ps1', 'patch_mod.py', 'Install-Components.ps1', 'components.json', 'bcml-requirements.txt') {
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot $name) -Destination (Join-Path $stage 'scripts')
 }
 Copy-Item -LiteralPath (Join-Path $root 'VERSION') -Destination $stage
