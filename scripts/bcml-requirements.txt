@@ -1,0 +1,42 @@
+# BCML 3.10.8 and its dependencies for the project's Python 3.8.10 (win_amd64), pinned to the versions of the working install.
+# Used by scripts/Install-Components.ps1: pip install --no-deps --require-hashes --only-binary=:all: -r this file.
+# Every hash is the SHA-256 of a compatible wheel as published on pypi.org when this file was written.
+bcml==3.10.8 \
+    --hash=sha256:7a18e4c4d49bd5afe67cc1e52fbe5cc840faa6da6d3ec2ccaf8f066cf844214c
+botw-utils==0.2.3 \
+    --hash=sha256:c8269e272b08bde4a8f85737c18c2c4b47e0bbd3f8a4565cf42b5fe31a02ba7d
+cefpython3==66.1 \
+    --hash=sha256:3cf0dc13b4e9aa1c7f028e7f1bfe4e7fca6e677f18574f4ef9346f5d48853f51 \
+    --hash=sha256:afe1bcde78cbd3790370f4a51cbca37de8bff761de0452f8b8a3b22971bed82a
+certifi==2026.10.19 \
+    --hash=sha256:42d35340cc5b9ba78e818ddbff0c5b1c2b779de448a340fd1b989f5fa8670e1b
+cffi==1.17.1 \
+    --hash=sha256:78122be759c3f8a014ce010908ae03364d00a1f81ab5c7f4a7a5120607ea56e1
+charset-normalizer==2.0.12 \
+    --hash=sha256:6881edbebdb17b39b4eaaa821b438bf6eddffb4468cf344f09f89def34a8b1df
+clr-loader==0.2.10 \
+    --hash=sha256:ebbbf9d511a7fe95fa28a95a4e04cd195b097881dfe66158dc2c281d3536f282
+evfl==1.2.0 \
+    --hash=sha256:dbfb7c68a99ccbc2942636a7153fe9bae7d869ada31c0cdf441145cc71a4ffde
+idna==3.15 \
+    --hash=sha256:048adeaf8c2d788c40fee287673ccaa74c24ffd8dcf09ffa555a2fbb59f10ac8
+oead==1.2.9.post4 \
+    --hash=sha256:c95925a0d547f1664ff63f3cd8387f3a5c808aa52fd44505e71a7e8f9482b9ec
+packaging==21.3 \
+    --hash=sha256:ef103e05f519cdc783ae24ea4e2e0f508a9c99b2d4969652eed6a2e1ea5bd522
+pycparser==2.23 \
+    --hash=sha256:e5c6e8d3fbad53479cab09ac03729e0a9faf2bee3db8208a550daf5af81a5934
+pyparsing==3.1.4 \
+    --hash=sha256:a6a7ee4235a3f944aa1fa2249307708f893fe5717dc603503c6c7969c070fb7c
+pythonnet==3.0.5 \
+    --hash=sha256:f6702d694d5d5b163c9f3f5cc34e0bed8d6857150237fae411fefb883a656d20
+pywebview==3.7.2 \
+    --hash=sha256:fb516b8e622344b84d4085899dbbb327570b6d65273a28537138e0f3a78c4728
+requests==2.27.1 \
+    --hash=sha256:f22fa1e554c9ddfd16e6e41ac79759e17be9e492b3587efa038054674760e72d
+rstb==1.2.2 \
+    --hash=sha256:5f3b6a66172d5cd22c0d351bdb4d750d08953c4cab9502eded3ff4043fc83592
+urllib3==1.26.20 \
+    --hash=sha256:0ed14ccfbf1c30a9072c7ca157e4319b70d65f623e91e7b32fadb2853431016e
+xxhash==3.8.2 \
+    --hash=sha256:e13bd3eb6c59571ceda57a9ae0c79a72050c922e81b2f5656cea77df784ddc3e
