@@ -294,6 +294,16 @@ The launcher stays responsive during the first copy: `ShaderCache.Prepare` runs 
 
 Reversible: a junction found on either cache (for example made by hand) is first copied to a real folder, only then is the link removed (the target is untouched), whatever the flag says. Any error (locked file, no space, no permission) leaves both instances independent, removes the half-made copy, shows "Shared shader cache is off for this session" in the status line and is written to `shader-cache.log` next to the launcher (flag, paths, sizes, free disk, action, error message, fallback). Unit tests use temp folders only (`tests\ShaderCacheTests.cs`). Not verified: a real session with the option on.
 
+## Menu shortcut from inside the game (built, verified with virtual pads)
+
+- Default chord: Start + LT held 1.5 s on any controller, configurable under Menu controls (presets Start + LT + RT and L3 + R3, a capture mode for 2 to 4 inputs, or Off). Start + Back is refused because Moonlight's quit chord is Start + Back + LB + RB. The Guide button is not mapped by SDL here.
+- The router detects the chord per slot with trigger hysteresis, hides the chord's inputs from the game while it is held, and gives a short rumble pulse when it fires. A single press of the first chord button still reaches the game (accepted).
+- While the launcher is the active window and a game runs, the games see a neutral pad, so menu presses never reach Cemu.
+- Windows blocks background focus changes. `WindowPlacer.Focus` sends a synthetic Alt tap, flips the window topmost and calls `SetForegroundWindow`. When going back, the target must be focused before the launcher is minimized, or the focus falls to the desktop.
+- B on the first screen of the launcher returns to that player's Cemu, and so does the "Return to game" button. The same chord toggles open and closed.
+- Start still means "Restart session" only when settings changed; a TapGuard fires it on release and only if nothing else was held, so the chord cannot trigger it.
+- Live check (`shortcut-test`, 26 of 26 passed): chord hidden from the game, no restart, same Cemu processes, neutral input while open, return to the right Cemu for each player, toggle, short press ignored, capture, refusal of Start + Back, cancel, and the new chord replacing the old one.
+- Not verified: a physical pad through Steam Input / Moonlight. BOTW uses ZL for lock-on and shield, so Start + LT may collide with play; Start + LT + RT or L3 + R3 are the fallbacks.
 ## How setup works (first run)
 
 A fresh unzip or the thin installer holds only the launcher, the input router/bridge and `scripts\`. Everything else is found or fetched on first run.

@@ -158,6 +158,16 @@ namespace HyruleOnline {
   const int SwRestore = 9;
 
   [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr window);
+  [DllImport("user32.dll")] static extern void keybd_event(byte key, byte scan, uint flags, UIntPtr extra);
+
+  // Windows only lets the program that got the last real input take the focus, and a controller is not an input for it.
+  // A synthetic Alt tap counts as input, so it unlocks the switch; the key is released right away and nothing else sees it as a shortcut.
+  public static void Focus(IntPtr window) {
+   const byte VkMenu = 0x12; const uint KeyUp = 2;
+   keybd_event(VkMenu, 0, 0, UIntPtr.Zero);
+   keybd_event(VkMenu, 0, KeyUp, UIntPtr.Zero);
+   BringToFront(window);
+  }
 
   // Puts the window above every other one, the launcher included. A topmost flip works even when Windows refuses to hand over the focus.
   public static void BringToFront(IntPtr window) {

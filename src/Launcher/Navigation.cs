@@ -46,6 +46,24 @@ namespace HyruleOnline {
   public static int Move(int page, int step, int count) { return count <= 0 ? 0 : ((page + step) % count + count) % count; }
  }
 
+ // Start (or Select) is both a menu action and part of the menu shortcut. When the shortcut uses it, the action waits for the release
+ // and is dropped if anything else was held meanwhile, so opening or closing the menu with the shortcut never restarts the session.
+ sealed class TapGuard {
+  bool down, spoiled;
+
+  public bool Update(ushort buttons, byte lt, byte rt, ushort mask, bool onRelease) {
+   bool held = (buttons & mask) != 0;
+   bool other = (buttons & ~mask) != 0 || lt >= MenuShortcut.TriggerOff || rt >= MenuShortcut.TriggerOff;
+   bool fire = false;
+   if (!onRelease) fire = held && !down;
+   else if (held && !down) spoiled = other;
+   else if (held && other) spoiled = true;
+   else if (!held && down) fire = !spoiled;
+   down = held;
+   return fire;
+  }
+ }
+
  // What one controller did to the menu since the last poll: a direction (0 up, 1 down, 2 left, 3 right, -1 none) and new A / B presses.
  struct PadPress {
   public int Direction;

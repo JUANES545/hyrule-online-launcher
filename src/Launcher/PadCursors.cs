@@ -77,7 +77,7 @@ namespace HyruleOnline {
   void DrivePads(RouterSnapshot snapshot) {
    if (cursors[0] == null) return;
    long now = Environment.TickCount;
-   bool listening = (Window.IsActive || padScript != null) && snapshot.Assigning < 0;
+   bool listening = (Window.IsActive || padScript != null) && snapshot.Assigning < 0 && !capturing;
    var active = new bool[3];
    var presses = new List<KeyValuePair<int, PadPress>>();
    for (int slot = 0; slot < 4; slot++) {
@@ -284,6 +284,7 @@ namespace HyruleOnline {
    if (cursor.Combo != null) { cursor.Combo.IsDropDownOpen = false; cursor.Combo = null; return; }
    if (cursor.Picker < 0) {
     if (HelpOpen) C<Border>("HelpPanel").Visibility = Visibility.Collapsed;
+    else if (gameRunning && !setupActive) ReturnToGame(cursor.Owner == 1 ? 1 : 0);
     return;
    }
    int player = cursor.Picker;

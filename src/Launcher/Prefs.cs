@@ -13,6 +13,7 @@ namespace HyruleOnline {
   public GraphicsMod.Advanced Advanced = new GraphicsMod.Advanced();
   public int FpsLimit = FpsMod.AutoFps, PlayerCount = 2, MenuLayout = PadKind.Auto;
   public bool PerDisplay, SharedShaders;
+  public string Shortcut = MenuShortcut.Default;
   public string[] Displays = new string[2], Names = (string[])Characters.DefaultNames.Clone(), Models = { "", "" };
   public double[] Scales = { GraphicsMod.DefaultScale, GraphicsMod.DefaultScale };
   public int[] FpsLimits = { FpsMod.AutoFps, FpsMod.AutoFps }, Rotations = { 0, 0 };
@@ -48,6 +49,8 @@ namespace HyruleOnline {
      prefs.Models[i] = (string)root.Element("Model" + (i + 1)) ?? "";
     }
     prefs.SharedShaders = (string)root.Element("SharedShaderCache") == "1";
+    var shortcut = MenuShortcut.Parse((string)root.Element("MenuShortcut"));
+    prefs.Shortcut = (string)root.Element("MenuShortcut") == "Off" ? "Off" : shortcut != null ? shortcut.ToString() : MenuShortcut.Default;
     prefs.Language = Saved(root, "Language") ?? "en";
     prefs.LauncherLanguage = Lang.Ui(Saved(root, "LauncherLanguage") ?? "en");
     return prefs;

@@ -118,6 +118,15 @@ namespace HyruleOnline {
   bool perDisplay, canSeparate;
  bool sharedShaders;
  string shaderProblem;
+  // The menu shortcut ("Off" or a MenuShortcut string), whether a game is open, and the state of the capture that records a new shortcut.
+  string shortcutText = MenuShortcut.Default;
+  bool gameRunning, capturing, captureArmed;
+  int lastChordSeq = -1, captureSlot = -1, shortcutLayout = PadKind.Nintendo;
+  long captureStarted;
+  ushort captureButtons;
+  bool captureLt, captureRt;
+  readonly TapGuard[] startGuards = { new TapGuard(), new TapGuard(), new TapGuard(), new TapGuard() };
+  readonly TapGuard[] selectGuards = { new TapGuard(), new TapGuard(), new TapGuard(), new TapGuard() };
   int playerCount = 2;
   readonly string[] displays = { null, null };
   readonly double[] scales = { GraphicsMod.DefaultScale, GraphicsMod.DefaultScale };
@@ -328,21 +337,24 @@ namespace HyruleOnline {
   void NavigateWithPads(RouterSnapshot snapshot) {
    int step = 0;
    bool start = false, select = false;
+   var shortcut = Router.Shortcut;
    for (int slot = 0; slot < 4; slot++) {
-    ushort buttons = snapshot.Names[slot] != null ? snapshot.Pads[slot].buttons : (ushort)0;
-    if (step == 0) step = PageNav.Step(previousButtons[slot], buttons);
-    start |= PageNav.Pressed(previousButtons[slot], buttons, PadKind.StartButton);
-    select |= PageNav.Pressed(previousButtons[slot], buttons, PadKind.SelectButton);
+    bool present = snapshot.Names[slot] != null;
+    ushort buttons = present ? snapshot.Pads[slot].buttons : (ushort)0;
+    byte lt = present ? snapshot.Pads[slot].lt : (byte)0, rt = present ? snapshot.Pads[slot].rt : (byte)0;
+    if (step == 0 && !snapshot.Engaged[slot]) step = PageNav.Step(previousButtons[slot], buttons);
+    start |= startGuards[slot].Update(buttons, lt, rt, PadKind.StartButton, shortcut != null && (shortcut.Buttons & PadKind.StartButton) != 0);
+    select |= selectGuards[slot].Update(buttons, lt, rt, PadKind.SelectButton, shortcut != null && (shortcut.Buttons & PadKind.SelectButton) != 0);
     previousButtons[slot] = buttons;
    }
-   if (!Window.IsActive || AnyDropDownOpen() || HelpOpen || setupActive) return;
+   if (capturing || !Window.IsActive || AnyDropDownOpen() || HelpOpen || setupActive) return;
    if (step != 0) ShowPage(PageNav.Move(page, step, PageNames.Length));
    else if (start && C<Button>("Start").IsEnabled) PressStart();
    else if (select && page == 0 && C<Button>("Mode").IsEnabled) TogglePlayerCount();
   }
 
   bool AnyDropDownOpen() {
-   foreach (var name in new[] { "FpsBox", "ScaleBox", "ShadowsBox", "ShadowDistanceBox", "AntiAliasingBox", "RulesBox", "SpecialBox", "WeatherBox", "Display1Box", "Display2Box", "Scale1Box", "Scale2Box", "Fps1Box", "Fps2Box", "ApiBox", "UpscaleBox", "DownscaleBox", "PadLayoutBox" }) if (C<ComboBox>(name).IsDropDownOpen) return true;
+   foreach (var name in new[] { "FpsBox", "ScaleBox", "ShadowsBox", "ShadowDistanceBox", "AntiAliasingBox", "RulesBox", "SpecialBox", "WeatherBox", "Display1Box", "Display2Box", "Scale1Box", "Scale2Box", "Fps1Box", "Fps2Box", "ApiBox", "UpscaleBox", "DownscaleBox", "PadLayoutBox", "ShortcutBox" }) if (C<ComboBox>(name).IsDropDownOpen) return true;
    return pickerOpen[0] || pickerOpen[1] || cursors.Any(c => c != null && c.Combo != null);
   }
 
@@ -356,6 +368,7 @@ namespace HyruleOnline {
     displays[i] = saved.Displays[i]; scales[i] = saved.Scales[i]; fpsLimits[i] = saved.FpsLimits[i]; rotations[i] = saved.Rotations[i]; names[i] = saved.Names[i]; models[i] = saved.Models[i];
    }
    sharedShaders = saved.SharedShaders; language = saved.Language; launcherLanguage = saved.LauncherLanguage;
+   shortcutText = saved.Shortcut; Router.Shortcut = MenuShortcut.Parse(shortcutText);
   }
 
   // The name and avatar of each player sit on that player's card and are written into its Milk Bar settings when a session starts.
@@ -576,7 +589,7 @@ namespace HyruleOnline {
      new XElement("Fps1", fpsLimits[0] == FpsMod.AutoFps ? "Auto" : fpsLimits[0].ToString()), new XElement("Fps2", fpsLimits[1] == FpsMod.AutoFps ? "Auto" : fpsLimits[1].ToString()),
      new XElement("Rotation1", rotations[0]), new XElement("Rotation2", rotations[1]),
      new XElement("Name1", names[0]), new XElement("Model1", models[0]), new XElement("Name2", names[1]), new XElement("Model2", models[1]),
-     new XElement("SharedShaderCache", sharedShaders ? "1" : "0"), new XElement("Language", language), new XElement("LauncherLanguage", launcherLanguage), new XElement("MenuLayout", Router.MenuLayout < 0 ? "Auto" : PadKind.Names[Router.MenuLayout]))).Save(PrefsFile);
+     new XElement("SharedShaderCache", sharedShaders ? "1" : "0"), new XElement("Language", language), new XElement("LauncherLanguage", launcherLanguage), new XElement("MenuLayout", Router.MenuLayout < 0 ? "Auto" : PadKind.Names[Router.MenuLayout]), new XElement("MenuShortcut", shortcutText))).Save(PrefsFile);
    }
    catch (Exception error) { Write("Could not save the display settings: " + error.Message); }
   }
@@ -726,6 +739,7 @@ namespace HyruleOnline {
    layout.Items.Add(new ComboBoxItem { Content = Tr("PlayStation ({0} bottom, {1} right)", CrossMark, CircleMark), Tag = "PlayStation" });
    layout.SelectedIndex = Router.MenuLayout + 1;
    padLayoutShown = null;
+   FillShortcut();
    ShowRecommended();
   }
 
@@ -749,6 +763,8 @@ namespace HyruleOnline {
    if (signature == padLayoutShown) return;
    padLayoutShown = signature;
    int shown = first < 0 ? PadKind.Resolve(Router.MenuLayout, -1) : first;
+   shortcutLayout = shown;
+   ShowShortcut();
    string hint = Tr("D-pad: move   {0}: select   {1}: back", ConfirmLabel(shown), BackLabel(shown));
    C<TextBlock>("PadHint1").Text = hint;
    C<TextBlock>("PadHint2").Text = hint;
@@ -757,7 +773,109 @@ namespace HyruleOnline {
    C<TextBlock>("PadLayoutInfo").Text = parts.Count == 0 ? Tr("No controller detected: menus use the {0} layout.", PadKind.Names[shown]) : Tr("Detected: {0}", string.Join(ListSeparator, parts.ToArray()));
   }
 
+  void FillShortcut() {
+   var box = C<ComboBox>("ShortcutBox");
+   var tags = new List<string> { "Start+LT", "Start+LT+RT", "L3+R3" };
+   if (shortcutText != "Off" && !tags.Contains(shortcutText)) tags.Add(shortcutText);
+   box.Items.Clear();
+   foreach (string tag in tags) box.Items.Add(new ComboBoxItem { Content = tag.Replace("+", " + "), Tag = tag });
+   box.Items.Add(new ComboBoxItem { Content = Tr("Off"), Tag = "Off" });
+   box.SelectedIndex = tags.IndexOf(shortcutText) >= 0 ? tags.IndexOf(shortcutText) : tags.Count;
+   ShowShortcut();
+  }
+
+  void ShowShortcut() {
+   if (capturing) return;
+   C<Button>("ShortcutChange").Content = Tr("Change shortcut");
+   C<TextBlock>("ShortcutInfo").Text = shortcutText == "Off" ? Tr("The menu shortcut is off.") : Tr("Hold {0} for 1.5 seconds to bring this menu over the game. Hold it again, or press {1}, to go back.", shortcutText.Replace("+", " + "), BackLabel(shortcutLayout));
+  }
+
+  void SetShortcut(string text) {
+   shortcutText = text;
+   Router.Shortcut = MenuShortcut.Parse(text);
+   SavePrefs();
+  }
+
+  void BeginCapture() {
+   capturing = true; captureArmed = false; captureSlot = -1; captureButtons = 0; captureLt = captureRt = false;
+   captureStarted = Environment.TickCount;
+   Router.Shortcut = null;
+   C<Button>("ShortcutChange").Content = Tr("Cancel");
+   C<TextBlock>("ShortcutInfo").Text = Tr("Hold the new shortcut on a controller (2 to 4 inputs), then let go. Nothing pressed for 10 seconds cancels.");
+  }
+
+  void EndCapture(MenuShortcut result) {
+   capturing = false;
+   if (result != null) SetShortcut(result.ToString()); else Router.Shortcut = MenuShortcut.Parse(shortcutText);
+   filling = true;
+   try { FillShortcut(); } finally { filling = false; }
+   if (result != null) C<TextBlock>("ShortcutInfo").Text = Tr("Shortcut saved: {0}.", shortcutText.Replace("+", " + "));
+  }
+
+  // Records the inputs held together on one controller and finishes when it lets go, so the shortcut is whatever was held at the peak.
+  void CaptureStep(RouterSnapshot snapshot) {
+   bool any = false, mine = false;
+   for (int slot = 0; slot < 4; slot++) {
+    if (snapshot.Names[slot] == null) continue;
+    ushort buttons; bool lt, rt;
+    MenuShortcut.Pressed(snapshot.Pads[slot], out buttons, out lt, out rt);
+    bool held = buttons != 0 || lt || rt;
+    any |= held;
+    if (!captureArmed || !held) continue;
+    if (captureSlot < 0) captureSlot = slot;
+    if (slot != captureSlot) continue;
+    mine = true;
+    captureButtons |= buttons; captureLt |= lt; captureRt |= rt;
+   }
+   if (!captureArmed) { if (!any) { captureArmed = true; captureStarted = Environment.TickCount; } return; }
+   if (captureSlot < 0) { if (Environment.TickCount - captureStarted > 10000) EndCapture(null); return; }
+   if (mine) return;
+   var result = MenuShortcut.Capture(captureButtons, captureLt, captureRt);
+   if (result != null) { EndCapture(result); return; }
+   captureSlot = -1; captureButtons = 0; captureLt = captureRt = false; captureStarted = Environment.TickCount;
+   C<TextBlock>("ShortcutInfo").Text = Tr("That combination cannot be used: pick 2 to 4 inputs, and not both small centre buttons.");
+  }
+
+  // The launcher comes in front of the running game even though no keyboard or mouse touched it.
+  void ShowFromGame() {
+   if (Window.WindowState == WindowState.Minimized) Window.WindowState = WindowState.Normal;
+   Window.Show();
+   WindowPlacer.Focus(new System.Windows.Interop.WindowInteropHelper(Window).Handle);
+   Window.Activate();
+   Write("Menu shortcut: the launcher is in front of the game.");
+  }
+
+  // Hides the launcher and gives the focus back to the Cemu window of the player who asked, or the other one when that player has none.
+  void ReturnToGame(int player) {
+   string[] folders = { "\\cemuA\\", "\\cemuB\\" };
+   var target = IntPtr.Zero;
+   foreach (int index in new[] { player, 1 - player }) {
+    foreach (var window in WindowPlacer.CemuWindows(folders[index]).Values) { target = window; break; }
+    if (target != IntPtr.Zero) break;
+   }
+   if (target != IntPtr.Zero) WindowPlacer.Focus(target);
+   Window.WindowState = WindowState.Minimized;
+   Write("Menu shortcut: back to the game.");
+  }
+
+  void UseShortcut(RouterSnapshot snapshot) {
+   if (lastChordSeq < 0) lastChordSeq = snapshot.ChordSeq;
+   Router.MenuOpen = Window.IsActive && gameRunning;
+   if (snapshot.ChordSeq == lastChordSeq) return;
+   lastChordSeq = snapshot.ChordSeq;
+   if (capturing || setupActive || !gameRunning) return;
+   if (Window.IsActive) ReturnToGame(Array.IndexOf(snapshot.Routes, snapshot.ChordSlot) == 1 ? 1 : 0); else ShowFromGame();
+  }
+
   void WatchAdvanced() {
+   C<ComboBox>("ShortcutBox").SelectionChanged += (s, e) => {
+    var item = ((ComboBox)s).SelectedItem as ComboBoxItem;
+    if (filling || item == null || !(item.Tag is string)) return;
+    SetShortcut((string)item.Tag);
+    ShowShortcut();
+   };
+   C<Button>("ShortcutChange").Click += (s, e) => { if (capturing) EndCapture(null); else BeginCapture(); };
+   C<Button>("ReturnGame").Click += (s, e) => ReturnToGame(0);
    C<ComboBox>("PadLayoutBox").SelectionChanged += (s, e) => {
     var item = ((ComboBox)s).SelectedItem as ComboBoxItem;
     if (filling || item == null || !(item.Tag is string)) return;
@@ -1335,6 +1453,8 @@ namespace HyruleOnline {
     else if (owned.Count == 0 && failure == null) { SetStatus("Ready."); SetPrompt(""); }
    }
    sessionLive = owned.Count > 0;
+   gameRunning = a || b;
+   C<Button>("ReturnGame").Visibility = gameRunning ? Visibility.Visible : Visibility.Collapsed;
    if (!sessionLive && script == null && !stopping) { appliedSignature = null; sessionPlan = null; }
    UpdateStart();
    C<Button>("Stop").IsEnabled = !stopping && (script != null || owned.Count > 0);
@@ -1366,6 +1486,8 @@ namespace HyruleOnline {
 
   void Tick() {
    var snapshot = router.Snapshot();
+   if (capturing) CaptureStep(snapshot);
+   UseShortcut(snapshot);
    NavigateWithPads(snapshot);
    ShowPadLayout(snapshot);
    DrivePads(snapshot);

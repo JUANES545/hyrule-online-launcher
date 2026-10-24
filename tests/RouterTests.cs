@@ -136,6 +136,76 @@ namespace HyruleOnline {
    Console.WriteLine("PASS: hardware classes and recommendations.");
   }
 
+  static PadState Held(ushort buttons, byte lt = 0, byte rt = 0) { return new PadState { buttons = buttons, lt = lt, rt = rt }; }
+
+  static void Shortcuts() {
+   var standard = MenuShortcut.Parse("Start+LT");
+   Require(standard != null && standard.ToString() == "Start+LT" && standard.Count == 2, "the default shortcut parses and prints back");
+   Require(MenuShortcut.FromDefault().ToString() == MenuShortcut.Default, "the default shortcut is valid");
+   Require(MenuShortcut.Parse("L3+R3").ToString() == "L3+R3" && MenuShortcut.Parse("Start+LT+RT").ToString() == "Start+LT+RT", "the other presets parse");
+   Require(MenuShortcut.Parse("RT+Start").ToString() == "Start+RT", "the order of the parts does not matter");
+   Require(MenuShortcut.Parse("Start") == null && MenuShortcut.Parse("") == null && MenuShortcut.Parse(null) == null && MenuShortcut.Parse("Off") == null, "one input, nothing or Off is no shortcut");
+   Require(MenuShortcut.Parse("Start+Banana") == null && MenuShortcut.Parse("A+B+X+Y+LB") == null, "unknown names and more than four inputs are refused");
+   Require(MenuShortcut.Parse("Start+Back") == null && MenuShortcut.Parse("Start+Back+LB") == null, "Start with Back is refused: Moonlight quits the stream with it");
+   Require(MenuShortcut.Parse("Back+LT") != null, "Back alone with another input is fine");
+
+   var captured = MenuShortcut.Capture((ushort)(PadKind.StartButton | 0x4000), true, false);
+   Require(captured != null && captured.ToString() == "Start+X+LT", "a capture keeps the buttons and triggers that were held");
+   Require(MenuShortcut.Capture(0, true, false) == null && MenuShortcut.Capture(PadKind.StartButton, false, false) == null, "a capture of one input is refused");
+   Require(MenuShortcut.Capture(0x0400, true, false) == null, "the unused Guide bit is ignored by a capture");
+
+   var tracker = new ShortcutTracker();
+   Require(!tracker.Update(standard, Held(PadKind.StartButton, 0), 0) && !tracker.Engaged, "Start alone does not engage the shortcut");
+   Require(!tracker.Update(standard, Held(PadKind.StartButton, 255), 100) && tracker.Engaged, "Start with the trigger engages it");
+   Require(!tracker.Update(standard, Held(PadKind.StartButton, 255), 100 + MenuShortcut.HoldMs - 1), "it does not fire before the hold time");
+   Require(tracker.Update(standard, Held(PadKind.StartButton, 255), 100 + MenuShortcut.HoldMs), "it fires once the hold time has passed");
+   Require(!tracker.Update(standard, Held(PadKind.StartButton, 255), 100 + MenuShortcut.HoldMs + 500), "it fires only once per hold");
+   Require(!tracker.Update(standard, Held(PadKind.StartButton, 255), 100 + MenuShortcut.HoldMs + 5000) && tracker.Engaged, "a long hold stays engaged without firing again");
+   tracker.Update(standard, Held(0, 0), 9000);
+   Require(!tracker.Engaged, "letting go releases it");
+   tracker.Update(standard, Held(PadKind.StartButton, 255), 9100);
+   Require(tracker.Update(standard, Held(PadKind.StartButton, 255), 9100 + MenuShortcut.HoldMs), "it can fire again after a release");
+
+   var soft = new ShortcutTracker();
+   soft.Update(standard, Held(PadKind.StartButton, MenuShortcut.TriggerOn - 1), 0);
+   Require(!soft.Engaged, "a half-pressed trigger does not count");
+   soft.Update(standard, Held(PadKind.StartButton, MenuShortcut.TriggerOn), 10);
+   Require(soft.Engaged, "a pressed trigger counts");
+   soft.Update(standard, Held(PadKind.StartButton, MenuShortcut.TriggerOff), 20);
+   Require(soft.Engaged, "a trigger that eases a little stays pressed");
+   soft.Update(standard, Held(PadKind.StartButton, MenuShortcut.TriggerOff - 1), 30);
+   Require(!soft.Engaged, "a trigger that falls well down is released");
+
+   var interrupted = new ShortcutTracker();
+   interrupted.Update(standard, Held(PadKind.StartButton, 255), 0);
+   interrupted.Update(standard, Held(PadKind.StartButton, 0), 1000);
+   Require(!interrupted.Update(standard, Held(PadKind.StartButton, 255), 1000 + MenuShortcut.HoldMs - 1) && !interrupted.Update(standard, Held(PadKind.StartButton, 255), 2000 + MenuShortcut.HoldMs - 1), "letting go in the middle restarts the hold time");
+   var off = new ShortcutTracker();
+   Require(!off.Update(null, Held(PadKind.StartButton, 255), 0) && !off.Update(null, Held(PadKind.StartButton, 255), 5000) && !off.Engaged, "without a shortcut nothing happens");
+
+   var game = standard.Hide(new PadState { buttons = (ushort)(PadKind.StartButton | 0x1000), lt = 255, rt = 50, lx = 100 });
+   Require(game.buttons == 0x1000 && game.lt == 0 && game.rt == 50 && game.lx == 100, "the game still gets the rest of the controller while the shortcut is held");
+
+   var guard = new TapGuard();
+   ushort start = PadKind.StartButton;
+   Require(guard.Update(start, 0, 0, start, false) && !guard.Update(start, 0, 0, start, false), "without the shortcut Start acts on the press");
+   guard.Update(0, 0, 0, start, false);
+   var late = new TapGuard();
+   Require(!late.Update(start, 0, 0, start, true) && late.Update(0, 0, 0, start, true), "with the shortcut a clean Start tap acts on the release");
+   var chord = new TapGuard();
+   chord.Update(start, 0, 0, start, true);
+   chord.Update(start, 255, 0, start, true);
+   Require(!chord.Update(0, 0, 0, start, true), "Start released after a trigger was held does nothing");
+   var triggerFirst = new TapGuard();
+   triggerFirst.Update(0, 255, 0, start, true);
+   triggerFirst.Update(start, 255, 0, start, true);
+   Require(!triggerFirst.Update(start, 0, 0, start, true) && !triggerFirst.Update(0, 0, 0, start, true), "Start pressed on top of a held trigger does nothing either");
+   var again = new TapGuard();
+   again.Update(start, 255, 0, start, true); again.Update(0, 0, 0, start, true);
+   again.Update(start, 0, 0, start, true);
+   Require(again.Update(0, 0, 0, start, true), "the next clean tap works again");
+  }
+
   static void PadMenus() {
    var pad = new PadNav();
    var idle = pad.Update(0, 0, 0, 0);
@@ -650,6 +720,8 @@ namespace HyruleOnline {
     Console.WriteLine("PASS: controller motion.");
     Navigation();
     PadMenus();
+    Shortcuts();
+    Console.WriteLine("PASS: menu shortcut.");
     HardwareTiers();
     Players();
     ServerRulesTest();

@@ -35,6 +35,96 @@ namespace HyruleOnline {
   public const ushort StartButton = 0x10, SelectButton = 0x20;
  }
 
+ // The controller inputs that open this launcher from inside a game (preferences.xml: MenuShortcut, for example "Start+LT").
+ // They must be held together; the triggers count as pressed past TriggerOn and stay pressed until they fall under TriggerOff.
+ sealed class MenuShortcut {
+  public const string Default = "Start+LT";
+  public const int HoldMs = 1500, MaxInputs = 4;
+  public const byte TriggerOn = 204, TriggerOff = 130;
+  public static readonly string[] ButtonNames = { "Up", "Down", "Left", "Right", "Start", "Back", "L3", "R3", "LB", "RB", "A", "B", "X", "Y" };
+  static readonly ushort[] ButtonMasks = { 0x1, 0x2, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80, 0x100, 0x200, 0x1000, 0x2000, 0x4000, 0x8000 };
+
+  public ushort Buttons;
+  public bool Lt, Rt;
+
+  public int Count {
+   get {
+    int count = (Lt ? 1 : 0) + (Rt ? 1 : 0);
+    foreach (ushort mask in ButtonMasks) if ((Buttons & mask) != 0) count++;
+    return count;
+   }
+  }
+
+  // At least two inputs, so a single press can never open the menu. Start with Back is refused because Moonlight's quit-the-stream combo is Start+Back+LB+RB.
+  public bool Allowed { get { return Count >= 2 && Count <= MaxInputs && !((Buttons & PadKind.StartButton) != 0 && (Buttons & PadKind.SelectButton) != 0); } }
+
+  public static MenuShortcut Parse(string text) {
+   if (string.IsNullOrEmpty(text)) return null;
+   var shortcut = new MenuShortcut();
+   foreach (string part in text.Split('+')) {
+    string name = part.Trim();
+    int index = Array.IndexOf(ButtonNames, name);
+    if (index >= 0) shortcut.Buttons |= ButtonMasks[index];
+    else if (name == "LT") shortcut.Lt = true;
+    else if (name == "RT") shortcut.Rt = true;
+    else return null;
+   }
+   return shortcut.Allowed ? shortcut : null;
+  }
+
+  public static MenuShortcut FromDefault() { return Parse(Default); }
+
+  public static MenuShortcut Capture(ushort buttons, bool lt, bool rt) {
+   var shortcut = new MenuShortcut { Buttons = (ushort)(buttons & AllButtons), Lt = lt, Rt = rt };
+   return shortcut.Allowed ? shortcut : null;
+  }
+
+  static ushort AllButtons { get { ushort all = 0; foreach (ushort mask in ButtonMasks) all |= mask; return all; } }
+
+  public override string ToString() {
+   var parts = new System.Collections.Generic.List<string>();
+   for (int i = 0; i < ButtonMasks.Length; i++) if ((Buttons & ButtonMasks[i]) != 0) parts.Add(ButtonNames[i]);
+   if (Lt) parts.Add("LT");
+   if (Rt) parts.Add("RT");
+   return string.Join("+", parts.ToArray());
+  }
+
+  // The inputs of a controller state that belong to the shortcut, for the controller to show them or for a capture to collect them.
+  public static void Pressed(PadState pad, out ushort buttons, out bool lt, out bool rt) {
+   buttons = (ushort)(pad.buttons & AllButtons); lt = pad.lt >= TriggerOn; rt = pad.rt >= TriggerOn;
+  }
+
+  // The state a game gets while the shortcut is held, without the shortcut's own inputs.
+  public PadState Hide(PadState pad) {
+   pad.buttons = (ushort)(pad.buttons & ~Buttons);
+   if (Lt) pad.lt = 0;
+   if (Rt) pad.rt = 0;
+   return pad;
+  }
+ }
+
+ // Follows one controller: Engaged while every shortcut input is held, and Update returns true once when it has been held for HoldMs.
+ sealed class ShortcutTracker {
+  bool lt, rt, fired;
+  long since = -1;
+  public bool Engaged { get; private set; }
+
+  static bool Trigger(bool held, byte value) { return held ? value >= MenuShortcut.TriggerOff : value >= MenuShortcut.TriggerOn; }
+
+  public bool Update(MenuShortcut shortcut, PadState pad, long now) {
+   if (shortcut == null) { Reset(); return false; }
+   lt = Trigger(lt, pad.lt); rt = Trigger(rt, pad.rt);
+   Engaged = (pad.buttons & shortcut.Buttons) == shortcut.Buttons && (!shortcut.Lt || lt) && (!shortcut.Rt || rt);
+   if (!Engaged) { since = -1; fired = false; return false; }
+   if (since < 0) since = now;
+   if (fired || now - since < MenuShortcut.HoldMs) return false;
+   fired = true;
+   return true;
+  }
+
+  void Reset() { lt = rt = fired = Engaged = false; since = -1; }
+ }
+
  // Thin SDL3 gamepad wrapper. Call every method from the same thread.
  static class Sdl {
   const string Dll = "SDL3.dll";

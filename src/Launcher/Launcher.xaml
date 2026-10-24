@@ -271,6 +271,10 @@
       <StackPanel Orientation="Horizontal"><TextBlock Text="Controller button layout" FontSize="13" Foreground="#78939F"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="Which button confirms and which one goes back while a controller moves through this launcher. Auto follows each controller: Nintendo pads confirm with the right button, Xbox, PlayStation and Steam Input pads with the bottom one. It does not change the controls inside the game."/></StackPanel>
       <ComboBox x:Name="PadLayoutBox" Margin="0,4,0,6" ToolTip="Which button confirms and which one goes back while a controller moves through this launcher. Auto follows each controller: Nintendo pads confirm with the right button, Xbox, PlayStation and Steam Input pads with the bottom one. It does not change the controls inside the game."/>
       <TextBlock x:Name="PadLayoutInfo" Foreground="#78939F" FontSize="12" TextWrapping="Wrap"/>
+      <StackPanel Orientation="Horizontal" Margin="0,14,0,0"><TextBlock Text="Open this menu from a game" FontSize="13" Foreground="#78939F"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="Hold these controller buttons for 1.5 seconds while a game is in front to bring this launcher over it. Hold them again, or press the back button here, to return to the game. Pick buttons the game does not need together, or turn it off."/></StackPanel>
+      <ComboBox x:Name="ShortcutBox" Margin="0,4,0,6" ToolTip="Hold these controller buttons for 1.5 seconds while a game is in front to bring this launcher over it. Hold them again, or press the back button here, to return to the game. Pick buttons the game does not need together, or turn it off."/>
+      <Button x:Name="ShortcutChange" Content="Change shortcut" HorizontalAlignment="Left" Padding="16,6" Margin="0,2,0,6"/>
+      <TextBlock x:Name="ShortcutInfo" Foreground="#78939F" FontSize="12" TextWrapping="Wrap"/>
      </StackPanel>
     </Border>
    </StackPanel>
@@ -419,7 +423,7 @@
  </Grid>
  <StackPanel Grid.Row="3" Margin="14,0,14,8">
   <Border x:Name="StatusBar" Background="#80212E2D" CornerRadius="5" Padding="14" Margin="0,8,0,12"><TextBlock x:Name="Status" TextAlignment="Center" Text="Ready." Foreground="#AEE2D2"/></Border>
-  <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"><Button x:Name="Start" MinWidth="300" FontFamily="{DynamicResource TitleFont}" FontStretch="Normal" FontStyle="Normal" Background="#B03C554B" BorderBrush="#D5C396" FontSize="20" Padding="40,15"><StackPanel Orientation="Horizontal" HorizontalAlignment="Center"><TextBlock x:Name="StartText" Text="START SESSION" VerticalAlignment="Center"/><ContentControl x:Name="StartIcon" Margin="16,0,0,0" VerticalAlignment="Center"/></StackPanel></Button><Button x:Name="Stop" Content="Stop session" MinWidth="180" Padding="20,16"/><Button x:Name="Exit" Content="Exit" MinWidth="150" Padding="20,16"/></StackPanel>
+  <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"><Button x:Name="Start" MinWidth="300" FontFamily="{DynamicResource TitleFont}" FontStretch="Normal" FontStyle="Normal" Background="#B03C554B" BorderBrush="#D5C396" FontSize="20" Padding="40,15"><StackPanel Orientation="Horizontal" HorizontalAlignment="Center"><TextBlock x:Name="StartText" Text="START SESSION" VerticalAlignment="Center"/><ContentControl x:Name="StartIcon" Margin="16,0,0,0" VerticalAlignment="Center"/></StackPanel></Button><Button x:Name="ReturnGame" Content="Return to game" MinWidth="180" Padding="20,16" Visibility="Collapsed"/><Button x:Name="Stop" Content="Stop session" MinWidth="180" Padding="20,16"/><Button x:Name="Exit" Content="Exit" MinWidth="150" Padding="20,16"/></StackPanel>
  </StackPanel>
  <Canvas x:Name="CursorLayer" Grid.RowSpan="4" IsHitTestVisible="False" Panel.ZIndex="100"/>
  </Grid></Viewbox></Grid>
