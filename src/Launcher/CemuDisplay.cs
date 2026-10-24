@@ -21,7 +21,7 @@ namespace HyruleOnline {
    string eol = stock.Contains("\r\n") ? "\r\n" : "\n";
    string rules = Regex.Replace(stock, "(?m)^name = Graphics[ \\t]*(?=\\r?$)", "name = Graphics (online display)");
    rules = Regex.Replace(rules, "(?m)^(path = \".*)/Graphics\"", "$1/Online Display\"");
-   if (rules == stock || !rules.Contains("[Definition]")) throw new InvalidDataException("The BOTW Graphics pack has an unexpected format.");
+   if (rules == stock || !rules.Contains("[Definition]")) throw new InvalidDataException(Lang.T("The BOTW Graphics pack has an unexpected format."));
    var text = new StringBuilder(rules.TrimEnd());
    Action<string> line = value => text.Append(eol).Append(value);
    line(""); line("# Written by the Hyrule Online launcher for this window.");
@@ -37,8 +37,8 @@ namespace HyruleOnline {
   public static void Apply(string instance, PlayerView view, string fpsPreset = null, GraphicsMod.Quality quality = null, int? consoleLanguage = null, GraphicsMod.Advanced advanced = null, bool vulkanAvailable = true) {
    string stockFolder = Path.Combine(instance, StockPack);
    string settingsFile = Path.Combine(instance, "settings.xml");
-   if (!File.Exists(Path.Combine(stockFolder, "rules.txt"))) throw new FileNotFoundException("The BOTW Graphics pack is missing from " + instance + ".");
-   if (!File.Exists(settingsFile)) throw new FileNotFoundException("Cemu settings are missing from " + instance + ".");
+   if (!File.Exists(Path.Combine(stockFolder, "rules.txt"))) throw new FileNotFoundException(Lang.T("The BOTW Graphics pack is missing from {0}.", instance));
+   if (!File.Exists(settingsFile)) throw new FileNotFoundException(Lang.T("Cemu settings are missing from {0}.", instance));
 
    string packFile = Path.Combine(instance, PackFile);
    string packFolder = Path.GetDirectoryName(packFile);

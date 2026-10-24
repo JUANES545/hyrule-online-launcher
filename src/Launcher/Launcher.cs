@@ -60,18 +60,20 @@ namespace HyruleOnline {
  static class Entry {
   [STAThread] static void Main() {
    bool first;
+   // Nothing is loaded yet, so these messages follow the Windows display language.
+   Lang.Current = Lang.Ui(System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName);
    using (var instance = new Mutex(true, "Local\\HyruleOnline.Launcher.v1", out first)) {
-    if (!first) { MessageBox.Show("Hyrule Online is already open.", "Hyrule Online"); return; }
+    if (!first) { MessageBox.Show(Lang.T("Hyrule Online is already open."), "Hyrule Online"); return; }
     foreach (string name in new[] { "InputRouter", "HyruleCoop" }) {
-     if (Process.GetProcessesByName(name).Length > 0) { MessageBox.Show(name + " is running and uses the same controller routing. Close it first.", "Hyrule Online"); return; }
+     if (Process.GetProcessesByName(name).Length > 0) { MessageBox.Show(Lang.T("{0} is running and uses the same controller routing. Close it first.", name), "Hyrule Online"); return; }
     }
     string root = Scripts.FindRoot();
-    if (root == null) { MessageBox.Show("Run Hyrule Online from the project's .artifacts\\app folder.", "Hyrule Online"); return; }
+    if (root == null) { MessageBox.Show(Lang.T("Run Hyrule Online from the project's .artifacts\\app folder."), "Hyrule Online"); return; }
     using (var router = new Router()) {
      try { router.Start(); }
-     catch (Exception error) { MessageBox.Show("Controller input could not start.\n\n" + error.Message, "Hyrule Online"); return; }
+     catch (Exception error) { MessageBox.Show(Lang.T("Controller input could not start.\n\n{0}", error.Message), "Hyrule Online"); return; }
      var app = new Application();
-     app.DispatcherUnhandledException += (s, e) => { MessageBox.Show("The action could not be completed.\n\n" + e.Exception.Message, "Hyrule Online"); e.Handled = true; };
+     app.DispatcherUnhandledException += (s, e) => { MessageBox.Show(Lang.T("The action could not be completed.\n\n{0}", e.Exception.Message), "Hyrule Online"); e.Handled = true; };
      app.Run(new Launcher(root, router).Window);
     }
    }

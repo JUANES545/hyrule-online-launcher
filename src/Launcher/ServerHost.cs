@@ -30,7 +30,7 @@ namespace HyruleOnline {
   public void Start(string directory) {
    if (Running) return;
    string exe = Path.Combine(directory, "MBL.DedicatedServer.exe");
-   if (!File.Exists(exe)) throw new FileNotFoundException("The dedicated server is missing.", exe);
+   if (!File.Exists(exe)) throw new FileNotFoundException(Lang.T("The dedicated server is missing."), exe);
    var info = new ProcessStartInfo(exe) {
     WorkingDirectory = directory, UseShellExecute = false, CreateNoWindow = true,
     RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true,
