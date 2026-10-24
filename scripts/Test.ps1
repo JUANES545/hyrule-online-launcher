@@ -22,6 +22,11 @@ if ($LASTEXITCODE -ne 0) { throw 'Badge test compilation failed.' }
 & (Join-Path $output 'BadgeTests.exe')
 if ($LASTEXITCODE -ne 0) { throw 'Badge tests failed.' }
 
+& (Join-Path $framework 'csc.exe') /nologo /target:exe /platform:x64 "/out:$(Join-Path $output 'ShaderCacheTests.exe')" (Join-Path $root 'tests\ShaderCacheTests.cs') (Join-Path $root 'src\Launcher\ShaderCache.cs')
+if ($LASTEXITCODE -ne 0) { throw 'Shader cache test compilation failed.' }
+& (Join-Path $output 'ShaderCacheTests.exe')
+if ($LASTEXITCODE -ne 0) { throw 'Shader cache tests failed.' }
+
 # The model check needs the clean install (project Python and the extracted Milk Bar launcher); without it only the unit tests run.
 if ((Test-Path -LiteralPath (Join-Path $root '.tools\python38\python.exe')) -and (Test-Path -LiteralPath (Join-Path $root '.artifacts\extract\milkbar\Milk Bar Launcher.dll'))) { & (Join-Path $PSScriptRoot 'Test-Characters.ps1') }
 else { Write-Host 'Skipping the character check: the clean install is not here.' }
