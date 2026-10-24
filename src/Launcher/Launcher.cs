@@ -248,6 +248,12 @@ namespace HyruleOnline {
     bool? tags = ServerCommands.NameTags(line);
     if (tags.HasValue) ShowNameTags(tags.Value);
    }));
+   var command = C<TextBox>("ServerCommand");
+   var commandHint = C<TextBlock>("ServerCommandHint");
+   Action showCommandHint = () => commandHint.Visibility = command.Text.Length == 0 && !command.IsKeyboardFocused ? Visibility.Visible : Visibility.Collapsed;
+   command.TextChanged += (s, e) => showCommandHint();
+   command.GotKeyboardFocus += (s, e) => showCommandHint();
+   command.LostKeyboardFocus += (s, e) => showCommandHint();
    C<TextBox>("ServerCommand").KeyDown += (s, e) => {
     if (e.Key != Key.Enter) return;
     var box = (TextBox)s;
@@ -361,7 +367,7 @@ namespace HyruleOnline {
   }
 
   bool AnyDropDownOpen() {
-   foreach (var name in new[] { "FpsBox", "ScaleBox", "ShadowsBox", "ShadowDistanceBox", "AntiAliasingBox", "RulesBox", "SpecialBox", "WeatherBox", "Display1Box", "Display2Box", "Scale1Box", "Scale2Box", "Fps1Box", "Fps2Box", "ApiBox", "UpscaleBox", "DownscaleBox", "PadLayoutBox", "ShortcutBox" }) if (C<ComboBox>(name).IsDropDownOpen) return true;
+   foreach (var name in new[] { "FpsBox", "ScaleBox", "ShadowsBox", "ShadowDistanceBox", "AntiAliasingBox", "RulesBox", "SpecialBox", "WeatherBox", "Display1Box", "Display2Box", "Scale1Box", "Scale2Box", "Fps1Box", "Fps2Box", "ApiBox", "UpscaleBox", "DownscaleBox", "VolumeBox", "PadLayoutBox", "ShortcutBox" }) if (C<ComboBox>(name).IsDropDownOpen) return true;
    return pickerOpen[0] || pickerOpen[1] || cursors.Any(c => c != null && c.Combo != null);
   }
 
@@ -481,13 +487,13 @@ namespace HyruleOnline {
    try {
     var box = C<ComboBox>("RulesBox");
     box.Items.Clear();
-    box.Items.Add(new ComboBoxItem { Content = Tr("Custom") });
-    foreach (var preset in presets) box.Items.Add(new ComboBoxItem { Content = preset.Name, Tag = preset });
+    box.Items.Add(HintItem(new ComboBoxItem { Content = Tr("Custom") }, PresetBlurb("Custom")));
+    foreach (var preset in presets) box.Items.Add(HintItem(new ComboBoxItem { Content = preset.Name, Tag = preset }, PresetBlurb(preset.Name)));
     var match = ServerRules.Match(presets, rules);
     box.SelectedIndex = match == null ? 0 : presets.IndexOf(match) + 1;
     var special = C<ComboBox>("SpecialBox");
     special.Items.Clear();
-    for (int i = 0; i < ServerRules.SpecialNames.Length; i++) special.Items.Add(new ComboBoxItem { Content = Tr(ServerRules.SpecialNames[i]), Tag = i });
+    for (int i = 0; i < ServerRules.SpecialNames.Length; i++) special.Items.Add(HintItem(new ComboBoxItem { Content = Tr(ServerRules.SpecialNames[i]), Tag = i }, SpecialBlurb(i)));
     special.SelectedIndex = rules.Special;
     C<CheckBox>("RuleEnemies").IsChecked = rules.Enemies; C<CheckBox>("RuleQuests").IsChecked = rules.Quests;
     C<CheckBox>("RuleKoroks").IsChecked = rules.Koroks; C<CheckBox>("RuleTowers").IsChecked = rules.Towers;
@@ -600,7 +606,7 @@ namespace HyruleOnline {
     new XDocument(new XElement("Preferences", new XElement("Layout", mode), new XElement("RenderScale", GraphicsMod.NearestScale(scale).ToString(System.Globalization.CultureInfo.InvariantCulture)),
      new XElement("Shadows", shadows ?? ""), new XElement("ShadowDistance", shadowDistance ?? ""), new XElement("AntiAliasing", antiAliasing ?? ""),
      new XElement("GraphicsApi", advanced.Api), new XElement("VSync", advanced.VSync ? "1" : "0"), new XElement("AsyncCompile", advanced.AsyncCompile ? "1" : "0"),
-     new XElement("AccurateBarriers", advanced.AccurateBarriers ? "1" : "0"), new XElement("ShowFps", advanced.ShowFps ? "1" : "0"), new XElement("ShowUsage", advanced.ShowUsage ? "1" : "0"), new XElement("UpscaleFilter", advanced.Upscale), new XElement("DownscaleFilter", advanced.Downscale),
+     new XElement("AccurateBarriers", advanced.AccurateBarriers ? "1" : "0"), new XElement("ShowFps", advanced.ShowFps ? "1" : "0"), new XElement("ShowUsage", advanced.ShowUsage ? "1" : "0"), new XElement("ShowShaderNotice", advanced.ShowShaderNotice ? "1" : "0"), new XElement("Volume", advanced.Volume), new XElement("UpscaleFilter", advanced.Upscale), new XElement("DownscaleFilter", advanced.Downscale),
      new XElement("FpsLimit", fpsLimit == FpsMod.AutoFps ? "Auto" : fpsLimit.ToString()),
      new XElement("Arrangement", perDisplay ? "PerDisplay" : "Split"), new XElement("Players", playerCount),
      new XElement("Display1", displays[0] ?? ""), new XElement("Display2", displays[1] ?? ""),
@@ -745,11 +751,16 @@ namespace HyruleOnline {
    };
    filters("UpscaleBox", advanced.Upscale);
    filters("DownscaleBox", advanced.Downscale);
+   var volume = C<ComboBox>("VolumeBox");
+   volume.Items.Clear();
+   foreach (int choice in GraphicsMod.Volumes) volume.Items.Add(new ComboBoxItem { Content = choice == 0 ? Tr("Muted") : choice + "%", Tag = choice });
+   volume.SelectedIndex = Array.IndexOf(GraphicsMod.Volumes, GraphicsMod.CleanVolume(advanced.Volume.ToString()));
    C<CheckBox>("VSyncBox").IsChecked = advanced.VSync;
    C<CheckBox>("AsyncBox").IsChecked = advanced.AsyncCompile;
    C<CheckBox>("BarriersBox").IsChecked = advanced.AccurateBarriers;
    C<CheckBox>("ShowFpsBox").IsChecked = advanced.ShowFps;
    C<CheckBox>("ShowUsageBox").IsChecked = advanced.ShowUsage;
+   C<CheckBox>("ShaderNoticeBox").IsChecked = advanced.ShowShaderNotice;
    C<CheckBox>("BarriersBox").IsEnabled = GraphicsMod.ResolveApi(advanced.Api, vulkanAvailable) == GraphicsMod.VulkanApi;
    C<CheckBox>("SharedShadersBox").IsChecked = sharedShaders;
    var layout = C<ComboBox>("PadLayoutBox");
@@ -761,7 +772,6 @@ namespace HyruleOnline {
    layout.SelectedIndex = Router.MenuLayout + 1;
    padLayoutShown = null;
    FillShortcut();
-   ShowRecommended();
   }
 
   string padLayoutShown;
@@ -921,6 +931,7 @@ namespace HyruleOnline {
    };
    filter("UpscaleBox", value => advanced.Upscale = value);
    filter("DownscaleBox", value => advanced.Downscale = value);
+   filter("VolumeBox", value => advanced.Volume = value);
    Action<string, Action<bool>> toggle = (name, set) => {
     var box = C<CheckBox>(name);
     RoutedEventHandler changed = (s, e) => { if (filling) return; set(box.IsChecked == true); SavePrefs(); };
@@ -931,14 +942,11 @@ namespace HyruleOnline {
    toggle("BarriersBox", value => advanced.AccurateBarriers = value);
    toggle("ShowFpsBox", value => advanced.ShowFps = value);
    toggle("ShowUsageBox", value => advanced.ShowUsage = value);
+   toggle("ShaderNoticeBox", value => advanced.ShowShaderNotice = value);
    toggle("SharedShadersBox", value => sharedShaders = value);
   }
 
   readonly List<TextBlock> hintBars = new List<TextBlock>();
-
-  static string Percent(double value) { return Math.Round(value * 100).ToString("0", System.Globalization.CultureInfo.InvariantCulture) + "%"; }
-
-  static string Gigabytes(double value) { return value.ToString(value >= 2 ? "0" : "0.#", System.Globalization.CultureInfo.InvariantCulture); }
 
   // The window one game gets when the primary display is shared (or all of it when playing alone).
   Area GameWindow() {
@@ -960,25 +968,6 @@ namespace HyruleOnline {
 
   string RecommendedPreset(string category, string wanted) { return Hardware.PickPreset(GraphicsMod.Read(InstanceFolder, category), wanted); }
 
-  string PresetLabel(string name) { return name == null ? Tr("Not available") : GraphicsMod.Label(name, text => Tr(text)); }
-
-  void ShowRecommended() {
-   var lines = new List<string>();
-   lines.Add(string.IsNullOrEmpty(hardware.Gpu) ? Tr("Graphics card not detected") : hardware.Gpu + (hardware.VramMb > 0 ? " (" + Gigabytes(hardware.VramMb / 1024.0) + " GB)" : ""));
-   string processor = !string.IsNullOrEmpty(hardware.Cpu) ? Tr("{0} · {1} threads", hardware.Cpu, hardware.Threads) : "";
-   if (hardware.RamGb > 0) processor += (processor.Length > 0 ? " · " : "") + Tr("{0} GB of memory", Gigabytes(hardware.RamGb));
-   if (processor.Length > 0) lines.Add(processor);
-   lines.Add(Tr("Performance class: {0}", Tr(Hardware.TierNames[hardware.Tier])));
-   C<TextBlock>("HardwareText").Text = string.Join("\n", lines.ToArray());
-   var best = RecommendedScales();
-   string rendering = pair != null ? Percent(best[1]) + " / " + Percent(best[2]) : Percent(best[0]);
-   C<TextBlock>("RecommendedText").Text = Tr("Recommended: render {0}, shadows {1}, shadow distance {2}, anti-aliasing {3}.", rendering,
-     PresetLabel(RecommendedPreset(GraphicsMod.ShadowsCategory, Hardware.ShadowsFor(hardware.Tier))),
-     PresetLabel(RecommendedPreset(GraphicsMod.ShadowDistanceCategory, Hardware.ShadowDistanceFor(hardware.Tier))),
-     PresetLabel(RecommendedPreset(GraphicsMod.AntiAliasingCategory, Hardware.AntiAliasingChoice)))
-    + "\n" + Tr("Cemu: automatic API, {0} upscale filter, asynchronous shaders on, VSync off. FPS target Auto.", GraphicsMod.Filters[Hardware.AdvancedFor(hardware.Tier).Upscale]);
-  }
-
   // Puts every Graphics option back to what suits this PC; the FPS targets go back to Auto.
   void UseRecommendedGraphics() {
    int tier = hardware.Tier;
@@ -987,9 +976,9 @@ namespace HyruleOnline {
    shadows = RecommendedPreset(GraphicsMod.ShadowsCategory, Hardware.ShadowsFor(tier));
    shadowDistance = RecommendedPreset(GraphicsMod.ShadowDistanceCategory, Hardware.ShadowDistanceFor(tier));
    antiAliasing = RecommendedPreset(GraphicsMod.AntiAliasingCategory, Hardware.AntiAliasingChoice);
-   bool showFps = advanced.ShowFps, showUsage = advanced.ShowUsage;
+   var kept = advanced;
    advanced = Hardware.AdvancedFor(tier);
-   advanced.ShowFps = showFps; advanced.ShowUsage = showUsage;
+   advanced.ShowFps = kept.ShowFps; advanced.ShowUsage = kept.ShowUsage; advanced.ShowShaderNotice = kept.ShowShaderNotice; advanced.Volume = kept.Volume;
    fpsLimit = FpsMod.AutoFps; fpsLimits[0] = fpsLimits[1] = FpsMod.AutoFps;
    Write("Recommended graphics settings applied (" + Hardware.TierNames[tier] + " class).");
    ChangedDisplayChoice();
@@ -1034,6 +1023,17 @@ namespace HyruleOnline {
 
   // A page's hint bar shows the tip of the option under the mouse or holding keyboard focus.
   readonly Dictionary<string, string> hintIdle = new Dictionary<string, string>();
+
+  // Shows an option's explanation in the Multiplayer hint bar while the mouse or the keyboard / pad focus is on it.
+  ComboBoxItem HintItem(ComboBoxItem item, string text) {
+   if (string.IsNullOrEmpty(text)) return item;
+   var bar = C<TextBlock>("MultiplayerHint");
+   item.MouseEnter += (s, e) => bar.Text = text;
+   item.MouseMove += (s, e) => bar.Text = text;
+   item.GotKeyboardFocus += (s, e) => bar.Text = text;
+   item.MouseLeave += (s, e) => bar.Text = Tr("Hover an option, or move the focus to it, to see what it does.");
+   return item;
+  }
 
   void WireHints(string page, string bar) {
    var target = C<TextBlock>(bar);
@@ -1251,7 +1251,7 @@ namespace HyruleOnline {
     string api = GraphicsMod.ResolveApi(advanced.Api, vulkanAvailable);
     Write("Graphics: " + (pair == null ? "render " + GraphicsMod.ScaleLabel(quality.Scale) + ", " : "") + "shadows " + quality.Shadows + ", shadow distance " + quality.ShadowDistance + ", anti-aliasing " + quality.AntiAliasing + ".");
     Write("Cemu: " + api + (advanced.Api == GraphicsMod.AutoApi ? " (automatic)" : "") + ", VSync " + (advanced.VSync ? "on" : "off") + ", async shader compile " + (advanced.AsyncCompile ? "on" : "off")
-     + ", upscale " + GraphicsMod.Filters[advanced.Upscale] + ", downscale " + GraphicsMod.Filters[advanced.Downscale] + (api == GraphicsMod.VulkanApi ? ", accurate barriers " + (advanced.AccurateBarriers ? "on" : "off") : "") + ", FPS counter " + (advanced.ShowFps ? "on" : "off") + ", usage counters " + (advanced.ShowUsage ? "on" : "off") + ".");
+     + ", upscale " + GraphicsMod.Filters[advanced.Upscale] + ", downscale " + GraphicsMod.Filters[advanced.Downscale] + (api == GraphicsMod.VulkanApi ? ", accurate barriers " + (advanced.AccurateBarriers ? "on" : "off") : "") + ", FPS counter " + (advanced.ShowFps ? "on" : "off") + ", usage counters " + (advanced.ShowUsage ? "on" : "off") + ", shader notice " + (advanced.ShowShaderNotice ? "on" : "off") + ", volume " + advanced.Volume + "%.");
     Write("Game language: " + gameLanguage.Name + " (Cemu console language " + gameLanguage.Console + ").");
     bool turned = plan.Players.Any(v => v.Rotation != 0);
     string reshade = Path.Combine(root, ".tools", "reshade");
@@ -1441,7 +1441,7 @@ namespace HyruleOnline {
   // Everything a session writes before the games start. A change here only reaches the games after a restart; the launcher language and the live controls are not part of it.
   string Signature() {
    Func<double, string> size = v => GraphicsMod.NearestScale(v).ToString(System.Globalization.CultureInfo.InvariantCulture);
-   var parts = new List<object> { shadows, shadowDistance, antiAliasing, advanced.Api, advanced.VSync, advanced.AsyncCompile, advanced.AccurateBarriers, advanced.Upscale, advanced.Downscale, advanced.ShowFps, advanced.ShowUsage, sharedShaders, language,
+   var parts = new List<object> { shadows, shadowDistance, antiAliasing, advanced.Api, advanced.VSync, advanced.AsyncCompile, advanced.AccurateBarriers, advanced.Upscale, advanced.Downscale, advanced.ShowFps, advanced.ShowUsage, advanced.ShowShaderNotice, advanced.Volume, sharedShaders, language,
     rules.Special, rules.Enemies, rules.Quests, rules.Koroks, rules.Towers, rules.Shrines, rules.Locations, rules.DivineBeasts, pair != null, playerCount };
     if (playerCount == 2) parts.AddRange(new object[] { rotations[0], rotations[1] });
    for (int i = 0; i < playerCount; i++) parts.AddRange(new object[] { Characters.CleanName(C<TextBox>("P" + (i + 1) + "NameBox").Text, Characters.DefaultNames[i]), models[i] });

@@ -23,7 +23,6 @@ namespace HyruleOnline {
    new[] { "Auto ({0})", "es", "fr" },            // "Auto" is the same word in both languages; {0} is the API name.
    new[] { "LAUNCHER", "es", "fr" },              // Used as a loan word in both.
    new[] { "Auto · {0} FPS", "es", "fr" },        // Unit and number.
-   new[] { "{0} · {1} threads", "fr" },           // "threads" is used as is in French.
    new[] { "Ultra", "es", "fr" },
    new[] { "Experimental", "es" },               // Same word in Spanish.
    new[] { "DLC v{0}", "es", "fr" },              // DLC is the same abbreviation in both.                 // Performance class name.

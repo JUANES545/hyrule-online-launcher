@@ -96,6 +96,12 @@ namespace HyruleOnline {
     if (overlay == null) { overlay = new XElement("Overlay"); graphic.Add(overlay); }
     SetValue(overlay, "FPS", advanced.ShowFps ? "true" : "false");
     foreach (string name in new[] { "CPUUsage", "RAMUsage", "VRAMUsage" }) SetValue(overlay, name, advanced.ShowUsage ? "true" : "false");
+    var notification = graphic.Element("Notification");
+    if (notification == null) { notification = new XElement("Notification"); graphic.Add(notification); }
+    SetValue(notification, "ShaderCompiling", advanced.ShowShaderNotice ? "true" : "false");
+    var audio = content.Element("Audio");
+    if (audio == null) { audio = new XElement("Audio"); content.Add(audio); }
+    SetValue(audio, "TVVolume", GraphicsMod.CleanVolume(advanced.Volume.ToString()).ToString());
    }
 
    var settings = new XmlWriterSettings { Indent = true, IndentChars = "    ", Encoding = new UTF8Encoding(false) };

@@ -340,7 +340,8 @@ Reversible: a junction found on either cache (for example made by hand) is first
 
 - Cemu 1.26.2f has an on-screen overlay in `settings.xml` (`Graphic\Overlay`: FPS, DrawCalls, CPUUsage, CPUPerCoreUsage, RAMUsage, VRAMUsage, Debug, plus position, colour and scale). The launcher now writes two of them from Graphics > Advanced (Cemu): **Show FPS** (on by default, as it was before) and **Show CPU, RAM and VRAM usage** (off by default). Both apply at the next session start; the Cemu settings file is only read when Cemu starts. Checked: build, unit tests and a screenshot of the Graphics page. Not checked: the overlay in a running game.
 - The FPS target is a preset of the FPS++ graphic pack, which patches the game's code and timing when it loads. Cemu does not reload graphic packs in a running game (Cemu wiki, graphic packs pages), and Cemu 1.26 has no frame limiter of its own to change instead. So the target cannot be applied live without writing into the game's memory, which the launcher does not do. Not tested live; this is from how Cemu and the pack work.
-- Not built, candidates: per-player volume or mute (`Audio\TVVolume`), turning off the shader-compiling notification, overlay position and scale.
+- Added later: **Master volume** (`Audio\TVVolume`; Muted, 10, 25, 50, 75, 100%; default 50, the value used before) and **Show the "compiling shaders" notice** (`Graphic\Notification\ShaderCompiling`; on by default). Volume is one shared level, not per player, and is written to both Cemu instances (single-player uses only the first), so it covers both modes. Both apply at the next session start. The "Recommended for this PC" text block was removed; only the "Use recommended settings" button remains, and it keeps the overlay, volume and notice choices. Checked: build, unit tests, screenshots. Not checked: the sound level or the missing notice in a running game.
+- Not built, candidates: overlay position and scale.
 
 ## How setup works (first run)
 

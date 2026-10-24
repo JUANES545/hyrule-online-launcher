@@ -31,10 +31,20 @@ namespace HyruleOnline {
   // Cemu's filter numbers: 0 bilinear, 1 bicubic, 2 bicubic hermite, 3 nearest neighbor.
   public static readonly string[] Filters = { "Bilinear", "Bicubic", "Bicubic Hermite", "Nearest neighbor" };
 
+  // Master volume choices, in percent. 0 is muted; 50 is what the games used before this option existed.
+  public static readonly int[] Volumes = { 0, 10, 25, 50, 75, 100 };
+  public static int CleanVolume(string text) {
+   int value;
+   if (!int.TryParse(text, out value)) return 50;
+   int best = Volumes[0];
+   foreach (int choice in Volumes) if (Math.Abs(choice - value) < Math.Abs(best - value)) best = choice;
+   return best;
+  }
+
   public sealed class Advanced {
    public string Api = AutoApi;
-   public bool VSync, AsyncCompile, AccurateBarriers, ShowFps = true, ShowUsage;
-   public int Upscale = 1, Downscale = 0;
+   public bool VSync, AsyncCompile, AccurateBarriers, ShowFps = true, ShowUsage, ShowShaderNotice = true;
+   public int Upscale = 1, Downscale = 0, Volume = 50;
   }
 
   [System.Runtime.InteropServices.DllImport("kernel32", CharSet = System.Runtime.InteropServices.CharSet.Unicode, SetLastError = true)]

@@ -34,6 +34,7 @@ namespace HyruleOnline {
      Api = GraphicsMod.CleanApi(Saved(root, "GraphicsApi")), VSync = (string)root.Element("VSync") == "1", AsyncCompile = (string)root.Element("AsyncCompile") == "1",
      AccurateBarriers = (string)root.Element("AccurateBarriers") == "1",
      ShowFps = (string)root.Element("ShowFps") != "0", ShowUsage = (string)root.Element("ShowUsage") == "1",
+     ShowShaderNotice = (string)root.Element("ShowShaderNotice") != "0", Volume = GraphicsMod.CleanVolume((string)root.Element("Volume")),
      Upscale = GraphicsMod.CleanFilter((string)root.Element("UpscaleFilter"), 1), Downscale = GraphicsMod.CleanFilter((string)root.Element("DownscaleFilter"), 0)
     };
     int wanted;

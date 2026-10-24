@@ -691,6 +691,15 @@ namespace HyruleOnline {
      CemuDisplay.Apply(instance, view, null, null, null, options, true);
      Require(graphicValues() == "1,1,true,true,3,2,1", "advanced options are written to Cemu's graphic settings: " + graphicValues());
      Require(overlayValues() == "false,true,true,true," || overlayValues() == "false,true,true,true", "overlay counters are written: " + overlayValues());
+     Func<string> soundValues = () => { var d = System.Xml.Linq.XDocument.Load(settingsFile).Root; return (string)d.Element("Audio").Element("TVVolume") + "," + (string)d.Element("Graphic").Element("Notification").Element("ShaderCompiling"); };
+     Require(soundValues() == "50,true", "the default volume and the shader notice are written: " + soundValues());
+     options.Volume = 0; options.ShowShaderNotice = false;
+     CemuDisplay.Apply(instance, view, null, null, null, options, true);
+     Require(soundValues() == "0,false", "a muted volume and a hidden shader notice are written: " + soundValues());
+     options.Volume = 73;
+     CemuDisplay.Apply(instance, view, null, null, null, options, true);
+     Require(soundValues() == "75,false", "an odd volume snaps to the nearest choice: " + soundValues());
+     options.Volume = 50; options.ShowShaderNotice = true;
      options.ShowFps = true; options.ShowUsage = false;
      CemuDisplay.Apply(instance, view, null, null, null, options, true);
      Require(overlayValues().StartsWith("true,false,false,false"), "overlay counters can be turned back: " + overlayValues());
