@@ -27,7 +27,7 @@ namespace HyruleOnline {
    new object[] { "1024x768 4:3", 1024, 768 }, new object[] { "1280x1024 5:4", 1280, 1024 }, new object[] { "1100x1000 near square", 1100, 1000 },
    new object[] { "1080x1920 portrait", 1080, 1920 }, new object[] { "800x1280 narrow portrait", 800, 1280 }
   };
-  static readonly string[] Pages = { "Play", "Graphics", "Multiplayer", "Language", "Details" };
+  static readonly string[] Pages = { "Play", "Graphics", "Multiplayer", "Online", "Language", "Details" };
 
   static IEnumerable<T> Descendants<T>(DependencyObject node) where T : DependencyObject {
    foreach (object child in LogicalTreeHelper.GetChildren(node)) {

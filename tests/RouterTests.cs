@@ -362,6 +362,49 @@ namespace HyruleOnline {
    Console.WriteLine("PASS: server rules and commands.");
   }
 
+  static void ServerConnectionTest() {
+   string host, password; int port;
+   Require(ServerConnection.TryParse("hyrule://100.64.0.5:5051?pw=a%26b%20c", out host, out port, out password) && host == "100.64.0.5" && port == 5051 && password == "a&b c", "an invite carries host, port and password");
+   Require(ServerConnection.TryParse(" friend.example.com ", out host, out port, out password) && host == "friend.example.com" && port == 5050 && password == "", "a bare host uses the default port");
+   Require(ServerConnection.TryParse("192.168.1.20:6000/", out host, out port, out password) && host == "192.168.1.20" && port == 6000, "host:port");
+   foreach (string bad in new[] { "", "   ", "host:0", "host:70000", "host:abc", "bad host", "-host", "host;calc", "hyrule://" })
+    Require(!ServerConnection.TryParse(bad, out host, out port, out password), "not an address: " + bad);
+   string invite = ServerConnection.Invite("100.64.0.5", 5051, "a&b c");
+   Require(invite == "hyrule://100.64.0.5:5051?pw=a%26b%20c" && ServerConnection.Invite("h", 5050, "") == "hyrule://h:5050", "invites are written");
+   Require(ServerConnection.TryParse(invite, out host, out port, out password) && password == "a&b c", "an invite reads back");
+   Require(ServerConnection.CleanPort("80") == 5050 && ServerConnection.CleanPort("abc") == 5050 && ServerConnection.CleanPort(null) == 5050 && ServerConnection.CleanPort(" 6001 ") == 6001, "ports");
+   Require(ServerConnection.CleanText(" a\r\nb\t ", 10) == "ab" && ServerConnection.CleanText("abcdef", 3) == "abc" && ServerConnection.CleanText(null, 3) == "" && ServerConnection.CleanMode("Nope") == "Local" && ServerConnection.CleanMode("Join") == "Join", "text and mode cleaning");
+   Require(ServerConnection.Best(new[] { "192.168.1.5", "100.100.1.2", "10.0.0.2" }) == "100.100.1.2" && ServerConnection.Best(new[] { "169.254.1.1", "172.20.0.3" }) == "172.20.0.3" && ServerConnection.Best(new[] { "169.254.1.1", "100.10.0.1" }) == null && ServerConnection.Best(new string[0]) == null, "the address worth sharing");
+
+   const string ini = "\uFEFF[Connection]\r\n# where\r\nIP=localhost\r\nPort=5050\r\nPassword=\r\n\r\n[ServerInformation]\r\nDescription=Old\r\n\r\n[DefaultGamemode]\r\nName=Custom\r\n";
+   string text = ServerConnection.Apply(ini.TrimStart('\uFEFF'), "0.0.0.0", 6000, "pw", "Hello");
+   Require(text.Contains("IP=0.0.0.0\r\n") && text.Contains("Port=6000\r\n") && text.Contains("Password=pw\r\n") && text.Contains("Description=Hello\r\n") && text.Contains("# where") && text.Contains("Name=Custom") && !text.Replace("\r\n", "").Contains("\n"), "the connection is written in place");
+   Require(ServerConnection.Apply(text, "0.0.0.0", 6000, "pw", "Hello") == text, "writing the same connection twice changes nothing");
+   string empty = ServerConnection.Apply("", "127.0.0.1", 5050, "", "D");
+   Require(empty.Contains("[Connection]") && empty.Contains("IP=127.0.0.1") && empty.Contains("[ServerInformation]") && empty.Contains("Description=D"), "an empty ini gets the sections");
+   Require(ServerConnection.Apply("[Connection]\nIP=a\n", "b", 5050, "", "D").Contains("IP=b\n") && !ServerConnection.Apply("[Connection]\nIP=a\n", "b", 5050, "", "D").Contains("\r"), "line endings stay");
+
+   string temp = Path.Combine(Path.GetTempPath(), "hyrule-conn-" + Guid.NewGuid().ToString("N"));
+   try {
+    Directory.CreateDirectory(temp);
+    string file = Path.Combine(temp, "ServerConfig.ini");
+    File.WriteAllText(file, ini.TrimStart('\uFEFF'), new System.Text.UTF8Encoding(true));
+    ServerConnection.Save(file, "0.0.0.0", 6001, "x", "Y");
+    var bytes = File.ReadAllBytes(file);
+    Require(bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF && bytes[3] == (byte)'[' && File.ReadAllText(file).Contains("Port=6001"), "the saved ini keeps its byte order mark");
+
+    string config = Path.Combine(temp, "user.config");
+    File.WriteAllText(config, "<?xml version=\"1.0\" encoding=\"utf-8\"?><configuration><userSettings><App.Settings><setting name=\"playerName\" serializeAs=\"String\"><value>Old</value></setting></App.Settings></userSettings></configuration>");
+    MilkBarSettings.SetServer(config, "Hyrule \"Online\"", "100.64.0.5", 5051, "p\\w");
+    var entry = System.Xml.Linq.XDocument.Load(config).Descendants("setting").First(e => (string)e.Attribute("name") == "serversAdded").Value;
+    Require(entry == "[{\"Name\":\"Hyrule \\\"Online\\\"\",\"IP\":\"100.64.0.5\",\"Port\":5051,\"Favorite\":false,\"Password\":\"p\\\\w\"}]", "the server entry is written as the Milk Bar client reads it");
+    MilkBarSettings.SetServer(config, "Again", "127.0.0.1", 5050, "");
+    Require(System.Xml.Linq.XDocument.Load(config).Descendants("setting").Count(e => (string)e.Attribute("name") == "serversAdded") == 1, "the server entry is replaced, not repeated");
+   }
+   finally { if (Directory.Exists(temp)) Directory.Delete(temp, true); }
+   Console.WriteLine("PASS: server connection.");
+  }
+
   // Needs the extracted Milk Bar launcher; without it (a fresh clone) the check is skipped, not failed.
   static void Busts(string root) {
    string dll = Path.Combine(root, ".artifacts", "extract", "milkbar", "Milk Bar Launcher.dll");
@@ -752,6 +795,7 @@ namespace HyruleOnline {
     HardwareTiers();
     Players();
     ServerRulesTest();
+    ServerConnectionTest();
     Languages(args.Length > 0 ? args[0] : Directory.GetCurrentDirectory());
     Busts(args.Length > 0 ? args[0] : Directory.GetCurrentDirectory());
         return 0;

@@ -20,6 +20,12 @@ namespace HyruleOnline {
    ((FrameworkElement)root.FindName("RulesPanel")).Margin = fit.Stacked ? new Thickness(0, 0, 0, 18) : new Thickness(0, 0, 14, 0);
    ((FrameworkElement)root.FindName("LivePanel")).Margin = fit.Stacked ? new Thickness(0) : new Thickness(14, 0, 0, 0);
 
+   var online = (Grid)root.FindName("OnlineBody");
+   online.ColumnDefinitions[1].Width = fit.Stacked ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
+   Place(root, "OnlineRight", fit.Stacked);
+   ((FrameworkElement)root.FindName("OnlineLeft")).Margin = fit.Stacked ? new Thickness(0, 0, 0, 18) : new Thickness(0, 0, 14, 0);
+   ((FrameworkElement)root.FindName("OnlineRight")).Margin = fit.Stacked ? new Thickness(0) : new Thickness(14, 0, 0, 0);
+
    var graphics = (Grid)root.FindName("GraphicsBody");
    graphics.ColumnDefinitions[1].Width = fit.Stacked ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
    Place(root, "GraphicsRight", fit.Stacked);

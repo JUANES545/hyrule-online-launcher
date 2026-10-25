@@ -5,6 +5,8 @@ param(
     [switch]$ExternalRouter,
     # The launcher already started the dedicated server (hidden, so it can show its output).
     [switch]$ExternalServer,
+    # Join a friend's server (host:port) instead of running one; no local server is started.
+    [string]$RemoteServer = '',
     # Show the Milk Bar launcher windows instead of hiding them.
     [switch]$ShowMilkBar,
     # One player starts only Cemu A; two players also start Cemu B.
@@ -138,7 +140,7 @@ function Stop-Player {
 
 $inputRouter = Join-Path $root '.artifacts\input'
 $names = 'Cemu', 'Milk Bar Launcher', 'InputRouter', 'HyruleCoop'
-if (-not $ExternalServer) { $names += 'MBL.DedicatedServer' }
+if (-not $ExternalServer -and -not $RemoteServer) { $names += 'MBL.DedicatedServer' }
 $running = Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Name -in $names }
 if ($running) { throw 'Cemu, a Milk Bar launcher, the server or an input router is already running. Close it before starting an online session.' }
 if ($InputMode -eq 'Routed' -and -not (Test-Path -LiteralPath (Join-Path $inputRouter 'Bridge\xinput1_4.dll'))) { throw 'Run scripts/Build-Input.ps1 first.' }
@@ -147,7 +149,7 @@ foreach ($player in $players) {
         if (-not (Test-Path -LiteralPath $path)) { throw "Missing $path. Run the clean install first." }
     }
 }
-if (-not (Test-Path -LiteralPath (Join-Path $serverDirectory 'MBL.DedicatedServer.exe'))) { throw 'The dedicated server is missing.' }
+if (-not $RemoteServer -and -not (Test-Path -LiteralPath (Join-Path $serverDirectory 'MBL.DedicatedServer.exe'))) { throw 'The dedicated server is missing.' }
 
 foreach ($player in $players) { Set-ControllerProfile -CemuDirectory $player.Cemu -Slot $player.Slot }
 
@@ -162,15 +164,20 @@ else {
     foreach ($player in $players) { Remove-Item -LiteralPath (Join-Path $player.Cemu 'xinput1_4.dll') -ErrorAction SilentlyContinue }
 }
 
-if ($ExternalServer) {
-    $server = Get-Process -Name 'MBL.DedicatedServer' -ErrorAction SilentlyContinue | Select-Object -First 1
-    if (-not $server) { throw 'The launcher did not start the dedicated server.' }
+if ($RemoteServer) {
+    Write-Output "Remote server: $RemoteServer."
 }
 else {
-    $server = Start-Process -FilePath (Join-Path $serverDirectory 'MBL.DedicatedServer.exe') -WorkingDirectory $serverDirectory -WindowStyle Hidden -PassThru
+    if ($ExternalServer) {
+        $server = Get-Process -Name 'MBL.DedicatedServer' -ErrorAction SilentlyContinue | Select-Object -First 1
+        if (-not $server) { throw 'The launcher did not start the dedicated server.' }
+    }
+    else {
+        $server = Start-Process -FilePath (Join-Path $serverDirectory 'MBL.DedicatedServer.exe') -WorkingDirectory $serverDirectory -WindowStyle Hidden -PassThru
+    }
+    Write-Output "Server started (pid $($server.Id))."
+    Start-Sleep -Seconds 5
 }
-Write-Output "Server started (pid $($server.Id))."
-Start-Sleep -Seconds 5
 
 $sessionStart = Get-Date
 foreach ($player in $players) {

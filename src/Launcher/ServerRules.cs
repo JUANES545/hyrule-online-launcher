@@ -199,4 +199,113 @@ namespace HyruleOnline {
    return names;
   }
  }
+
+ // How this PC takes part online: alone on this PC, hosting a server friends can join, or joining a friend's server.
+ static class ServerConnection {
+  public const string Local = "Local", Host = "Host", Join = "Join";
+  public const int DefaultPort = 5050;
+  public const string LoopbackAddress = "127.0.0.1", AnyAddress = "0.0.0.0", DefaultDescription = "Explore Hyrule with Friends!";
+
+  public static string CleanMode(string text) { return text == Host || text == Join ? text : Local; }
+
+  public static int CleanPort(string text) {
+   int port;
+   return int.TryParse((text ?? "").Trim(), out port) && port >= 1024 && port <= 65535 ? port : DefaultPort;
+  }
+
+  // The ini and the invite are line based, so text keeps to one line.
+  public static string CleanText(string text, int max) {
+   var clean = new StringBuilder();
+   foreach (char c in text ?? "") if (!char.IsControl(c)) clean.Append(c);
+   string result = clean.ToString().Trim();
+   return result.Length > max ? result.Substring(0, max) : result;
+  }
+
+  public static string Invite(string host, int port, string password) {
+   return "hyrule://" + host + ":" + port + (string.IsNullOrEmpty(password) ? "" : "?pw=" + Uri.EscapeDataString(password));
+  }
+
+  // Reads an invite link, "host:port" or just "host" (port 5050). False when the text is not an address.
+  public static bool TryParse(string text, out string host, out int port, out string password) {
+   host = null; port = DefaultPort; password = "";
+   text = (text ?? "").Trim();
+   if (text.StartsWith("hyrule://", StringComparison.OrdinalIgnoreCase)) text = text.Substring(9);
+   int query = text.IndexOf('?');
+   if (query >= 0) {
+    var secret = Regex.Match(text.Substring(query + 1), "(?:^|&)pw=([^&]*)");
+    if (secret.Success) password = Uri.UnescapeDataString(secret.Groups[1].Value);
+    text = text.Substring(0, query);
+   }
+   text = text.TrimEnd('/');
+   int colon = text.LastIndexOf(':');
+   if (colon >= 0) {
+    if (!int.TryParse(text.Substring(colon + 1), out port) || port < 1 || port > 65535) return false;
+    text = text.Substring(0, colon);
+   }
+   if (!Regex.IsMatch(text, "^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$")) return false;
+   host = text;
+   return true;
+  }
+
+  // The address worth sharing: a Tailscale one (reachable from anywhere), then a home network one; null when there is neither.
+  public static string Best(IEnumerable<string> addresses) {
+   string home = null;
+   foreach (string address in addresses) {
+    var part = address.Split('.');
+    int first, second;
+    if (part.Length != 4 || !int.TryParse(part[0], out first) || !int.TryParse(part[1], out second)) continue;
+    if (first == 100 && second >= 64 && second <= 127) return address;
+    if (home == null && (first == 10 || first == 192 && second == 168 || first == 172 && second >= 16 && second <= 31)) home = address;
+   }
+   return home;
+  }
+
+  // IPv4 addresses of the network adapters that are up, without Windows' virtual switches.
+  public static List<string> Addresses() {
+   var found = new List<string>();
+   try {
+    foreach (var adapter in System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces()) {
+     if (adapter.OperationalStatus != System.Net.NetworkInformation.OperationalStatus.Up || adapter.NetworkInterfaceType == System.Net.NetworkInformation.NetworkInterfaceType.Loopback) continue;
+     if (adapter.Name.StartsWith("vEthernet", StringComparison.OrdinalIgnoreCase)) continue;
+     foreach (var unicast in adapter.GetIPProperties().UnicastAddresses)
+      if (unicast.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork) found.Add(unicast.Address.ToString());
+    }
+   }
+   catch (Exception) { }
+   return found;
+  }
+
+  // Sets one key of an ini section and keeps every other line, the comments, the line endings and the section order.
+  public static string Set(string ini, string section, string key, string value) {
+   string newline = ini.Contains("\r\n") ? "\r\n" : "\n";
+   var lines = new List<string>(ini.Split('\n'));
+   for (int i = 0; i < lines.Count; i++) if (lines[i].EndsWith("\r")) lines[i] = lines[i].Substring(0, lines[i].Length - 1);
+   string current = "";
+   int last = -1, start = -1;
+   for (int i = 0; i < lines.Count; i++) {
+    string line = lines[i].Trim();
+    if (line.StartsWith("[") && line.EndsWith("]")) { current = line.Substring(1, line.Length - 2); if (current == section) { start = i; last = i; } continue; }
+    if (current != section || line.Length == 0) continue;
+    last = i;
+    int eq = line.IndexOf('=');
+    if (!line.StartsWith("#") && !line.StartsWith(";") && eq > 0 && line.Substring(0, eq).Trim() == key) { lines[i] = key + "=" + value; return string.Join(newline, lines.ToArray()); }
+   }
+   if (start >= 0) lines.Insert(last + 1, key + "=" + value);
+   else { while (lines.Count > 0 && lines[lines.Count - 1].Trim().Length == 0) lines.RemoveAt(lines.Count - 1); lines.Add(""); lines.Add("[" + section + "]"); lines.Add(key + "=" + value); lines.Add(""); }
+   return string.Join(newline, lines.ToArray());
+  }
+
+  public static string Apply(string ini, string ip, int port, string password, string description) {
+   ini = Set(ini, "Connection", "IP", ip);
+   ini = Set(ini, "Connection", "Port", port.ToString());
+   ini = Set(ini, "Connection", "Password", password);
+   return Set(ini, "ServerInformation", "Description", description);
+  }
+
+  // Writes the connection into the server's ini in place; the file keeps its byte order mark.
+  public static void Save(string file, string ip, int port, string password, string description) {
+   string text = File.Exists(file) ? File.ReadAllText(file, Encoding.UTF8) : "";
+   File.WriteAllText(file, Apply(text, ip, port, password, description), new UTF8Encoding(true));
+  }
+ }
 }

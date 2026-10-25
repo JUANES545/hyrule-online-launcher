@@ -10,7 +10,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Test compilation failed.' }
 if ($LASTEXITCODE -ne 0) { throw 'Router tests failed.' }
 
 & (Join-Path $framework 'csc.exe') /nologo /target:exe /platform:x64 "/out:$(Join-Path $output 'StartupTests.exe')" /reference:System.Xml.Linq.dll `
-    (Join-Path $root 'tests\StartupTests.cs') (Join-Path $root 'src\Launcher\PathGuard.cs') (Join-Path $root 'src\Launcher\Prefs.cs') (Join-Path $root 'src\Launcher\Layout.cs') (Join-Path $root 'src\Launcher\GraphicsMod.cs') (Join-Path $root 'src\Launcher\FpsMod.cs') (Join-Path $root 'src\Launcher\Characters.cs') (Join-Path $root 'src\Launcher\Lang.cs') (Join-Path $root 'src\Input\Sdl.cs') (Join-Path $root 'src\Input\ControllerMotion.cs')
+    (Join-Path $root 'tests\StartupTests.cs') (Join-Path $root 'src\Launcher\PathGuard.cs') (Join-Path $root 'src\Launcher\Prefs.cs') (Join-Path $root 'src\Launcher\ServerRules.cs') (Join-Path $root 'src\Launcher\Layout.cs') (Join-Path $root 'src\Launcher\GraphicsMod.cs') (Join-Path $root 'src\Launcher\FpsMod.cs') (Join-Path $root 'src\Launcher\Characters.cs') (Join-Path $root 'src\Launcher\Lang.cs') (Join-Path $root 'src\Input\Sdl.cs') (Join-Path $root 'src\Input\ControllerMotion.cs')
 if ($LASTEXITCODE -ne 0) { throw 'Startup test compilation failed.' }
 & (Join-Path $output 'StartupTests.exe') $root
 if ($LASTEXITCODE -ne 0) { throw 'Startup tests failed.' }

@@ -235,7 +235,7 @@ namespace HyruleOnline {
    var boxes = all.Select(e => { var b = Bounds(e); return new Box(b.X, b.Y, b.Width, b.Height); }).ToList();
    int pick = Spatial.Next(new Box(from.X, from.Y, from.Width, from.Height), boxes, all.Select(e => ChromeNames.Contains(e.Name)).ToList(), ChromeNames.Contains(cursor.Target.Name), direction);
    if (pick >= 0) SetTarget(cursor, all[pick]);
-   else if (page == 4 && direction < 2) { if (direction == 0) C<TextBox>("Log").LineUp(); else C<TextBox>("Log").LineDown(); }
+   else if (page == 5 && direction < 2) { if (direction == 0) C<TextBox>("Log").LineUp(); else C<TextBox>("Log").LineDown(); }
   }
 
   void FocusComboItem(ComboBox combo, int index) {

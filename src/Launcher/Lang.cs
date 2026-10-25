@@ -14,7 +14,7 @@ namespace HyruleOnline {
   // Elements whose text the launcher sets from code; the XAML walker leaves them alone.
   public static readonly string[] Dynamic = {
    "CornerServer", "P1Status", "P2Status", "P1Name", "P2Name", "P1AvatarName", "P2AvatarName", "P1PickerName", "P2PickerName", "ScreenInfo", "LayoutInfo", "Layout", "Arrange", "Assign1", "Assign2",
-   "ServerText", "AText", "BText", "Status", "Prompt", "HelpText", "Log", "ServerLog", "LanguageList", "LauncherLanguageList", "TimeBox", "GraphicsHint", "MultiplayerHint", "Start", "PresetInfo", "PresetShares", "SpecialInfo", "PadHint1", "PadHint2", "PadLayoutInfo", "StartText", "Mode", "SetupProgressText", "SetupNotes"
+   "ServerText", "AText", "BText", "Status", "Prompt", "HelpText", "Log", "ServerLog", "LanguageList", "LauncherLanguageList", "TimeBox", "GraphicsHint", "MultiplayerHint", "Start", "PresetInfo", "PresetShares", "SpecialInfo", "PadHint1", "PadHint2", "PadLayoutInfo", "StartText", "Mode", "SetupProgressText", "SetupNotes", "OnlineModeInfo", "FirewallInfo"
   };
 
   // Text that reads the same in every language.
@@ -247,6 +247,44 @@ namespace HyruleOnline {
    new[] { "Some changes only apply after a restart. Press Restart session to apply them.", "Algunos cambios solo se aplican tras reiniciar. Pulsa Reiniciar sesión para aplicarlos.", "Certains changements ne s'appliquent qu'après un redémarrage. Appuyez sur Redémarrer la session pour les appliquer." },
    new[] { "Stop session", "Detener sesión", "Arrêter la session" },
    new[] { "Exit", "Salir", "Quitter" },
+   new[] { "ONLINE", "EN LÍNEA", "EN LIGNE" },
+   new[] { "How this PC takes part. Applied when the next session starts.", "Cómo participa este PC. Se aplica al iniciar la próxima sesión.", "Comment ce PC participe. S'applique au démarrage de la prochaine session." },
+   new[] { "Online mode", "Modo en línea", "Mode en ligne" },
+   new[] { "Play on this PC keeps the server private. Host a server lets friends join over the network. Join a server connects to a friend's server.", "Jugar en este PC mantiene el servidor privado. Alojar un servidor deja que tus amigos entren por la red. Unirse a un servidor te conecta al de un amigo.", "Jouer sur ce PC garde le serveur privé. Héberger un serveur permet à vos amis de vous rejoindre par le réseau. Rejoindre un serveur vous connecte à celui d'un ami." },
+   new[] { "Play on this PC", "Jugar en este PC", "Jouer sur ce PC" },
+   new[] { "Host a server", "Alojar un servidor", "Héberger un serveur" },
+   new[] { "Join a server", "Unirse a un servidor", "Rejoindre un serveur" },
+   new[] { "The server only accepts players from this PC.", "El servidor solo acepta jugadores de este PC.", "Le serveur n'accepte que les joueurs de ce PC." },
+   new[] { "Friends who run this launcher can join this PC. The world rules are the ones on the Multiplayer page.", "Los amigos que usen este launcher pueden unirse a este PC. Las reglas del mundo son las de la página Multijugador.", "Les amis qui utilisent ce launcher peuvent rejoindre ce PC. Les règles du monde sont celles de la page Multijoueur." },
+   new[] { "You play on one screen with one controller on a friend's server. The friend sets the rules.", "Juegas con un solo mando en una pantalla, en el servidor de un amigo. Tu amigo decide las reglas.", "Vous jouez sur un seul écran avec une seule manette, sur le serveur d'un ami. Votre ami fixe les règles." },
+   new[] { "Port", "Puerto", "Port" },
+   new[] { "The TCP port the server listens on, from 1024 to 65535. It goes in the invite. The default is 5050.", "El puerto TCP en el que escucha el servidor, de 1024 a 65535. Va en la invitación. Por defecto es 5050.", "Le port TCP sur lequel le serveur écoute, de 1024 à 65535. Il figure dans l'invitation. Par défaut : 5050." },
+   new[] { "Server port", "Puerto del servidor", "Port du serveur" },
+   new[] { "Password", "Contraseña", "Mot de passe" },
+   new[] { "Optional. Friends need it to join. Leave it empty for an open server.", "Opcional. Tus amigos la necesitan para entrar. Déjala vacía para un servidor abierto.", "Facultatif. Vos amis en ont besoin pour entrer. Laissez vide pour un serveur ouvert." },
+   new[] { "Server password", "Contraseña del servidor", "Mot de passe du serveur" },
+   new[] { "Server description", "Descripción del servidor", "Description du serveur" },
+   new[] { "The text friends see about this server.", "El texto que ven tus amigos sobre este servidor.", "Le texte que vos amis voient pour ce serveur." },
+   new[] { "Invite or address", "Invitación o dirección", "Invitation ou adresse" },
+   new[] { "Paste the invite your friend sent you, or type their address and port.", "Pega la invitación que te envió tu amigo, o escribe su dirección y puerto.", "Collez l'invitation envoyée par votre ami, ou saisissez son adresse et son port." },
+   new[] { "Example: hyrule://100.64.0.5:5050 or 192.168.1.20:5050", "Ejemplo: hyrule://100.64.0.5:5050 o 192.168.1.20:5050", "Exemple : hyrule://100.64.0.5:5050 ou 192.168.1.20:5050" },
+   new[] { "The server password, if the invite does not carry it.", "La contraseña del servidor, si la invitación no la incluye.", "Le mot de passe du serveur, si l'invitation ne le contient pas." },
+   new[] { "Server password to join", "Contraseña del servidor para entrar", "Mot de passe du serveur pour entrer" },
+   new[] { "INVITE FRIENDS", "INVITAR AMIGOS", "INVITER DES AMIS" },
+   new[] { "Address in the invite", "Dirección de la invitación", "Adresse de l'invitation" },
+   new[] { "The Tailscale or home network address of this PC. Use your public address if you forward the port on your router. Empty it to detect the address again.", "La dirección de este PC en Tailscale o en tu red local. Usa tu dirección pública si redirigiste el puerto en el router. Vacíala para detectarla de nuevo.", "L'adresse de ce PC sur Tailscale ou sur votre réseau local. Utilisez votre adresse publique si vous avez redirigé le port sur le routeur. Videz le champ pour la détecter à nouveau." },
+   new[] { "Invite", "Invitación", "Invitation" },
+   new[] { "Copy invite", "Copiar invitación", "Copier l'invitation" },
+   new[] { "Copies the invite. Your friends paste it in the Join a server mode of their launcher.", "Copia la invitación. Tus amigos la pegan en el modo Unirse a un servidor de su launcher.", "Copie l'invitation. Vos amis la collent dans le mode Rejoindre un serveur de leur launcher." },
+   new[] { "Allow through firewall", "Permitir en el cortafuegos", "Autoriser dans le pare-feu" },
+   new[] { "Adds a Windows Firewall rule for the server port. Windows asks for administrator permission.", "Añade una regla al cortafuegos de Windows para el puerto del servidor. Windows pide permiso de administrador.", "Ajoute une règle au pare-feu Windows pour le port du serveur. Windows demande l'autorisation de l'administrateur." },
+   new[] { "Windows Firewall already allows port {0}.", "El cortafuegos de Windows ya permite el puerto {0}.", "Le pare-feu Windows autorise déjà le port {0}." },
+   new[] { "Windows Firewall may block port {0}. Allow it so friends can connect.", "El cortafuegos de Windows puede bloquear el puerto {0}. Permítelo para que tus amigos se conecten.", "Le pare-feu Windows peut bloquer le port {0}. Autorisez-le pour que vos amis se connectent." },
+   new[] { "Friends on the same network can use the home address. From anywhere else, install Tailscale on both PCs, or forward the port on your router and use your public address.", "Los amigos de la misma red pueden usar la dirección local. Desde cualquier otro sitio, instala Tailscale en ambos PC, o redirige el puerto en tu router y usa tu dirección pública.", "Les amis du même réseau peuvent utiliser l'adresse locale. De n'importe où ailleurs, installez Tailscale sur les deux PC, ou redirigez le port sur votre routeur et utilisez votre adresse publique." },
+   new[] { "JOINING A SERVER", "UNIRSE A UN SERVIDOR", "REJOINDRE UN SERVEUR" },
+   new[] { "Ask the host for their invite and paste it here. You play on this PC with one controller. The host chooses the world rules and runs the server.", "Pide su invitación al anfitrión y pégala aquí. Juegas en este PC con un solo mando. El anfitrión elige las reglas del mundo y ejecuta el servidor.", "Demandez son invitation à l'hôte et collez-la ici. Vous jouez sur ce PC avec une seule manette. L'hôte choisit les règles du monde et lance le serveur." },
+   new[] { "Remote", "Remoto", "Distant" },
+   new[] { "The server address is not valid. Enter an invite link or host:port on the Online page.", "La dirección del servidor no es válida. Escribe un enlace de invitación o host:puerto en la página En línea.", "L'adresse du serveur n'est pas valide. Saisissez un lien d'invitation ou hôte:port sur la page En ligne." },
 
    new[] { "Server running", "Servidor activo", "Serveur actif" },
    new[] { "Server stopped", "Servidor detenido", "Serveur arrêté" },

@@ -173,6 +173,7 @@ namespace HyruleOnline {
    LoadRules();
    for (int i = 0; i < 2; i++) WatchPlayer(i);
    WatchWorld();
+   WatchOnline();
    ApplyLanguage();
    router.Message += text => Window.Dispatcher.BeginInvoke(new Action(() => Write(text)));
    C<Button>("Start").Click += (s, e) => PressStart();
@@ -235,7 +236,7 @@ namespace HyruleOnline {
      Window.Dispatcher.BeginInvoke(new Action(ChangedDisplayChoice));
     };
    }
-   foreach (var tab in new[] { "TabPlay", "TabGraphics", "TabMultiplayer", "TabLanguage", "TabDetails" }) {
+   foreach (var tab in new[] { "TabPlay", "TabGraphics", "TabMultiplayer", "TabOnline", "TabLanguage", "TabDetails" }) {
     var button = C<Button>(tab);
     button.Click += (s, e) => ShowPage(int.Parse((string)((Button)s).Tag));
    }
@@ -248,12 +249,7 @@ namespace HyruleOnline {
     bool? tags = ServerCommands.NameTags(line);
     if (tags.HasValue) ShowNameTags(tags.Value);
    }));
-   var command = C<TextBox>("ServerCommand");
-   var commandHint = C<TextBlock>("ServerCommandHint");
-   Action showCommandHint = () => commandHint.Visibility = command.Text.Length == 0 && !command.IsKeyboardFocused ? Visibility.Visible : Visibility.Collapsed;
-   command.TextChanged += (s, e) => showCommandHint();
-   command.GotKeyboardFocus += (s, e) => showCommandHint();
-   command.LostKeyboardFocus += (s, e) => showCommandHint();
+   Placeholder(C<TextBox>("ServerCommand"), C<TextBlock>("ServerCommandHint"));
    C<TextBox>("ServerCommand").KeyDown += (s, e) => {
     if (e.Key != Key.Enter) return;
     var box = (TextBox)s;
@@ -313,7 +309,7 @@ namespace HyruleOnline {
    UpdatePlayLayout();
   }
 
-  static readonly string[] PageNames = { "Play", "Graphics", "Multiplayer", "Language", "Details" };
+  static readonly string[] PageNames = { "Play", "Graphics", "Multiplayer", "Online", "Language", "Details" };
   int page;
   ushort[] previousButtons = new ushort[4];
 
@@ -360,7 +356,7 @@ namespace HyruleOnline {
   }
 
   bool AnyDropDownOpen() {
-   foreach (var name in new[] { "FpsBox", "ScaleBox", "ShadowsBox", "ShadowDistanceBox", "AntiAliasingBox", "RulesBox", "SpecialBox", "WeatherBox", "Display1Box", "Display2Box", "Scale1Box", "Scale2Box", "Fps1Box", "Fps2Box", "ApiBox", "UpscaleBox", "DownscaleBox", "PadLayoutBox", "ShortcutBox" }) if (C<ComboBox>(name).IsDropDownOpen) return true;
+   foreach (var name in new[] { "FpsBox", "ScaleBox", "ShadowsBox", "ShadowDistanceBox", "AntiAliasingBox", "RulesBox", "SpecialBox", "OnlineModeBox", "WeatherBox", "Display1Box", "Display2Box", "Scale1Box", "Scale2Box", "Fps1Box", "Fps2Box", "ApiBox", "UpscaleBox", "DownscaleBox", "PadLayoutBox", "ShortcutBox" }) if (C<ComboBox>(name).IsDropDownOpen) return true;
    return pickerOpen[0] || pickerOpen[1] || cursors.Any(c => c != null && c.Combo != null);
   }
 
@@ -375,6 +371,8 @@ namespace HyruleOnline {
    }
    sharedShaders = saved.SharedShaders; language = saved.Language; launcherLanguage = saved.LauncherLanguage;
    shortcutText = saved.Shortcut; Router.Shortcut = MenuShortcut.Parse(shortcutText);
+   onlineMode = saved.OnlineMode; hostPort = saved.HostPort; hostPassword = saved.HostPassword; hostDescription = saved.HostDescription; hostAddress = saved.HostAddress; joinAddress = saved.JoinAddress; joinPassword = saved.JoinPassword;
+   if (Joining) playerCount = 1;
   }
 
   // The name and avatar of each player sit on that player's card and are written into its Milk Bar settings when a session starts.
@@ -535,7 +533,7 @@ namespace HyruleOnline {
    filling = true;
    try { ShowAdvanced(); } finally { filling = false; }
    ResetHints();
-   ShowRules(); UpdateLive(); ShowModeSwitch();
+   ShowRules(); UpdateLive(); ShowModeSwitch(); ShowOnline();
    FillLanguages();
    C<TextBlock>("Status").Text = Tr(statusText, statusArgs);
    C<TextBlock>("Prompt").Text = Tr(promptText, promptArgs);
@@ -607,7 +605,8 @@ namespace HyruleOnline {
      new XElement("Fps1", fpsLimits[0] == FpsMod.AutoFps ? "Auto" : fpsLimits[0].ToString()), new XElement("Fps2", fpsLimits[1] == FpsMod.AutoFps ? "Auto" : fpsLimits[1].ToString()),
      new XElement("Rotation1", rotations[0]), new XElement("Rotation2", rotations[1]),
      new XElement("Name1", names[0]), new XElement("Model1", models[0]), new XElement("Name2", names[1]), new XElement("Model2", models[1]),
-     new XElement("SharedShaderCache", sharedShaders ? "1" : "0"), new XElement("Language", language), new XElement("LauncherLanguage", launcherLanguage), new XElement("MenuLayout", Router.MenuLayout < 0 ? "Auto" : PadKind.Names[Router.MenuLayout]), new XElement("MenuShortcut", shortcutText))).Save(PrefsFile);
+     new XElement("SharedShaderCache", sharedShaders ? "1" : "0"), new XElement("Language", language), new XElement("LauncherLanguage", launcherLanguage), new XElement("MenuLayout", Router.MenuLayout < 0 ? "Auto" : PadKind.Names[Router.MenuLayout]), new XElement("MenuShortcut", shortcutText),
+     new XElement("OnlineMode", onlineMode), new XElement("HostPort", hostPort), new XElement("HostPassword", hostPassword), new XElement("HostDescription", hostDescription), new XElement("HostAddress", hostAddress), new XElement("JoinAddress", joinAddress), new XElement("JoinPassword", joinPassword))).Save(PrefsFile);
    }
    catch (Exception error) { Write("Could not save the display settings: " + error.Message); }
   }
@@ -1343,16 +1342,17 @@ namespace HyruleOnline {
    C<System.Windows.Shapes.Shape>(name + "Dot").Fill = color;
   }
 
-  void ApplyPlayers() {
+  void ApplyPlayers(string host, int port, string password) {
    for (int i = 0; i < playerCount; i++) {
     var character = Characters.Find(characters, models[i]);
     names[i] = Characters.CleanName(C<TextBox>("P" + (i + 1) + "NameBox").Text, Characters.DefaultNames[i]);
     string bcml = Path.Combine(root, ".tools", "localappdata", i == 0 ? "bcml" : "bcml-b", "settings.json");
     try {
      string file = MilkBarSettings.Find(MilkBarSettings.UserRoot, bcml);
-     if (file == null) { Write("Player " + (i + 1) + ": no Milk Bar settings file was found, so the name and model are not applied."); continue; }
+     if (file == null) { Write("Player " + (i + 1) + ": no Milk Bar settings file was found, so the name, model and server are not applied."); continue; }
      MilkBarSettings.Apply(file, names[i], character);
-     Write("Player " + (i + 1) + ": " + names[i] + " as " + character.Display + ".");
+     MilkBarSettings.SetServer(file, Joining ? "Friend" : "Hyrule Online", host, port, password);
+     Write("Player " + (i + 1) + ": " + names[i] + " as " + character.Display + ", server " + host + ":" + port + ".");
     }
     catch (Exception error) { Write("Player " + (i + 1) + ": the name and model could not be applied: " + error.Message); }
    }
@@ -1371,22 +1371,31 @@ namespace HyruleOnline {
    SetStatus("Starting...");
    if (shaderProblem != null) SetStatus("Shared shader cache is off for this session: {0}", shaderProblem);
    SetPrompt("");
-   ApplyPlayers();
-   SaveRules(true);
-   appliedSignature = Signature();
-   Write("World rules: " + rules.Name + ", " + ServerRules.SpecialNames[rules.Special] + ".");
-   ShowNameTags(true);
-   Step("Server", "Starting", Busy); Step("A", "Waiting", Idle); Step("B", playerCount == 2 ? "Waiting" : "Stopped", Idle);
-   Write(playerCount == 1 ? "Starting a one player session." : "Starting the session.");
-   try {
-    serverHost.Start(Path.Combine(root, ".artifacts", "extract", "milkbar", "DedicatedServer"));
-   }
-   catch (Exception error) {
-    Fail("The dedicated server could not start: {0}", error.Message);
-    Step("Server", "Stopped", Bad);
+   string host, serverPassword;
+   int port;
+   if (!ServerTarget(out host, out port, out serverPassword)) {
+    Fail("The server address is not valid. Enter an invite link or host:port on the Online page.");
     return;
    }
-   script = Scripts.Run(root, "Start-Online.ps1", "-InputMode Routed -ExternalRouter -ExternalServer -PlayerCount " + playerCount, Line, Error, code => Window.Dispatcher.BeginInvoke(new Action(() => ScriptExited(code))));
+   ApplyPlayers(host, port, serverPassword);
+   SaveRules(true);
+   SaveServerConnection();
+   appliedSignature = Signature();
+   Write(Joining ? "Joining " + host + ":" + port + "." : "World rules: " + rules.Name + ", " + ServerRules.SpecialNames[rules.Special] + ".");
+   ShowNameTags(!Joining);
+   Step("Server", Joining ? "Remote" : "Starting", Joining ? Good : Busy); Step("A", "Waiting", Idle); Step("B", playerCount == 2 ? "Waiting" : "Stopped", Idle);
+   Write(playerCount == 1 ? "Starting a one player session." : "Starting the session.");
+   if (!Joining) {
+    try {
+     serverHost.Start(Path.Combine(root, ".artifacts", "extract", "milkbar", "DedicatedServer"));
+    }
+    catch (Exception error) {
+     Fail("The dedicated server could not start: {0}", error.Message);
+     Step("Server", "Stopped", Bad);
+     return;
+    }
+   }
+   script = Scripts.Run(root, "Start-Online.ps1", "-InputMode Routed -ExternalRouter -ExternalServer -PlayerCount " + playerCount + (Joining ? " -RemoteServer " + host + ":" + port : ""), Line, Error, code => Window.Dispatcher.BeginInvoke(new Action(() => ScriptExited(code))));
    SetButtons();
   }
 
@@ -1397,6 +1406,7 @@ namespace HyruleOnline {
    Write(text);
    Match match;
    if (text.StartsWith("Server started")) Step("Server", "Running", Good);
+   else if (text.StartsWith("Remote server")) Step("Server", "Remote", Good);
    else if ((match = Regex.Match(text, "^Player ([AB]): wait")).Success) {
     string name = match.Groups[1].Value;
     Step(name, "Waiting for Continue", Busy);
@@ -1443,7 +1453,7 @@ namespace HyruleOnline {
   string Signature() {
    Func<double, string> size = v => GraphicsMod.NearestScale(v).ToString(System.Globalization.CultureInfo.InvariantCulture);
    var parts = new List<object> { shadows, shadowDistance, antiAliasing, advanced.Api, advanced.VSync, advanced.AsyncCompile, advanced.AccurateBarriers, advanced.Upscale, advanced.Downscale, advanced.ShowFps, advanced.ShowUsage, advanced.ShowShaderNotice, advanced.Volume, sharedShaders, language,
-    rules.Special, rules.Enemies, rules.Quests, rules.Koroks, rules.Towers, rules.Shrines, rules.Locations, rules.DivineBeasts, pair != null, playerCount };
+    rules.Special, rules.Enemies, rules.Quests, rules.Koroks, rules.Towers, rules.Shrines, rules.Locations, rules.DivineBeasts, pair != null, playerCount, onlineMode, hostPort, hostPassword, hostDescription, joinAddress, joinPassword };
     if (playerCount == 2) parts.AddRange(new object[] { rotations[0], rotations[1] });
    for (int i = 0; i < playerCount; i++) parts.AddRange(new object[] { Characters.CleanName(C<TextBox>("P" + (i + 1) + "NameBox").Text, Characters.DefaultNames[i]), models[i] });
    if (pair != null) for (int i = 0; i < 2; i++) parts.AddRange(new object[] { displays[i], size(scales[i]), fpsLimits[i] });
@@ -1507,7 +1517,7 @@ namespace HyruleOnline {
    C<System.Windows.Shapes.Shape>("CornerDot").Fill = server ? Good : Idle;
    C<TextBlock>("CornerServer").Text = Tr(server ? "Server running" : "Server stopped");
    if (script == null && !stopping && !seeding) {
-    Step("Server", server ? "Running" : "Stopped", server ? Good : Idle);
+    Step("Server", Joining && sessionLive ? "Remote" : server ? "Running" : "Stopped", Joining ? (sessionLive ? Good : Idle) : server ? Good : Idle);
     Step("A", a ? (joined[0] ? "Joined the server" : "Game open") : "Stopped", a ? (joined[0] ? Good : Busy) : Idle);
     Step("B", b ? (joined[1] ? "Joined the server" : "Game open") : "Stopped", b ? (joined[1] ? Good : Busy) : Idle);
     if (owned.Count > 0 && failure == null) SetStatus("Session running.");
@@ -1528,9 +1538,10 @@ namespace HyruleOnline {
 
   void EnableAppearance(bool enabled) {
    appearanceEnabled = enabled;
-   foreach (var name in new[] { "P1NameBox", "P2NameBox" }) C<TextBox>(name).IsEnabled = enabled;
-   foreach (var name in new[] { "RulesBox", "SpecialBox" }) C<ComboBox>(name).IsEnabled = enabled;
-   foreach (var name in new[] { "P1AvatarButton",    "P2AvatarButton", "Mode", "UseRecommendedRules" }) C<Button>(name).IsEnabled = enabled;
+   foreach (var name in new[] { "P1NameBox", "P2NameBox", "HostPortBox", "HostPasswordBox", "HostDescriptionBox", "HostAddressBox", "JoinAddressBox", "JoinPasswordBox" }) C<TextBox>(name).IsEnabled = enabled;
+   foreach (var name in new[] { "RulesBox", "SpecialBox", "OnlineModeBox" }) C<ComboBox>(name).IsEnabled = enabled;
+   foreach (var name in new[] { "P1AvatarButton",    "P2AvatarButton", "UseRecommendedRules" }) C<Button>(name).IsEnabled = enabled;
+   C<Button>("Mode").IsEnabled = enabled && !Joining;
    foreach (var name in new[] { "View1", "View2" }) C<Button>(name).IsEnabled = enabled && playerCount == 2;
    C<Button>("ResetTurns").IsEnabled = enabled && (rotations[0] != 0 || rotations[1] != 0);
    foreach (var tile in C<Canvas>("MonitorMap").Children.OfType<Button>()) tile.IsEnabled = enabled;

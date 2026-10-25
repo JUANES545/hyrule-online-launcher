@@ -164,8 +164,9 @@
     <Button x:Name="TabPlay" Content="PLAY" Tag="0" Style="{StaticResource TabButton}"/>
     <Button x:Name="TabGraphics" Content="GRAPHICS" Tag="1" Style="{StaticResource TabButton}"/>
     <Button x:Name="TabMultiplayer" Content="MULTIPLAYER" Tag="2" Style="{StaticResource TabButton}"/>
-    <Button x:Name="TabLanguage" Content="LANGUAGE" Tag="3" Style="{StaticResource TabButton}"/>
-    <Button x:Name="TabDetails" Content="DETAILS" Tag="4" Style="{StaticResource TabButton}"/>
+    <Button x:Name="TabOnline" Content="ONLINE" Tag="3" Style="{StaticResource TabButton}"/>
+    <Button x:Name="TabLanguage" Content="LANGUAGE" Tag="4" Style="{StaticResource TabButton}"/>
+    <Button x:Name="TabDetails" Content="DETAILS" Tag="5" Style="{StaticResource TabButton}"/>
     <Border x:Name="NavNext" Width="54" Height="30" CornerRadius="5,16,5,5" Background="#801B252B" BorderBrush="#A5BAC5" BorderThickness="2" Margin="14,0,0,0" VerticalAlignment="Center" ToolTip="Next page (RB or Ctrl+Tab)" AutomationProperties.Name="Next page (RB)"><TextBlock Text="RB" FontStyle="Normal" FontWeight="Bold" FontSize="15" Foreground="#CFE3E4" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0"/></Border>
    </StackPanel>
    <Grid Grid.Row="2" x:Name="Pages" Margin="14,0,14,6">
@@ -414,6 +415,63 @@
    <Border Grid.Row="1" Margin="0,10,0,0" Background="#80111A20" CornerRadius="6" Padding="16,7" MinHeight="36">
     <TextBlock x:Name="MultiplayerHint" Foreground="#C9D6DB" FontSize="14" TextWrapping="Wrap" VerticalAlignment="Center"/>
    </Border>
+  </Grid>
+  <Grid x:Name="OnlinePage" Visibility="Collapsed">
+   <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False"><Grid x:Name="OnlineBody">
+   <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+   <StackPanel x:Name="OnlineLeft" Margin="0,0,14,0">
+    <TextBlock Text="ONLINE" Style="{StaticResource SectionTitle}" Margin="0,0,0,12"/>
+    <Border Background="#A0152027" CornerRadius="8" Padding="24,20" BorderBrush="#3449585A" BorderThickness="1">
+     <StackPanel>
+      <TextBlock TextAlignment="Center" Foreground="#9EB2BD" FontSize="14" Margin="0,0,0,14" Text="How this PC takes part. Applied when the next session starts."/>
+      <StackPanel Orientation="Horizontal"><TextBlock Text="Online mode" Style="{StaticResource FieldLabel}"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="Play on this PC keeps the server private. Host a server lets friends join over the network. Join a server connects to a friend's server."/></StackPanel>
+      <ComboBox x:Name="OnlineModeBox" FontSize="17" Padding="14,8" Margin="0,4,0,6" AutomationProperties.Name="Online mode" ToolTip="Play on this PC keeps the server private. Host a server lets friends join over the network. Join a server connects to a friend's server."/>
+      <TextBlock x:Name="OnlineModeInfo" Foreground="#C9D6DB" FontSize="13" TextWrapping="Wrap" Margin="0,0,0,12"/>
+      <StackPanel x:Name="HostFields">
+       <StackPanel Orientation="Horizontal"><TextBlock Text="Port" Style="{StaticResource FieldLabel}"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="The TCP port the server listens on, from 1024 to 65535. It goes in the invite. The default is 5050."/></StackPanel>
+       <TextBox x:Name="HostPortBox" Style="{StaticResource NameBox}" HorizontalContentAlignment="Left" MaxLength="5" Height="44" FontStyle="Normal" Margin="0,4,0,12" AutomationProperties.Name="Server port"/>
+       <StackPanel Orientation="Horizontal"><TextBlock Text="Password" Style="{StaticResource FieldLabel}"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="Optional. Friends need it to join. Leave it empty for an open server."/></StackPanel>
+       <TextBox x:Name="HostPasswordBox" Style="{StaticResource NameBox}" HorizontalContentAlignment="Left" MaxLength="40" Height="44" FontStyle="Normal" Margin="0,4,0,12" AutomationProperties.Name="Server password"/>
+       <StackPanel Orientation="Horizontal"><TextBlock Text="Server description" Style="{StaticResource FieldLabel}"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="The text friends see about this server."/></StackPanel>
+       <TextBox x:Name="HostDescriptionBox" Style="{StaticResource NameBox}" HorizontalContentAlignment="Left" MaxLength="80" Height="44" FontStyle="Normal" Margin="0,4,0,0" AutomationProperties.Name="Server description"/>
+      </StackPanel>
+      <StackPanel x:Name="JoinFields">
+       <StackPanel Orientation="Horizontal"><TextBlock Text="Invite or address" Style="{StaticResource FieldLabel}"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="Paste the invite your friend sent you, or type their address and port."/></StackPanel>
+       <Grid Margin="0,4,0,12">
+        <TextBox x:Name="JoinAddressBox" Style="{StaticResource NameBox}" HorizontalContentAlignment="Left" MaxLength="200" Height="44" FontStyle="Normal" AutomationProperties.Name="Invite or address"/>
+        <TextBlock x:Name="JoinAddressHint" Text="Example: hyrule://100.64.0.5:5050 or 192.168.1.20:5050" IsHitTestVisible="False" Foreground="#6F8590" FontStyle="Italic" FontSize="14" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="16,0,16,0"/>
+       </Grid>
+       <StackPanel Orientation="Horizontal"><TextBlock Text="Password" Style="{StaticResource FieldLabel}"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="The server password, if the invite does not carry it."/></StackPanel>
+       <TextBox x:Name="JoinPasswordBox" Style="{StaticResource NameBox}" HorizontalContentAlignment="Left" MaxLength="40" Height="44" FontStyle="Normal" Margin="0,4,0,0" AutomationProperties.Name="Server password to join"/>
+      </StackPanel>
+     </StackPanel>
+    </Border>
+   </StackPanel>
+   <StackPanel x:Name="OnlineRight" Grid.Column="1" Margin="14,0,0,0">
+    <StackPanel x:Name="HostShare">
+     <TextBlock Text="INVITE FRIENDS" Style="{StaticResource SectionTitle}" Margin="0,0,0,12"/>
+     <Border Background="#A0152027" CornerRadius="8" Padding="24,20" BorderBrush="#3449585A" BorderThickness="1">
+      <StackPanel>
+       <StackPanel Orientation="Horizontal"><TextBlock Text="Address in the invite" Style="{StaticResource FieldLabel}"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="The Tailscale or home network address of this PC. Use your public address if you forward the port on your router. Empty it to detect the address again."/></StackPanel>
+       <TextBox x:Name="HostAddressBox" Style="{StaticResource NameBox}" HorizontalContentAlignment="Left" MaxLength="100" Height="44" FontStyle="Normal" Margin="0,4,0,12" AutomationProperties.Name="Address in the invite"/>
+       <TextBlock Text="Invite" Style="{StaticResource FieldLabel}"/>
+       <TextBox x:Name="InviteBox" Style="{StaticResource NameBox}" HorizontalContentAlignment="Left" MaxLength="400" Height="44" FontStyle="Normal" IsReadOnly="True" Margin="0,4,0,8" AutomationProperties.Name="Invite"/>
+       <Button x:Name="CopyInvite" Content="Copy invite" FontStyle="Normal" FontSize="16" Padding="22,9" Margin="0,0,0,14" ToolTip="Copies the invite. Your friends paste it in the Join a server mode of their launcher."/>
+       <TextBlock x:Name="FirewallInfo" Foreground="#C9D6DB" FontSize="13" TextWrapping="Wrap" Margin="0,0,0,8"/>
+       <Button x:Name="OpenFirewall" Content="Allow through firewall" FontStyle="Normal" FontSize="16" Padding="22,9" Margin="0,0,0,14" ToolTip="Adds a Windows Firewall rule for the server port. Windows asks for administrator permission."/>
+       <TextBlock Foreground="#9EB2BD" FontSize="13" TextWrapping="Wrap" Text="Friends on the same network can use the home address. From anywhere else, install Tailscale on both PCs, or forward the port on your router and use your public address."/>
+      </StackPanel>
+     </Border>
+    </StackPanel>
+    <StackPanel x:Name="JoinHelp">
+     <TextBlock Text="JOINING A SERVER" Style="{StaticResource SectionTitle}" Margin="0,0,0,12"/>
+     <Border Background="#A0152027" CornerRadius="8" Padding="24,20" BorderBrush="#3449585A" BorderThickness="1">
+      <TextBlock Foreground="#C9D6DB" FontSize="14" TextWrapping="Wrap" Text="Ask the host for their invite and paste it here. You play on this PC with one controller. The host chooses the world rules and runs the server."/>
+     </Border>
+    </StackPanel>
+   </StackPanel>
+   </Grid></ScrollViewer>
   </Grid>
   <Grid x:Name="LanguagePage" Visibility="Collapsed">
    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Top" Width="700">

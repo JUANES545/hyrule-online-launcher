@@ -18,6 +18,8 @@ namespace HyruleOnline {
   public double[] Scales = { GraphicsMod.DefaultScale, GraphicsMod.DefaultScale };
   public int[] FpsLimits = { FpsMod.AutoFps, FpsMod.AutoFps }, Rotations = { 0, 0 };
   public string Language = "en", LauncherLanguage = "en";
+  public string OnlineMode = ServerConnection.Local, HostPassword = "", HostDescription = ServerConnection.DefaultDescription, HostAddress = "", JoinAddress = "", JoinPassword = "";
+  public int HostPort = ServerConnection.DefaultPort;
 
   public static Prefs Read(string file) {
    var prefs = new Prefs();
@@ -55,6 +57,13 @@ namespace HyruleOnline {
     prefs.Shortcut = (string)root.Element("MenuShortcut") == "Off" ? "Off" : shortcut != null ? shortcut.ToString() : MenuShortcut.Default;
     prefs.Language = Saved(root, "Language") ?? "en";
     prefs.LauncherLanguage = Lang.Ui(Saved(root, "LauncherLanguage") ?? "en");
+    prefs.OnlineMode = ServerConnection.CleanMode((string)root.Element("OnlineMode"));
+    prefs.HostPort = ServerConnection.CleanPort((string)root.Element("HostPort"));
+    prefs.HostPassword = ServerConnection.CleanText((string)root.Element("HostPassword"), 40);
+    prefs.HostDescription = ServerConnection.CleanText((string)root.Element("HostDescription") ?? ServerConnection.DefaultDescription, 80);
+    prefs.HostAddress = ServerConnection.CleanText((string)root.Element("HostAddress"), 100);
+    prefs.JoinAddress = ServerConnection.CleanText((string)root.Element("JoinAddress"), 200);
+    prefs.JoinPassword = ServerConnection.CleanText((string)root.Element("JoinPassword"), 40);
     return prefs;
    }
    catch (Exception) { return new Prefs(); }

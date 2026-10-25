@@ -123,6 +123,10 @@ namespace HyruleOnline {
     Require(odd.LauncherLanguage == "en" && odd.Language == "en" && odd.Names[0] == "abc" && odd.Names[1] == "Pedro", "an untranslated launcher language is English, unsafe name characters are dropped, an empty name is the default");
     Require(Load(temp, "<Preferences><Players>1</Players></Preferences>").PlayerCount == 1 && Load(temp, "<Preferences><Arrangement>Split</Arrangement></Preferences>").PerDisplay == false, "one player and the split arrangement");
     Require(Load(temp, "<Preferences><LauncherLanguage>fr</LauncherLanguage></Preferences>").LauncherLanguage == "fr", "the launcher language can be read on its own for the start-up message");
+    var online = Load(temp, "<Preferences><OnlineMode>Host</OnlineMode><HostPort>6001</HostPort><HostPassword>pw\r\n</HostPassword><HostDescription>Hi</HostDescription><HostAddress>1.2.3.4</HostAddress><JoinAddress>hyrule://h:1</JoinAddress><JoinPassword>j</JoinPassword></Preferences>");
+    Require(online.OnlineMode == "Host" && online.HostPort == 6001 && online.HostPassword == "pw" && online.HostDescription == "Hi" && online.HostAddress == "1.2.3.4" && online.JoinAddress == "hyrule://h:1" && online.JoinPassword == "j", "online settings are read");
+    var onlineOdd = Load(temp, "<Preferences><OnlineMode>Nope</OnlineMode><HostPort>80</HostPort></Preferences>");
+    Require(onlineOdd.OnlineMode == "Local" && onlineOdd.HostPort == 5050 && onlineOdd.HostDescription == "Explore Hyrule with Friends!" && onlineOdd.JoinAddress == "", "online settings fall back to private play");
 
     // The keys SavePrefs writes must all be read back.
     string launcher = Read(Path.Combine(root, "src", "Launcher", "Launcher.cs"));
