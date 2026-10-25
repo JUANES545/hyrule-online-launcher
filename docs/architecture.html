@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Hyrule Online architecture</title>
+<style>
+:root { color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: #0d1117; color: #e6edf3; font: 16px/1.55 "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif; }
+a { color: #79c0ff; }
+a:focus-visible, summary:focus-visible { outline: 3px solid #f0c000; outline-offset: 2px; }
+.skip { position: absolute; left: -999px; top: 0; background: #f0c000; color: #000; padding: 8px 14px; z-index: 10; }
+.skip:focus { left: 8px; top: 8px; }
+header, main, footer { max-width: 1240px; margin: 0 auto; padding: 0 20px; }
+header { padding-top: 28px; }
+h1 { font-size: 2rem; margin: 0 0 6px; }
+h2 { font-size: 1.4rem; margin: 0 0 10px; padding-top: 6px; border-top: 1px solid #30363d; }
+h3 { font-size: 1.1rem; margin: 18px 0 6px; color: #c9d1d9; }
+p { max-width: 82ch; margin: 8px 0; }
+section { margin: 36px 0; }
+nav ul { list-style: none; display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 0; margin: 14px 0; }
+.legend { display: flex; flex-wrap: wrap; gap: 10px 26px; padding: 12px 16px; background: #161b22; border: 1px solid #30363d; border-radius: 8px; margin: 14px 0; }
+.legend span { display: inline-flex; align-items: center; gap: 8px; }
+figure { margin: 10px 0 4px; background: #0f141b; border: 1px solid #30363d; border-radius: 8px; padding: 8px; }
+figure svg { display: block; width: 100%; height: auto; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.grid h3 { margin-top: 4px; }
+@media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+table { border-collapse: collapse; width: 100%; background: #161b22; }
+caption { text-align: left; padding: 6px 0; color: #c9d1d9; }
+th, td { border: 1px solid #30363d; padding: 8px 10px; text-align: left; vertical-align: top; }
+th { background: #1c2230; }
+code { background: #1c2230; padding: 1px 5px; border-radius: 4px; font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.92em; }
+li { margin: 4px 0; max-width: 100ch; }
+footer { padding-bottom: 40px; color: #9aa7b4; }
+
+svg text { font-family: "Segoe UI", system-ui, Arial, sans-serif; }
+.node text { text-anchor: middle; }
+.t { fill: #e6edf3; font-size: 15px; font-weight: 700; }
+.s { fill: #c0cad4; font-size: 13px; }
+.gl { fill: #a9b6c3; font-size: 14px; font-weight: 700; }
+.el { fill: #d0d9e2; font-size: 13px; text-anchor: middle; stroke: #0f141b; stroke-width: 4px; paint-order: stroke; }
+.ela { text-anchor: start; }
+.ok rect, rect.ok { fill: #12351f; stroke: #3fb950; stroke-width: 2; }
+.unv rect, rect.unv { fill: #3a2a0a; stroke: #d29922; stroke-width: 2; stroke-dasharray: 7 4; }
+.ext rect, rect.ext { fill: #262c36; stroke: #8b949e; stroke-width: 2; }
+.file rect, rect.file { fill: #1c2230; stroke: #6e7681; stroke-width: 2; }
+rect.grp { fill: #121821; stroke: #3a4452; stroke-width: 1.5; }
+rect.note { fill: #1c2230; stroke: #6e7681; stroke-width: 1.5; }
+rect.notea { fill: #3a2a0a; stroke: #d29922; stroke-width: 1.5; stroke-dasharray: 7 4; }
+rect.head { fill: #1c2230; stroke: #8b949e; stroke-width: 1.5; }
+.life { stroke: #3a4452; stroke-width: 1.5; stroke-dasharray: 3 5; }
+.e { fill: none; stroke: #8b949e; stroke-width: 1.7; }
+.ed { stroke: #d29922; stroke-dasharray: 7 4; }
+.er { stroke-dasharray: 5 4; }
+.thin { stroke: #5b6675; stroke-width: 1.2; }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to the content</a>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#8b949e" /></marker>
+    <marker id="arrA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#d29922" /></marker>
+  </defs>
+</svg>
+
+<header>
+  <h1>Hyrule Online architecture</h1>
+  <p>How the Windows launcher, the two Cemu instances, the Milk Bar mod, the dedicated server, the input router and the SteamOS client connect. Every statement comes from this repository's code or from <code>RESEARCH.md</code>. The same content, with Mermaid diagrams, is in <code>ARCHITECTURE.md</code>.</p>
+  <nav aria-label="Sections">
+    <ul>
+      <li><a href="#s1">1 System context</a></li>
+      <li><a href="#s2">2 Launcher internals</a></li>
+      <li><a href="#s3">3 Play topologies</a></li>
+      <li><a href="#s4">4 Session start</a></li>
+      <li><a href="#s5">5 Input path</a></li>
+      <li><a href="#s6">6 SteamOS</a></li>
+      <li><a href="#s7">7 Release and CI</a></li>
+      <li><a href="#s8">8 Third party and ours</a></li>
+      <li><a href="#limits">Known limits</a></li>
+      <li><a href="#diffs">Code versus docs</a></li>
+    </ul>
+  </nav>
+  <div class="legend" role="group" aria-label="Legend">
+    <span><svg width="44" height="22" aria-hidden="true"><rect class="ok" x="2" y="2" width="40" height="18" rx="4" /></svg> Solid green: implemented and verified</span>
+    <span><svg width="44" height="22" aria-hidden="true"><rect class="unv" x="2" y="2" width="40" height="18" rx="4" /></svg> Dashed amber: not verified in a real session, or planned</span>
+    <span><svg width="44" height="22" aria-hidden="true"><rect class="ext" x="2" y="2" width="40" height="18" rx="4" /></svg> Grey: third-party software or an external client</span>
+    <span><svg width="44" height="22" aria-hidden="true"><rect class="file" x="2" y="2" width="40" height="18" rx="4" /></svg> Dark: a file, a port or a shared-memory block</span>
+  </div>
+  <p>Status is never shown by colour alone: verified items have a solid outline, the others a dashed one.</p>
+</header>
+
+<main id="main">
+
+<section id="s1" aria-labelledby="h1">
+  <h2 id="h1">1. System context</h2>
+  <figure>
+    <svg viewBox="0 0 1200 720" role="img" aria-labelledby="t1 d1">
+      <title id="t1">System context</title>
+      <desc id="d1">The launcher on the Windows PC starts PowerShell scripts and the dedicated server. The scripts start two Cemu instances, each with an input bridge DLL and the injected Milk Bar mod. The input router writes shared memory that both bridges read. Both mods talk to the server over TCP. A streaming group and a ROG Ally on SteamOS sit outside the PC; the Ally client joins the server over LAN or VPN.</desc>
+      <rect class="grp" x="20" y="10" width="800" height="700" rx="10" />
+      <text class="gl" x="36" y="34">Windows PC</text>
+      <rect class="grp" x="340" y="80" width="240" height="220" rx="8" />
+      <text class="gl" x="355" y="102">Cemu 1.26.2f, player A</text>
+      <rect class="grp" x="340" y="340" width="240" height="220" rx="8" />
+      <text class="gl" x="355" y="362">Cemu 1.26.2f, player B</text>
+      <rect class="grp" x="840" y="10" width="340" height="190" rx="10" />
+      <text class="gl" x="856" y="34">Streaming, outside this repository</text>
+      <rect class="grp" x="840" y="230" width="340" height="430" rx="10" />
+      <text class="gl" x="856" y="252">ROG Ally, SteamOS</text>
+
+      <g class="node ok"><rect x="40" y="100" width="230" height="64" rx="8" /><text class="t" x="155" y="127">Hyrule Online launcher</text><text class="s" x="155" y="147">HyruleOnline.exe, WPF</text></g>
+      <g class="node ok"><rect x="40" y="190" width="230" height="64" rx="8" /><text class="t" x="155" y="217">Input router</text><text class="s" x="155" y="237">in the launcher, reads pads (SDL3)</text></g>
+      <g class="node file"><rect x="40" y="300" width="230" height="64" rx="8" /><text class="t" x="155" y="327">Shared memory</text><text class="s" x="155" y="347">Local\HyruleCoop.Routing.v2</text></g>
+      <g class="node ok"><rect x="40" y="470" width="230" height="64" rx="8" /><text class="t" x="155" y="497">PowerShell scripts</text><text class="s" x="155" y="517">starts Cemu, drives Milk Bar</text></g>
+
+      <g class="node ok"><rect x="355" y="115" width="210" height="44" rx="8" /><text class="t" x="460" y="143">xinput1_4.dll bridge</text></g>
+      <g class="node ext"><rect x="355" y="175" width="210" height="44" rx="8" /><text class="t" x="460" y="203">Cemu A + BOTW</text></g>
+      <g class="node ext"><rect x="355" y="235" width="210" height="44" rx="8" /><text class="t" x="460" y="263">Milk Bar mod DLL</text></g>
+      <g class="node ok"><rect x="355" y="375" width="210" height="44" rx="8" /><text class="t" x="460" y="403">xinput1_4.dll bridge</text></g>
+      <g class="node ext"><rect x="355" y="435" width="210" height="44" rx="8" /><text class="t" x="460" y="463">Cemu B + BOTW</text></g>
+      <g class="node ext"><rect x="355" y="495" width="210" height="44" rx="8" /><text class="t" x="460" y="523">Milk Bar mod DLL</text></g>
+
+      <g class="node ext"><rect x="610" y="100" width="190" height="64" rx="8" /><text class="t" x="705" y="127">Dedicated server</text><text class="s" x="705" y="147">MBL.DedicatedServer.exe</text></g>
+
+      <g class="node ext"><rect x="860" y="50" width="300" height="56" rx="8" /><text class="t" x="1010" y="75">Steam / Apollo</text><text class="s" x="1010" y="95">host side, streams the PC screen</text></g>
+      <g class="node ext"><rect x="860" y="130" width="300" height="56" rx="8" /><text class="t" x="1010" y="155">Artemis / Moonlight client</text><text class="s" x="1010" y="175">for example an iPhone</text></g>
+
+      <g class="node unv"><rect x="860" y="270" width="300" height="52" rx="8" /><text class="t" x="1010" y="293">Steam non-Steam shortcut</text><text class="s" x="1010" y="311">starts hyrule-online.sh</text></g>
+      <g class="node unv"><rect x="860" y="345" width="300" height="52" rx="8" /><text class="t" x="1010" y="368">hyrule-online.sh</text><text class="s" x="1010" y="386">join, host and stop; --host not verified</text></g>
+      <g class="node ext"><rect x="860" y="420" width="300" height="52" rx="8" /><text class="t" x="1010" y="443">Proton wine prefix</text><text class="s" x="1010" y="461">runs the Windows programs</text></g>
+      <g class="node unv"><rect x="860" y="495" width="300" height="52" rx="8" /><text class="t" x="1010" y="518">MilkBar.CLI.exe</text><text class="s" x="1010" y="536">headless Milk Bar client</text></g>
+      <g class="node ext"><rect x="860" y="570" width="300" height="52" rx="8" /><text class="t" x="1010" y="593">Cemu 1.26.2f + BOTW</text><text class="s" x="1010" y="611">DLL injected by the CLI</text></g>
+
+      <path class="e" d="M155,100 V56 H705 V100" marker-end="url(#arr)" />
+      <text class="el" x="430" y="50">starts it, keeps stdin open</text>
+      <path class="e" d="M40,132 H28 V502 H40" marker-end="url(#arr)" />
+      <path class="e" d="M155,254 V300" marker-end="url(#arr)" />
+      <path class="e" d="M270,322 L355,137" marker-end="url(#arr)" />
+      <path class="e" d="M270,342 L355,397" marker-end="url(#arr)" />
+      <path class="e" d="M270,490 L355,197" marker-end="url(#arr)" />
+      <path class="e" d="M270,512 L355,457" marker-end="url(#arr)" />
+      <path class="e" d="M460,159 V175" marker-end="url(#arr)" />
+      <path class="e" d="M460,419 V435" marker-end="url(#arr)" />
+      <path class="e" d="M565,257 H588 V120 H610" marker-start="url(#arr)" marker-end="url(#arr)" />
+      <path class="e" d="M565,517 H600 V148 H610" marker-start="url(#arr)" marker-end="url(#arr)" />
+      <text class="el" x="805" y="200" style="text-anchor:end">TCP, port 5050 by default</text>
+      <path class="e ed" d="M860,521 H830 V132 H802" marker-end="url(#arrA)" />
+      <text class="el" x="805" y="300" style="text-anchor:end">Ally joins over LAN or VPN</text>
+      <path class="e er" d="M1010,106 V130" marker-end="url(#arr)" />
+      <path class="e er" d="M860,78 H822" marker-end="url(#arr)" />
+      <path class="e ed" d="M1010,322 V345" marker-end="url(#arrA)" />
+      <path class="e ed" d="M1010,397 V420" marker-end="url(#arrA)" />
+      <text class="el ela" x="1018" y="414">unit hyrule-client</text>
+      <path class="e ed" d="M1010,472 V495" marker-end="url(#arrA)" />
+      <path class="e ed" d="M1010,547 V570" marker-end="url(#arrA)" />
+    </svg>
+  </figure>
+  <p>The launcher is the control point. It runs hidden PowerShell scripts that start the two Cemu instances and drive the Milk Bar launcher to inject the mod, and it runs the dedicated server itself. Its input router writes a shared-memory block that the small XInput bridge in each Cemu folder reads. Apollo, Artemis and the SteamOS client are separate: nothing in <code>src\</code> talks to Apollo or Artemis, and the Ally path was tried only against a temporary copy of the server.</p>
+</section>
+
+<section id="s2" aria-labelledby="h2t">
+  <h2 id="h2t">2. Launcher internals</h2>
+  <figure>
+    <svg viewBox="0 0 1200 810" role="img" aria-labelledby="t2 d2">
+      <title id="t2">Launcher internals</title>
+      <desc id="d2">Six launcher tabs on the left, twelve services in the launcher process in the middle, and the files, ports and processes each service touches on the right. Online uses the server host, the network hint and the firewall rule. World sends live commands through the server host. Play uses the scripts runner, the player settings and the shader cache. Graphics uses the display layout. Language uses the preferences.</desc>
+      <rect class="grp" x="20" y="10" width="250" height="470" rx="10" />
+      <text class="gl" x="36" y="34">Launcher tabs</text>
+      <rect class="grp" x="370" y="10" width="360" height="790" rx="10" />
+      <text class="gl" x="386" y="34">Services in the launcher process</text>
+      <rect class="grp" x="830" y="10" width="350" height="790" rx="10" />
+      <text class="gl" x="846" y="34">Files, ports and processes touched</text>
+
+      <path class="e thin" d="M255,75 L385,80" marker-end="url(#arr)" />
+      <path class="e thin" d="M255,75 L385,204" marker-end="url(#arr)" />
+      <path class="e thin" d="M255,75 L385,266" marker-end="url(#arr)" />
+      <path class="e thin" d="M255,145 L385,80" marker-end="url(#arr)" />
+      <path class="e thin" d="M255,215 L385,328" marker-end="url(#arr)" />
+      <path class="e thin" d="M255,215 L385,390" marker-end="url(#arr)" />
+      <path class="e thin" d="M255,215 L385,700" marker-end="url(#arr)" />
+      <path class="e thin" d="M255,285 L385,638" marker-end="url(#arr)" />
+      <path class="e thin" d="M255,355 L385,514" marker-end="url(#arr)" />
+
+      <g class="node ok"><rect x="35" y="50" width="220" height="50" rx="8" /><text class="t" x="145" y="72">Online</text><text class="s" x="145" y="91">Local, Host, Join</text></g>
+      <g class="node ok"><rect x="35" y="120" width="220" height="50" rx="8" /><text class="t" x="145" y="142">World</text><text class="s" x="145" y="161">rules and live commands</text></g>
+      <g class="node ok"><rect x="35" y="190" width="220" height="50" rx="8" /><text class="t" x="145" y="212">Play</text><text class="s" x="145" y="231">players, Start session</text></g>
+      <g class="node ok"><rect x="35" y="260" width="220" height="50" rx="8" /><text class="t" x="145" y="282">Graphics</text><text class="s" x="145" y="301">display, FPS, menu pad</text></g>
+      <g class="node ok"><rect x="35" y="330" width="220" height="50" rx="8" /><text class="t" x="145" y="352">Language</text><text class="s" x="145" y="371">interface language</text></g>
+      <g class="node ok"><rect x="35" y="400" width="220" height="50" rx="8" /><text class="t" x="145" y="422">Details and Help</text><text class="s" x="145" y="441">status and help text</text></g>
+
+      <g class="node ok"><rect x="385" y="56" width="330" height="48" rx="8" /><text class="t" x="550" y="77">ServerHost</text><text class="s" x="550" y="95">runs the server, sends commands to stdin</text></g>
+      <g class="node ok"><rect x="385" y="118" width="330" height="48" rx="8" /><text class="t" x="550" y="139">ServerEvents and Roster</text><text class="s" x="550" y="157">joins, leaves and errors from stdout</text></g>
+      <g class="node ok"><rect x="385" y="180" width="330" height="48" rx="8" /><text class="t" x="550" y="201">NetworkHint</text><text class="s" x="550" y="219">classifies addresses, finds VPN adapters</text></g>
+      <g class="node unv"><rect x="385" y="242" width="330" height="48" rx="8" /><text class="t" x="550" y="263">Firewall rule</text><text class="s" x="550" y="281">netsh, run elevated</text></g>
+      <g class="node ok"><rect x="385" y="304" width="330" height="48" rx="8" /><text class="t" x="550" y="325">Scripts runner</text><text class="s" x="550" y="343">powershell.exe -File scripts\x.ps1, hidden</text></g>
+      <g class="node ok"><rect x="385" y="366" width="330" height="48" rx="8" /><text class="t" x="550" y="387">MilkBarSettings</text><text class="s" x="550" y="405">name, model and server entry per player</text></g>
+      <g class="node unv"><rect x="385" y="428" width="330" height="48" rx="8" /><text class="t" x="550" y="449">Setup wizard</text><text class="s" x="550" y="467">first-run downloads and game scan</text></g>
+      <g class="node ok"><rect x="385" y="490" width="330" height="48" rx="8" /><text class="t" x="550" y="511">Prefs</text><text class="s" x="550" y="529">preferences.xml next to the launcher</text></g>
+      <g class="node ok"><rect x="385" y="552" width="330" height="48" rx="8" /><text class="t" x="550" y="573">Router</text><text class="s" x="550" y="591">SDL3 pads to shared memory</text></g>
+      <g class="node ok"><rect x="385" y="614" width="330" height="48" rx="8" /><text class="t" x="550" y="635">Layout and CemuDisplay</text><text class="s" x="550" y="653">where the Cemu windows go</text></g>
+      <g class="node unv"><rect x="385" y="676" width="330" height="48" rx="8" /><text class="t" x="550" y="697">ShaderCache</text><text class="s" x="550" y="715">optional shader copy, off by default</text></g>
+      <g class="node ok"><rect x="385" y="738" width="330" height="48" rx="8" /><text class="t" x="550" y="759">PathGuard</text><text class="s" x="550" y="777">install folder under 83 characters</text></g>
+
+      <path class="e" d="M715,80 H845" marker-end="url(#arr)" />
+      <path class="e" d="M845,142 H715" marker-end="url(#arr)" />
+      <path class="e" d="M715,204 H845" marker-end="url(#arr)" />
+      <path class="e ed" d="M715,266 H845" marker-end="url(#arrA)" />
+      <path class="e" d="M715,328 H845" marker-end="url(#arr)" />
+      <path class="e" d="M715,390 H845" marker-end="url(#arr)" />
+      <path class="e ed" d="M715,452 H845" marker-end="url(#arrA)" />
+      <path class="e" d="M715,514 H845" marker-end="url(#arr)" />
+      <path class="e" d="M715,576 H845" marker-end="url(#arr)" />
+      <path class="e" d="M715,638 H845" marker-end="url(#arr)" />
+      <path class="e ed" d="M715,700 H845" marker-end="url(#arrA)" />
+      <path class="e" d="M715,762 H845" marker-end="url(#arr)" />
+
+      <g class="node file"><rect x="845" y="56" width="320" height="48" rx="8" /><text class="t" x="1005" y="77">MBL.DedicatedServer.exe</text><text class="s" x="1005" y="95">and its ServerConfig.ini</text></g>
+      <g class="node file"><rect x="845" y="118" width="320" height="48" rx="8" /><text class="t" x="1005" y="139">Server stdout and stderr</text><text class="s" x="1005" y="157">ANSI codes stripped, line by line</text></g>
+      <g class="node file"><rect x="845" y="180" width="320" height="48" rx="8" /><text class="t" x="1005" y="201">Network adapters of this PC</text><text class="s" x="1005" y="219">up adapters and their IPv4 addresses</text></g>
+      <g class="node file"><rect x="845" y="242" width="320" height="48" rx="8" /><text class="t" x="1005" y="263">netsh advfirewall rule</text><text class="s" x="1005" y="281">Hyrule Online Server (port), TCP in</text></g>
+      <g class="node file"><rect x="845" y="304" width="320" height="48" rx="8" /><text class="t" x="1005" y="325">Hidden PowerShell scripts</text><text class="s" x="1005" y="343">start Cemu and the Milk Bar launcher</text></g>
+      <g class="node file"><rect x="845" y="366" width="320" height="48" rx="8" /><text class="t" x="1005" y="387">Milk Bar user.config</text><text class="s" x="1005" y="405">serversAdded, name, model</text></g>
+      <g class="node file"><rect x="845" y="428" width="320" height="48" rx="8" /><text class="t" x="1005" y="449">scripts\components.json</text><text class="s" x="1005" y="467">read with Install-Components.ps1</text></g>
+      <g class="node file"><rect x="845" y="490" width="320" height="48" rx="8" /><text class="t" x="1005" y="511">preferences.xml</text><text class="s" x="1005" y="529">online mode, players, last page</text></g>
+      <g class="node file"><rect x="845" y="552" width="320" height="48" rx="8" /><text class="t" x="1005" y="573">Local\HyruleCoop.Routing.v2</text><text class="s" x="1005" y="591">read by xinput1_4.dll in each Cemu</text></g>
+      <g class="node file"><rect x="845" y="614" width="320" height="48" rx="8" /><text class="t" x="1005" y="635">Cemu A and B windows</text><text class="s" x="1005" y="653">placed on the primary display</text></g>
+      <g class="node file"><rect x="845" y="676" width="320" height="48" rx="8" /><text class="t" x="1005" y="697">shaderCache of cemuA and cemuB</text><text class="s" x="1005" y="715">copy of A for B on first use</text></g>
+      <g class="node file"><rect x="845" y="738" width="320" height="48" rx="8" /><text class="t" x="1005" y="759">Install folder</text><text class="s" x="1005" y="777">same limit in the .iss installer</text></g>
+    </svg>
+  </figure>
+  <p>The six tabs (Play, Online, Graphics, World, Language, Details) sit on a set of services in one process. <code>ServerHost</code> owns the dedicated server and sends commands such as time, weather and name tags to its stdin; <code>ServerEvents</code> turns the server output into a roster of joined players. <code>NetworkHint</code> only classifies addresses and finds VPN adapters; nothing in the launcher probes a port, because any connection without a valid handshake kills the server, and a failed Join shows a fixed checklist. Everything that touches Cemu or the Milk Bar launcher goes through hidden PowerShell scripts. The setup wizard, the firewall rule and the shader cache are built but not verified on a clean machine or in game. Lines from tabs to services show the main uses only.</p>
+</section>
+
+<section id="s3" aria-labelledby="h3t">
+  <h2 id="h3t">3. Play topologies</h2>
+  <div class="grid">
+    <div>
+      <h3>3a. Local</h3>
+      <figure>
+        <svg viewBox="0 0 560 290" role="img" aria-labelledby="t3a d3a">
+          <title id="t3a">Local topology</title>
+          <desc id="d3a">The launcher starts a server on 127.0.0.1 port 5050 with no password. Cemu A and optionally Cemu B connect to it over loopback.</desc>
+          <rect class="grp" x="10" y="10" width="540" height="270" rx="10" />
+          <text class="gl" x="26" y="34">This PC, loopback only</text>
+          <g class="node ok"><rect x="30" y="55" width="200" height="50" rx="8" /><text class="t" x="130" y="77">Launcher</text><text class="s" x="130" y="95">starts the server</text></g>
+          <g class="node ok"><rect x="30" y="135" width="200" height="50" rx="8" /><text class="t" x="130" y="165">Cemu A, player 1</text></g>
+          <g class="node ok"><rect x="30" y="205" width="200" height="50" rx="8" /><text class="t" x="130" y="228">Cemu B, player 2</text><text class="s" x="130" y="246">optional</text></g>
+          <g class="node ok"><rect x="320" y="125" width="210" height="64" rx="8" /><text class="t" x="425" y="152">Server</text><text class="s" x="425" y="172">127.0.0.1:5050, no password</text></g>
+          <path class="e" d="M230,80 L320,135" marker-end="url(#arr)" />
+          <path class="e" d="M230,160 H320" marker-start="url(#arr)" marker-end="url(#arr)" />
+          <path class="e" d="M230,230 L320,180" marker-start="url(#arr)" marker-end="url(#arr)" />
+          <text class="el" x="275" y="214">TCP</text>
+        </svg>
+      </figure>
+      <p>Local mode writes <code>IP=127.0.0.1</code>, port 5050 and an empty password into <code>ServerConfig.ini</code>, and runs one or two players on this PC. This is the base flow the project was built and used with.</p>
+    </div>
+    <div>
+      <h3>3b. Host</h3>
+      <figure>
+        <svg viewBox="0 0 560 290" role="img" aria-labelledby="t3b d3b">
+          <title id="t3b">Host topology</title>
+          <desc id="d3b">This PC runs the server on 0.0.0.0 with a port and password and up to two local players over loopback. A firewall rule allows the port in. A friend on the LAN or a VPN connects with an invite link. The friend link and the firewall rule are not verified.</desc>
+          <rect class="grp" x="10" y="10" width="360" height="270" rx="10" />
+          <text class="gl" x="26" y="34">This PC, host</text>
+          <g class="node ok"><rect x="25" y="50" width="150" height="46" rx="8" /><text class="t" x="100" y="78">Launcher</text></g>
+          <g class="node ok"><rect x="25" y="120" width="150" height="46" rx="8" /><text class="t" x="100" y="148">Cemu A</text></g>
+          <g class="node ok"><rect x="25" y="190" width="150" height="46" rx="8" /><text class="t" x="100" y="218">Cemu B (optional)</text></g>
+          <g class="node ok"><rect x="205" y="100" width="150" height="70" rx="8" /><text class="t" x="280" y="128">Server</text><text class="s" x="280" y="148">0.0.0.0, port, password</text></g>
+          <g class="node unv"><rect x="205" y="200" width="150" height="46" rx="8" /><text class="t" x="280" y="220">Firewall rule</text><text class="s" x="280" y="237">inbound TCP port</text></g>
+          <g class="node ext"><rect x="410" y="100" width="140" height="70" rx="8" /><text class="t" x="480" y="128">Friend's game</text><text class="s" x="480" y="148">LAN or VPN</text></g>
+          <path class="e" d="M175,143 L205,135" marker-start="url(#arr)" marker-end="url(#arr)" />
+          <path class="e" d="M175,213 L205,160" marker-start="url(#arr)" marker-end="url(#arr)" />
+          <path class="e" d="M100,96 V120" marker-end="url(#arr)" />
+          <path class="e ed" d="M280,200 V170" marker-end="url(#arrA)" />
+          <path class="e ed" d="M410,135 H357" marker-end="url(#arrA)" />
+          <text class="el" x="480" y="200">invite link</text>
+          <text class="el" x="480" y="218">hyrule://host:port?pw=</text>
+        </svg>
+      </figure>
+      <p>Host mode binds the server to <code>0.0.0.0</code> with a port from 1024 to 65535 and a password, and builds the invite link <code>hyrule://host:port?pw=</code>. The launcher prefers a Tailscale address, then the home LAN address, and has an elevated button that adds an inbound TCP rule. A real second PC joining through this launcher, the player limit and the rule on a clean machine are not verified; only a TCP connect from the Ally to a temporary server copy on the LAN was.</p>
+    </div>
+    <div>
+      <h3>3c. Join</h3>
+      <figure>
+        <svg viewBox="0 0 560 290" role="img" aria-labelledby="t3c d3c">
+          <title id="t3c">Join topology</title>
+          <desc id="d3c">This PC starts no server. The launcher passes the remote host and port to the script, and one or two local Cemu instances connect to the friend's server. This path is not verified with a real second machine.</desc>
+          <rect class="grp" x="10" y="10" width="330" height="270" rx="10" />
+          <text class="gl" x="26" y="34">This PC, joining</text>
+          <g class="node ok"><rect x="25" y="50" width="150" height="46" rx="8" /><text class="t" x="100" y="69">Launcher</text><text class="s" x="100" y="86">no local server</text></g>
+          <g class="node unv"><rect x="25" y="130" width="150" height="46" rx="8" /><text class="t" x="100" y="158">Cemu A</text></g>
+          <g class="node unv"><rect x="25" y="200" width="150" height="46" rx="8" /><text class="t" x="100" y="228">Cemu B (optional)</text></g>
+          <g class="node ext"><rect x="400" y="120" width="150" height="70" rx="8" /><text class="t" x="475" y="148">Friend's server</text><text class="s" x="475" y="168">host:port</text></g>
+          <path class="e" d="M100,96 V130" marker-end="url(#arr)" />
+          <text class="el ela" x="108" y="118">-RemoteServer</text>
+          <path class="e ed" d="M175,153 L400,145" marker-end="url(#arrA)" />
+          <path class="e ed" d="M175,223 L400,172" marker-end="url(#arrA)" />
+          <text class="el" x="290" y="262">TCP over LAN or VPN</text>
+        </svg>
+      </figure>
+      <p>Join mode parses an invite link or <code>host:port</code>, starts no server, and passes <code>-RemoteServer host:port</code> to <code>Start-Online.ps1</code>. Join now allows one or two local players. A real join through this launcher with a second machine is not verified.</p>
+    </div>
+    <div>
+      <h3>3d. Ally hosts, PC joins with two players (script written, not verified)</h3>
+      <figure>
+        <svg viewBox="0 0 560 290" role="img" aria-labelledby="t3d d3d">
+          <title id="t3d">Ally hosts topology, not verified</title>
+                    <desc id="d3d">Not verified: hyrule-online.sh --host on the Ally starts a dedicated server under wine as a user unit, and the Ally player joins it over loopback. The PC launcher in Join mode connects Cemu A and Cemu B to the Ally's server over LAN or Tailscale. The option is in the script, but a three-player session was not run in game.</desc>
+          <rect class="grp" x="10" y="10" width="260" height="270" rx="10" />
+          <text class="gl" x="26" y="34">ROG Ally</text>
+          <rect class="grp" x="290" y="10" width="260" height="270" rx="10" />
+          <text class="gl" x="306" y="34">This PC, Join mode</text>
+          <g class="node unv"><rect x="30" y="48" width="220" height="52" rx="8" /><text class="t" x="140" y="70">hyrule-online.sh --host</text><text class="s" x="140" y="88">in the script, not run in game</text></g>
+          <g class="node unv"><rect x="30" y="118" width="220" height="52" rx="8" /><text class="t" x="140" y="140">Dedicated server</text><text class="s" x="140" y="158">under wine, user unit</text></g>
+          <g class="node unv"><rect x="30" y="190" width="220" height="52" rx="8" /><text class="t" x="140" y="212">Ally player</text><text class="s" x="140" y="230">CLI client + Cemu</text></g>
+          <g class="node ok"><rect x="305" y="48" width="230" height="46" rx="8" /><text class="t" x="420" y="76">Launcher</text></g>
+          <g class="node unv"><rect x="305" y="118" width="230" height="46" rx="8" /><text class="t" x="420" y="146">Cemu A</text></g>
+          <g class="node unv"><rect x="305" y="188" width="230" height="46" rx="8" /><text class="t" x="420" y="216">Cemu B</text></g>
+          <path class="e ed" d="M140,100 V118" marker-end="url(#arrA)" />
+          <path class="e ed" d="M140,190 V170" marker-end="url(#arrA)" />
+          <path class="e ed" d="M305,141 H252" marker-end="url(#arrA)" />
+          <path class="e ed" d="M305,211 L252,160" marker-end="url(#arrA)" />
+          <path class="e" d="M420,94 V118" marker-end="url(#arr)" />
+          <text class="el" x="280" y="262">LAN or Tailscale</text>
+        </svg>
+      </figure>
+      <p>The Ally runs the server and the PC joins with two local players while the Ally also plays. <code>hyrule-online.sh --host</code> is in the script: it binds the server to <code>0.0.0.0</code> (default port 5050), runs it under wine as the user unit <code>hyrule-server</code> with stdin kept open, shows <code>hyrule://</code> invites for the LAN and VPN addresses (it only detects an active firewall, never changes it), then joins its own server on loopback unless <code>--no-play</code> is given. The whole path stays dashed: it has not run in a real three-player game, which <code>RESEARCH.md</code> lists as not verified. The server's player limit is 32, so three fit.</p>
+    </div>
+  </div>
+</section>
+
+<section id="s4" aria-labelledby="h4t">
+  <h2 id="h4t">4. Session start</h2>
+  <figure>
+    <svg viewBox="0 0 1200 990" role="img" aria-labelledby="t4 d4">
+      <title id="t4">Session start sequence</title>
+      <desc id="d4">From the Start session button to both players joined. The launcher prepares display, players and rules, starts the server unless joining, and runs Start-Online.ps1. The script starts Cemu A, runs Connect-MilkBar.ps1 to inject the mod, waits for Assigned to player in the log, then starts Cemu B only after Cemu A shows FPS in its title. It counts Joined server lines and reports that all players are connected. The user then presses Continue in each Cemu.</desc>
+      <g>
+        <rect class="head" x="25" y="10" width="130" height="44" rx="6" /><text class="t" x="90" y="37" style="text-anchor:middle">User</text>
+        <rect class="head" x="175" y="10" width="130" height="44" rx="6" /><text class="t" x="240" y="37" style="text-anchor:middle">Launcher</text>
+        <rect class="head" x="325" y="10" width="130" height="44" rx="6" /><text class="t" x="390" y="30" style="text-anchor:middle">Start-Online</text><text class="s" x="390" y="46" style="text-anchor:middle">.ps1</text>
+        <rect class="head" x="475" y="10" width="130" height="44" rx="6" /><text class="t" x="540" y="30" style="text-anchor:middle">Dedicated</text><text class="s" x="540" y="46" style="text-anchor:middle">server</text>
+        <rect class="head" x="625" y="10" width="130" height="44" rx="6" /><text class="t" x="690" y="30" style="text-anchor:middle">Connect-</text><text class="s" x="690" y="46" style="text-anchor:middle">MilkBar.ps1</text>
+        <rect class="head" x="775" y="10" width="130" height="44" rx="6" /><text class="t" x="840" y="30" style="text-anchor:middle">Cemu A</text><text class="s" x="840" y="46" style="text-anchor:middle">+ Milk Bar DLL</text>
+        <rect class="head" x="925" y="10" width="130" height="44" rx="6" /><text class="t" x="990" y="30" style="text-anchor:middle">Cemu B</text><text class="s" x="990" y="46" style="text-anchor:middle">+ Milk Bar DLL</text>
+        <rect class="head" x="1065" y="10" width="125" height="44" rx="6" /><text class="t" x="1127" y="30" style="text-anchor:middle">LatestLog</text><text class="s" x="1127" y="46" style="text-anchor:middle">.txt</text>
+      </g>
+      <path class="life" d="M90,54 V965" /><path class="life" d="M240,54 V965" /><path class="life" d="M390,54 V965" /><path class="life" d="M540,54 V965" />
+      <path class="life" d="M690,54 V965" /><path class="life" d="M840,54 V965" /><path class="life" d="M990,54 V965" /><path class="life" d="M1127,54 V965" />
+
+      <rect class="notea" x="60" y="70" width="300" height="32" rx="6" /><text class="el" x="210" y="91" style="stroke-width:0">Host: firewall rule and invite link first</text>
+      <path class="e" d="M90,130 H240" marker-end="url(#arr)" /><text class="el" x="165" y="124">Start session</text>
+      <rect class="note" x="150" y="150" width="330" height="52" rx="6" /><text class="el" x="315" y="170" style="stroke-width:0">Prepare display, shader cache, players,</text><text class="el" x="315" y="188" style="stroke-width:0">rules, name tags (skipped when joining)</text>
+      <path class="e" d="M240,232 H540" marker-end="url(#arr)" /><text class="el" x="390" y="226">Start hidden, stdin open (Local, Host)</text>
+      <path class="e" d="M240,272 H390" marker-end="url(#arr)" /><text class="el" x="315" y="266">Start-Online -PlayerCount N</text>
+      <rect class="note" x="300" y="292" width="360" height="52" rx="6" /><text class="el" x="480" y="312" style="stroke-width:0">Path guard, no Cemu already running,</text><text class="el" x="480" y="330" style="stroke-width:0">controller profiles, xinput1_4.dll bridge copied</text>
+      <path class="e" d="M390,380 H840" marker-end="url(#arr)" /><text class="el" x="615" y="374">Start Cemu A</text>
+      <path class="e" d="M390,420 H690" marker-end="url(#arr)" /><text class="el" x="540" y="414">Connect player A</text>
+      <path class="e" d="M690,460 H840" marker-end="url(#arr)" /><text class="el" x="765" y="454">Inject, click Connect</text>
+      <path class="e" d="M840,500 H540" marker-end="url(#arr)" /><text class="el" x="690" y="494">Join</text>
+      <path class="e" d="M540,540 H1127" marker-end="url(#arr)" /><text class="el" x="830" y="534">Assigned to player 1</text>
+      <path class="e er" d="M390,580 H1127" marker-end="url(#arr)" /><text class="el" x="760" y="574">Wait up to 90 s for Assigned to player</text>
+      <rect class="note" x="350" y="604" width="540" height="34" rx="6" /><text class="el" x="620" y="626" style="stroke-width:0">Cemu B starts only after Cemu A's title shows FPS: (up to 300 s)</text>
+      <path class="e" d="M390,675 H990" marker-end="url(#arr)" /><text class="el" x="690" y="669">Start Cemu B, connect player B (same steps)</text>
+      <path class="e" d="M990,715 H540" marker-end="url(#arr)" /><text class="el" x="765" y="709">Join</text>
+      <path class="e er" d="M390,755 H1127" marker-end="url(#arr)" /><text class="el" x="760" y="749">Count "Joined server" lines (up to 180 s)</text>
+      <rect class="notea" x="330" y="775" width="520" height="34" rx="6" /><text class="el" x="590" y="797" style="stroke-width:0">If B stalls while loading: restart B only, at most 2 times</text>
+      <path class="e er" d="M390,850 H240" marker-end="url(#arr)" /><text class="el" x="315" y="844">All players are connected</text>
+      <path class="e er" d="M540,890 H240" marker-end="url(#arr)" /><text class="el" x="390" y="884">Activated / Deactivated Name Tags</text>
+      <path class="e" d="M240,930 H90" marker-end="url(#arr)" /><text class="el" x="165" y="924">Press Continue in each Cemu</text>
+    </svg>
+  </figure>
+  <p>The launcher prepares displays, per-player Milk Bar settings and server rules, then runs <code>Start-Online.ps1</code>, which starts players one after another because the Milk Bar pipe <code>\\.\pipe\languageConnectionPipe</code> takes only two instances. A player counts as joined when <code>%APPDATA%\BOTWM\LatestLog.txt</code> shows <code>Assigned to player</code> and then a <code>Displayed "Joined server</code> line. The user still presses Continue in each Cemu window, because the mod's DLL scan needs it within about a minute. Dashed notes and lines are not verified: the host firewall step on a clean machine, and the stall restart in game.</p>
+</section>
+
+<section id="s5" aria-labelledby="h5t">
+  <h2 id="h5t">5. Input path</h2>
+  <ol>
+    <li>Physical pads (up to four) are read by SDL3 on a router thread, about every 4 ms. The router lives in the launcher; a headless <code>InputRouter.exe</code> does the same for scripts.</li>
+    <li>The router assigns players to pads (player 1 to the first pad, player 2 to the second, with swap and re-assign) and writes the pad states, the two routes, a heartbeat and rumble commands to a 128-byte shared-memory block, <code>Local\HyruleCoop.Routing.v2</code>.</li>
+    <li>A small native C DLL, <code>xinput1_4.dll</code>, is copied beside each <code>Cemu.exe</code> by <code>Start-Online.ps1</code> in Routed mode. It answers XInput index 0 with player 1's pad and index 1 with player 2's pad, and reports no device for any other index. Each Cemu is therefore given only its own controller.</li>
+    <li>If the router heartbeat is older than 5 seconds, the bridge falls back to the real XInput.</li>
+    <li>Menu shortcut: default <code>Start+LT</code> held for 1.5 seconds, tracked per controller. While it is held the game sees the pad without those inputs, and a short rumble pulse confirms it. <code>Start+Back</code> is refused because Moonlight's quit combination includes it. While the launcher is in front of a running game, the games get a neutral pad.</li>
+    <li>Status: simulated pads and the layout tests are verified; two real pads in Routed mode were confirmed by the user. Rumble in Routed mode and the shortcut with a physical pad through Steam Input or Moonlight are not verified.</li>
+  </ol>
+</section>
+
+<section id="s6" aria-labelledby="h6t">
+  <h2 id="h6t">6. SteamOS</h2>
+  <h3>6a. Installer</h3>
+  <figure>
+    <svg viewBox="0 0 1200 620" role="img" aria-labelledby="t6a d6a">
+      <title id="t6a">SteamOS install steps</title>
+      <desc id="d6a">install.sh runs nine stages: checking the device, choosing the folder, downloading verified files, extracting and patching, building the wine prefix, scanning the game dump, writing configuration, installing the launcher, and adding the Steam shortcut. No end-to-end run of install.sh on a device is recorded in RESEARCH.md, so all stages are drawn dashed.</desc>
+      <g class="node unv"><rect x="20" y="20" width="360" height="150" rx="8" /><text class="t" x="200" y="46">1. Checking this device</text><text class="s" x="200" y="72">not root, Linux x86_64</text><text class="s" x="200" y="92">curl, python3, sha256sum, timeout, systemd-run</text><text class="s" x="200" y="112">unzip or 7z</text><text class="s" x="200" y="132">Proton 10.0 or newer in a Steam library</text></g>
+      <g class="node unv"><rect x="420" y="20" width="360" height="150" rx="8" /><text class="t" x="600" y="46">2. Choosing the install folder</text><text class="s" x="600" y="72">default ~/hyrule-online</text><text class="s" x="600" y="92">25 GB free (8 GB with --link)</text><text class="s" x="600" y="112">a state file lets a re-run skip finished steps</text></g>
+      <g class="node unv"><rect x="820" y="20" width="360" height="150" rx="8" /><text class="t" x="1000" y="46">3. Download</text><text class="s" x="1000" y="72">Cemu, graphic packs, Milk Bar Launcher,</text><text class="s" x="1000" y="92">MilkBar.CLI, .NET 8 Desktop, VC++ redist</text><text class="s" x="1000" y="112">every file checked by a pinned SHA-256</text><text class="s" x="1000" y="132">resumable, a bad file is deleted</text></g>
+      <g class="node unv"><rect x="820" y="220" width="360" height="150" rx="8" /><text class="t" x="1000" y="246">4. Extract</text><text class="s" x="1000" y="272">verify Cemu.exe and InjectDLL.dll hashes</text><text class="s" x="1000" y="292">patch MilkBar.CLI.dll start delay</text><text class="s" x="1000" y="312">750 ms to 70000 ms (CLI patch not verified)</text></g>
+      <g class="node unv"><rect x="420" y="220" width="360" height="150" rx="8" /><text class="t" x="600" y="246">5. Wine prefix</text><text class="s" x="600" y="272">Proton's wine in its own prefix, wineboot</text><text class="s" x="600" y="292">.NET 8 Desktop Runtime and VC++</text></g>
+      <g class="node unv"><rect x="20" y="220" width="360" height="150" rx="8" /><text class="t" x="200" y="246">6. Game dump</text><text class="s" x="200" y="272">scan the folder you point to: base game,</text><text class="s" x="200" y="292">update v208, DLC v80, save (user/80000001),</text><text class="s" x="200" y="312">mod pack. Copy, or link with --link</text></g>
+      <g class="node unv"><rect x="20" y="420" width="360" height="150" rx="8" /><text class="t" x="200" y="446">7. Config</text><text class="s" x="200" y="472">Milk Bar data files into the prefix appdata</text><text class="s" x="200" y="492">mod packs, update and DLC links</text><text class="s" x="200" y="512">Cemu settings and graphic pack choices</text></g>
+      <g class="node unv"><rect x="420" y="420" width="360" height="150" rx="8" /><text class="t" x="600" y="446">8. Launcher</text><text class="s" x="600" y="472">hyrule-online.sh, lib.sh, steam_shortcut.py</text><text class="s" x="600" y="492">.desktop entry with a Stop session action</text><text class="s" x="600" y="512">dialogs use zenity (Gaming Mode not verified)</text></g>
+      <g class="node unv"><rect x="820" y="420" width="360" height="150" rx="8" /><text class="t" x="1000" y="446">9. Steam shortcut</text><text class="s" x="1000" y="472">adds a non-Steam shortcut to every</text><text class="s" x="1000" y="492">userdata/*/config/shortcuts.vdf</text><text class="s" x="1000" y="512">asks to close Steam, backs up first,</text><text class="s" x="1000" y="532">deferred if Steam stays open</text></g>
+      <path class="e" d="M380,95 H420" marker-end="url(#arr)" />
+      <path class="e" d="M780,95 H820" marker-end="url(#arr)" />
+      <path class="e" d="M1000,170 V220" marker-end="url(#arr)" />
+      <path class="e" d="M820,295 H780" marker-end="url(#arr)" />
+      <path class="e" d="M420,295 H380" marker-end="url(#arr)" />
+      <path class="e" d="M200,370 V420" marker-end="url(#arr)" />
+      <path class="e" d="M380,495 H420" marker-end="url(#arr)" />
+      <path class="e" d="M780,495 H820" marker-end="url(#arr)" />
+    </svg>
+  </figure>
+  <p><code>install.sh</code> runs nine stages and records finished ones in <code>~/.config/hyrule-online/state</code>. Options are <code>--dry-run --yes --dump --mod --dir --link --uninstall</code>. The game dump is supplied by the user and copied or linked, never downloaded. The CI job runs offline checks of these scripts; no run of the installer on a real device is recorded in <code>RESEARCH.md</code>.</p>
+
+  <h3>6b. Join flow</h3>
+  <figure>
+    <svg viewBox="0 0 1200 620" role="img" aria-labelledby="t6b d6b">
+      <title id="t6b">SteamOS join flow</title>
+      <desc id="d6b">The player starts hyrule-online.sh from the Steam shortcut. The script validates input and starts the Milk Bar CLI under wine as a systemd user unit named hyrule-client. The CLI joins the server. The script polls client.log for SUCCESS for up to 360 seconds, treats Response 3 as a wrong password, and stops the unit and the wine server on failure.</desc>
+      <rect class="head" x="5" y="10" width="170" height="44" rx="6" /><text class="t" x="90" y="37" style="text-anchor:middle">Player</text>
+      <rect class="head" x="205" y="10" width="170" height="44" rx="6" /><text class="t" x="290" y="30" style="text-anchor:middle">hyrule-online.sh</text><text class="s" x="290" y="46" style="text-anchor:middle">join and --stop</text>
+      <rect class="head" x="405" y="10" width="170" height="44" rx="6" /><text class="t" x="490" y="30" style="text-anchor:middle">systemd user unit</text><text class="s" x="490" y="46" style="text-anchor:middle">hyrule-client</text>
+      <rect class="head" x="605" y="10" width="170" height="44" rx="6" /><text class="t" x="690" y="30" style="text-anchor:middle">MilkBar.CLI.exe</text><text class="s" x="690" y="46" style="text-anchor:middle">under wine</text>
+      <rect class="head" x="805" y="10" width="170" height="44" rx="6" /><text class="t" x="890" y="30" style="text-anchor:middle">logs/client.log</text>
+      <rect class="head" x="1005" y="10" width="170" height="44" rx="6" /><text class="t" x="1090" y="37" style="text-anchor:middle">Server</text>
+      <path class="life" d="M90,54 V600" /><path class="life" d="M290,54 V600" /><path class="life" d="M490,54 V600" /><path class="life" d="M690,54 V600" /><path class="life" d="M890,54 V600" /><path class="life" d="M1090,54 V600" />
+
+      <path class="e" d="M90,100 H290" marker-end="url(#arr)" /><text class="el" x="190" y="94">Start from the Steam shortcut</text>
+      <rect class="note" x="150" y="120" width="360" height="52" rx="6" /><text class="el" x="330" y="140" style="stroke-width:0">Validate host, port, name, save join.conf (0600),</text><text class="el" x="330" y="158" style="stroke-width:0">clear shader caches, write run/client-run.sh</text>
+      <path class="e" d="M290,210 H490" marker-end="url(#arr)" /><text class="el" x="390" y="204">systemd-run --user unit</text>
+      <path class="e" d="M490,250 H690" marker-end="url(#arr)" /><text class="el" x="590" y="244">wine64 MilkBar.CLI.exe</text>
+      <path class="e" d="M690,290 H1090" marker-end="url(#arr)" /><text class="el" x="890" y="284">Join (Cemu started, InjectDLL.dll injected)</text>
+      <path class="e" d="M690,330 H890" marker-end="url(#arr)" /><text class="el" x="790" y="324">stdout</text>
+      <path class="e er" d="M290,370 H890" marker-end="url(#arr)" /><text class="el" x="590" y="364">poll up to 360 s for SUCCESS</text>
+      <path class="e er" d="M890,410 H290" marker-end="url(#arr)" /><text class="el" x="590" y="404">SUCCESS: joined</text>
+      <path class="e er" d="M890,450 H290" marker-end="url(#arr)" /><text class="el" x="590" y="444">"Response":3: wrong password</text>
+      <path class="e" d="M290,490 H490" marker-end="url(#arr)" /><text class="el" x="390" y="484">stop unit, wineserver -k</text>
+      <path class="e er" d="M290,540 H90" marker-end="url(#arr)" /><text class="el" x="190" y="534">Result or reason</text>
+    </svg>
+  </figure>
+  <p><code>hyrule-online.sh</code> validates the host, port and name, then starts the Milk Bar CLI as a user systemd unit. It makes no TCP pre-check, on purpose, because any connection without a valid handshake kills the dedicated server. It reads <code>client.log</code> for <code>SUCCESS</code> or <code>"Response":3</code>, and also stops waiting if the unit ends. <code>--stop</code> stops the unit and runs <code>wineserver -k</code>. The Ally results in <code>RESEARCH.md</code> used a separate script (<code>join.sh</code>), so this script itself is not verified.</p>
+</section>
+
+<section id="s7" aria-labelledby="h7t">
+  <h2 id="h7t">7. Release and CI</h2>
+  <figure>
+    <svg viewBox="0 0 1200 600" role="img" aria-labelledby="t7 d7">
+      <title id="t7">Release and CI pipeline</title>
+      <desc id="d7">Feature and bugfix branches go by pull request into develop. Develop and release branches run the CI workflow with a Windows build, test and package job and a Linux job that tests the SteamOS scripts. A release branch is cut from develop with a version bump, then merged into main by pull request after the Gitflow guard checks the version. A push to main runs the release workflow, which builds the Windows setup and portable zip, packs the SteamOS tar.gz with a SHA-256 file, creates a GitHub release, and then backports main into develop.</desc>
+      <rect class="grp" x="20" y="200" width="350" height="230" rx="10" />
+      <text class="gl" x="36" y="224">ci.yml: PRs and pushes</text>
+      <rect class="grp" x="700" y="200" width="480" height="260" rx="10" />
+      <text class="gl" x="716" y="224">release.yml: push to main</text>
+
+      <g class="node ok"><rect x="20" y="60" width="190" height="60" rx="8" /><text class="t" x="115" y="86">feature/* bugfix/*</text><text class="s" x="115" y="106">work branches</text></g>
+      <g class="node ok"><rect x="250" y="60" width="190" height="60" rx="8" /><text class="t" x="345" y="86">develop</text><text class="s" x="345" y="106">integration</text></g>
+      <g class="node ok"><rect x="480" y="60" width="190" height="60" rx="8" /><text class="t" x="575" y="86">release/x.y.z</text><text class="s" x="575" y="106">VERSION bumped</text></g>
+      <g class="node ok"><rect x="730" y="60" width="190" height="60" rx="8" /><text class="t" x="825" y="86">main</text><text class="s" x="825" y="106">tagged releases</text></g>
+      <g class="node ok"><rect x="40" y="250" width="310" height="60" rx="8" /><text class="t" x="195" y="276">build-test (Windows)</text><text class="s" x="195" y="296">Build.ps1, Test.ps1, Package.ps1</text></g>
+      <g class="node ok"><rect x="40" y="340" width="310" height="60" rx="8" /><text class="t" x="195" y="366">steamos (Linux)</text><text class="s" x="195" y="386">bash steamos/test.sh</text></g>
+      <g class="node ok"><rect x="720" y="250" width="250" height="60" rx="8" /><text class="t" x="845" y="276">Build, Test, Package</text><text class="s" x="845" y="296">setup.exe (Inno Setup), portable zip</text></g>
+      <g class="node ok"><rect x="720" y="340" width="250" height="60" rx="8" /><text class="t" x="845" y="366">SteamOS tar.gz</text><text class="s" x="845" y="386">tests run first, plus a sha256 file</text></g>
+      <g class="node ok"><rect x="1000" y="290" width="160" height="70" rx="8" /><text class="t" x="1080" y="318">GitHub release</text><text class="s" x="1080" y="338">gh release create</text><text class="s" x="1080" y="354">vX.Y.Z</text></g>
+      <g class="node ok"><rect x="900" y="500" width="260" height="70" rx="8" /><text class="t" x="1030" y="526">backport job</text><text class="s" x="1030" y="546">merge main into develop,</text><text class="s" x="1030" y="562">else open backport/x.y.z PR</text></g>
+
+      <path class="e" d="M210,90 H250" marker-end="url(#arr)" /><text class="el" x="230" y="52">PR</text>
+      <path class="e" d="M440,90 H480" marker-end="url(#arr)" />
+      <text class="el" x="460" y="152">cut branch</text>
+      <path class="e" d="M670,90 H730" marker-end="url(#arr)" />
+      <text class="el" x="700" y="52">PR</text>
+      <text class="el" x="700" y="152">gitflow-guard</text>
+      <text class="el" x="700" y="168">checks VERSION</text>
+      <path class="e" d="M300,120 V200" marker-end="url(#arr)" />
+      <path class="e" d="M825,120 V200" marker-end="url(#arr)" />
+      <path class="e" d="M970,280 L1000,310" marker-end="url(#arr)" />
+      <path class="e" d="M970,370 L1000,340" marker-end="url(#arr)" />
+      <path class="e" d="M1080,360 V500" marker-end="url(#arr)" />
+      <path class="e" d="M900,535 H420 V120" marker-end="url(#arr)" />
+      <text class="el" x="660" y="528">back into develop</text>
+    </svg>
+  </figure>
+  <p>Pull requests to <code>main</code> or <code>develop</code>, and pushes to <code>develop</code>, <code>release/**</code> and <code>hotfix/**</code>, run two CI jobs: the Windows build, tests and packaging, and the offline SteamOS script tests on Linux. <code>gitflow-guard.yml</code> only lets <code>release/*</code> or <code>hotfix/*</code> into <code>main</code>, requires the branch name to match the <code>VERSION</code> file and an unused, newer tag, and limits what can enter <code>develop</code> and <code>release/*</code>. A push to <code>main</code> runs <code>release.yml</code>: it builds the setup and portable zip, packs the SteamOS tarball with its SHA-256, publishes a release, then merges <code>main</code> back into <code>develop</code> or opens a backport pull request.</p>
+</section>
+
+<section id="s8" aria-labelledby="h8t">
+  <h2 id="h8t">8. Third party and ours</h2>
+  <table>
+    <caption>Who owns each component, how it reaches the user, and whether our packages contain it</caption>
+    <thead><tr><th scope="col">Component</th><th scope="col">Whose</th><th scope="col">How it gets there</th><th scope="col">In our packages?</th></tr></thead>
+    <tbody>
+      <tr><th scope="row">Launcher (WPF), input router, XInput bridge</th><td>Ours</td><td>Built by <code>scripts\Build.ps1</code></td><td>Yes</td></tr>
+      <tr><th scope="row">PowerShell scripts, <code>components.json</code>, Inno Setup script, SteamOS scripts</th><td>Ours</td><td>In this repository</td><td>Yes</td></tr>
+      <tr><th scope="row">Cemu 1.26.2f</th><td>Third party</td><td>Downloaded by the setup or <code>install.sh</code>, pinned SHA-256</td><td>Never</td></tr>
+      <tr><th scope="row">Cemu graphic packs (v989)</th><td>Third party</td><td>Same</td><td>Never</td></tr>
+      <tr><th scope="row">Milk Bar Launcher 2.0.1 (mod, injected DLL, MBL.DedicatedServer.exe)</th><td>Third party (MilkBarModding)</td><td>Downloaded from its upstream release</td><td>Never</td></tr>
+      <tr><th scope="row">MilkBar.CLI fork (CarlosEvCode)</th><td>Third party</td><td>Downloaded by <code>install.sh</code></td><td>Never</td></tr>
+      <tr><th scope="row">BCML 3.10.8 and Python 3.8.10</th><td>Third party</td><td>Downloaded by the setup</td><td>Never</td></tr>
+      <tr><th scope="row">SDL3 and SDL GameControllerDB</th><td>Third party</td><td>Downloaded by <code>Build-Input.ps1</code></td><td>Runtime files and license texts only</td></tr>
+      <tr><th scope="row">zig (builds the bridge)</th><td>Third party</td><td>Downloaded by <code>Build-Input.ps1</code></td><td>Never (build tool)</td></tr>
+      <tr><th scope="row">Proton / Wine</th><td>Third party (Valve)</td><td>Found in the user's Steam libraries</td><td>Never</td></tr>
+      <tr><th scope="row">.NET 8 Desktop Runtime, VC++ redistributable</th><td>Third party (Microsoft)</td><td>Downloaded by <code>install.sh</code> into the wine prefix</td><td>Never</td></tr>
+      <tr><th scope="row">ReShade</th><td>Third party</td><td>Placed by hand in <code>.tools\reshade</code></td><td>Never</td></tr>
+      <tr><th scope="row">Game dump (base game, update v208, DLC v80, save)</th><td>The user's own</td><td>Supplied by the user, never downloaded</td><td>Never</td></tr>
+    </tbody>
+  </table>
+  <p>The packages hold only this project's files (<code>scripts\Package.ps1</code>). Milk Bar's license does not allow redistribution unless substantially modified, which is why it is always downloaded.</p>
+</section>
+
+<section id="limits" aria-labelledby="hl">
+  <h2 id="hl">Known limits</h2>
+  <p>From <code>RESEARCH.md</code> unless marked otherwise.</p>
+  <ul>
+    <li>A closed stdin makes the dedicated server spin and fill <code>LatestLog.txt</code>, so the launcher keeps stdin open.</li>
+    <li>Confirmed: any TCP connection that disconnects without a valid handshake (an empty connect, or a few junk bytes) kills the dedicated server with <code>ArgumentOutOfRangeException</code> in <code>ServerData.GetPlayer</code>, reproduced on the PC and on the Ally. So the launcher has no Test connection button and never probes a port, and a port scanner on the LAN could take a server down.</li>
+    <li>A real second PC joining through this launcher, the server's player limit, the right <code>serversAdded</code> entry when the list has several, and the firewall rule on a clean machine are not verified.</li>
+    <li>The Ally joined a temporary server copy over LAN ("Multiplayer session active", "Assigned to player 1"). Not confirmed: the character in the world on the Ally, a second player seen in both games, and the Windows launcher's own Join button.</li>
+    <li>A real three-player session (two on the PC plus the Ally) is not verified in game.</li>
+    <li>Physical pads through Steam Input or Moonlight are not verified. Start + LT may collide with ZL in play; Start + LT + RT or L3 + R3 are the fallbacks.</li>
+    <li>In the Ally client session, a D-pad press that opens an external window and Start closing the launcher have an unconfirmed cause; a key-guard defence is built but not verified there.</li>
+    <li>Player 2 sometimes stalls while loading; the restart of B (<code>Cemu-Stall.ps1</code>) is not confirmed in game.</li>
+    <li>The mod's DLL scan needs Continue pressed in about a minute, otherwise Cemu closes.</li>
+    <li>The Milk Bar pipe takes two instances, so players start one after another; three or four local players are not built.</li>
+    <li>Merging the mod with BCML is a manual boundary; BCML drops some files, which <code>Patch-Mod.ps1</code> repairs.</li>
+    <li>The cause of the Milk Bar JSON "Unexpected character" corruption is not proven. DLL injection may trigger antivirus.</li>
+    <li>The shared shader cache is off by default and not verified in game. The FPS target needs a restart.</li>
+    <li>Rotation is not verified with a real pad or gameplay. Rumble in Routed mode is not verified.</li>
+    <li>Real Python and BCML installs, the multi-gigabyte downloads end to end, and the setup wizard on screen are not verified.</li>
+    <li>A Cemu keyboard profile crashes Cemu 1.26.2f.</li>
+    <li>Not covered by <code>RESEARCH.md</code>: the SteamOS CLI patch (start delay) and the Gaming Mode <code>zenity</code> dialogs. They come from <code>steamos\install.sh</code> and <code>lib.sh</code> and are unverified here.</li>
+  </ul>
+</section>
+
+<section id="diffs" aria-labelledby="hd">
+  <h2 id="hd">Where the code and the docs differ</h2>
+  <ul>
+    <li>There is no <code>README.md</code>; <code>CONTRIBUTING.md</code>, <code>RESEARCH.md</code> and <code>steamos\README.md</code> are the written sources.</li>
+    <li><code>RESEARCH.md</code> has no separate SteamOS section: the Ally results sit in the Online page section, and the install steps are documented only in <code>steamos\README.md</code>.</li>
+    <li><code>CONTRIBUTING.md</code> lists only the installer and portable zip as release packages; <code>ci.yml</code> also tests the SteamOS scripts and <code>release.yml</code> also publishes the SteamOS tarball.</li>
+    <li><code>RESEARCH.md</code> line for the Join page still says Join is one local player and that the player count goes back to two on leaving Join; a later bullet and the code (<code>OnlineUi.cs</code>: "One or two players") say Join allows one or two.</li>
+    <li>The World tab is called <code>TabMultiplayer</code> in the code.</li>
+    <li><code>hyrule-online.sh --host</code> is in the script now, but <code>RESEARCH.md</code> does not describe it yet and it has not run in a game; topology 3d stays dashed.</li>
+    <li>No code in <code>src\</code> configures Apollo, Artemis or a Steam shortcut on Windows; <code>New-Shortcut.ps1</code> only makes a desktop shortcut. Streaming appears in <code>RESEARCH.md</code> only as Moonlight notes.</li>
+  </ul>
+</section>
+</main>
+
+<footer>
+  <p>Hand-written inline SVG and CSS. No scripts, no external requests.</p>
+</footer>
+</body>
+</html>

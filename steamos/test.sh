@@ -46,6 +46,9 @@ for p in 0 65536 -1 abc "" 1.5 123456; do refuse "port '$p'" valid_port "$p"; do
 for n in Link a my_name-1 1234567890123456; do check "name $n" valid_name "$n"; done
 for n in "" 12345678901234567 "a b" 'x;y'; do refuse "name '$n'" valid_name "$n"; done
 equal winpath 'Z:\home\deck\x y\Cemu.exe' "$(winpath /home/deck/x\ y/Cemu.exe)"
+equal "ask_choice default" Host "$(ask_choice t q Host Join Host 2>/dev/null <<<'')"
+equal "ask_choice prefix" Join "$(ask_choice t q Host Join Host 2>/dev/null <<<'j')"
+refuse "ask_choice cancelled" ask_choice t q Host Join Host </dev/null
 
 echo "== steam_shortcut.py =="
 equal "appid CLI" "$("$PY" -c 'import zlib; print(zlib.crc32(b"\"12345\"6789") | 0x80000000)')" "$(py_run appid 12345 6789 | head -n1)"
@@ -178,11 +181,44 @@ echo "== hyrule-online.sh =="
 refuse "no TCP pre-check (it crashes the Milk Bar server)" grep -q tcp_ok "$TDIR/hyrule-online.sh"
 for v in DISPLAY XAUTHORITY DBUS_SESSION_BUS_ADDRESS; do check "session passes $v to systemd-run" grep -q "for var in .*$v" "$TDIR/hyrule-online.sh"; done
 check "session uses systemd-inhibit" grep -q 'systemd-inhibit --what=sleep' "$TDIR/hyrule-online.sh"
+refuse "no /dev/tcp probe" grep -q /dev/tcp "$TDIR/hyrule-online.sh" "$TDIR/install.sh" "$TDIR/lib.sh"
+refuse "no nc probe" grep -qE '(^|[ |;(])(nc|ncat|telnet) ' "$TDIR/hyrule-online.sh"
+check "server keeps stdin open" grep -q 'tail -f /dev/null' "$TDIR/hyrule-online.sh"
+check "server rolls forward to .NET 8" grep -q 'DOTNET_ROLL_FORWARD=Major' "$TDIR/hyrule-online.sh"
+check "installer unpacks the server step" grep -q 'run_step server' "$TDIR/install.sh"
+
+write_server_ini "$TMP/ServerConfig.ini" 6000 'p w;#=x'
+equal "ini ip" IP=0.0.0.0 "$(grep '^IP=' "$TMP/ServerConfig.ini")"
+equal "ini port" Port=6000 "$(grep '^Port=' "$TMP/ServerConfig.ini")"
+equal "ini password" 'Password=p w;#=x' "$(grep '^Password=' "$TMP/ServerConfig.ini")"
+equal "ini description" 'Description=Hyrule Online on SteamOS' "$(grep '^Description=' "$TMP/ServerConfig.ini")"
+equal "ini default rules" 1 "$(grep -c '^DefaultGamemode=True$' "$TMP/ServerConfig.ini")"
+check "ini has the shipped sections" grep -q '^\[DefaultGamemode\]$' "$TMP/ServerConfig.ini"
+check "ini has no CR" no_cr "$TMP/ServerConfig.ini"
+equal "escape plain" abc-1._~ "$(url_escape abc-1._~)"
+equal "escape specials" 'p%20w%26x%23%3D%2F%3F%25' "$(url_escape 'p w&x#=/?%')"
+equal "escape utf-8" '%C3%A9' "$(url_escape é)"
+equal "invite without password" hyrule://192.168.1.43:5050 "$(invite_url 192.168.1.43 5050 '')"
+equal "invite with password" 'hyrule://192.168.1.43:5050?pw=p%20w%26x' "$(invite_url 192.168.1.43 5050 'p w&x')"
+IPS='1: lo    inet 127.0.0.1/8 scope host lo
+2: wlan0    inet 192.168.1.43/24 brd 192.168.1.255 scope global dynamic wlan0
+3: docker0    inet 172.17.0.1/16 scope global docker0
+4: tailscale0    inet 100.110.16.75/32 scope global tailscale0
+5: eth0    inet 10.0.0.7/8 scope global eth0'
+equal "lan ip prefers 192.168" 192.168.1.43 "$(pick_ip lan <<<"$IPS")"
+equal "vpn ip" 100.110.16.75 "$(pick_ip vpn <<<"$IPS")"
+equal "lan ip without 192.168" 10.0.0.7 "$(pick_ip lan <<<"$(grep -v wlan0 <<<"$IPS")")"
+equal "no lan ip" "" "$(pick_ip lan <<<"$(grep -E 'lo |docker|tailscale' <<<"$IPS")")"
+equal "100.63 is not a VPN address" "" "$(pick_ip vpn <<<'2: eth0    inet 100.63.0.1/24 scope global eth0')"
+equal "172.32 is not private but still usable" 172.32.0.5 "$(pick_ip lan <<<'2: eth0    inet 172.32.0.5/24 scope global eth0')"
 check "Cemu stays pinned to 1.26.2" grep -q 'cemu_1.26.2.zip' "$TDIR/install.sh"
 HERE_CONF=$TMP/conf; HERE=$TMP; CONF=$HERE_CONF
 HOST=10.0.0.5 PORT=5050 NAME=Link PASS='p w'; conf_save
 [ "$(uname -s)" != Linux ] || equal "config perms" 600 "$(stat -c %a "$CONF")"
 equal "config host" 10.0.0.5 "$(conf_get host)"; equal "config password" 'p w' "$(conf_get password)"
+conf_set mode Host; conf_set hostport 6000
+equal "conf_set keeps the join values" 10.0.0.5 "$(conf_get host)"; equal "conf_set mode" Host "$(conf_get mode)"
+conf_set mode Join; equal "conf_set replaces" 1 "$(grep -c '^mode=' "$CONF")"
 
 echo "== components.json drift =="
 J=$TDIR/../scripts/components.json
@@ -201,6 +237,7 @@ if [ "$(uname -s)" = Linux ] && [ "$(uname -m)" = x86_64 ]; then
   out=$(HOME=$H HYRULE_STEAM_ROOT=$H/.local/share/Steam HYRULE_STATE=$H/state HYRULE_NO_GUI=1 bash "$TDIR/install.sh" --dry-run --dump "$D" --dir "$H/hyrule" 2>&1); rc=$?
   equal "dry run exit code" 0 "$rc"
   case $out in *"Nothing was changed"*) ok ;; *) bad "dry run output: $out" ;; esac
+  case $out in *"unpack the dedicated server"*) ok ;; *) bad "dry run does not mention the dedicated server: $out" ;; esac
   equal "dry run changes nothing" "$before" "$(find "$H" | sort | md5sum)"
 else echo "not Linux x86_64, skipped"; fi
 

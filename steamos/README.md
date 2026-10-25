@@ -1,6 +1,6 @@
-# Hyrule Online on SteamOS (join client)
+# Hyrule Online on SteamOS (join or host)
 
-Lets a Steam Deck or ROG Ally on SteamOS join a Hyrule Online server. The server is still hosted from the Windows launcher; this folder only covers joining.
+Lets a Steam Deck or ROG Ally on SteamOS join a Hyrule Online server, or host one for other players.
 
 It installs Cemu 1.26.2f and the headless Milk Bar client into their own folder, runs them with Proton's Wine in a private prefix, and adds a **Hyrule Online** entry to your Steam library.
 
@@ -26,13 +26,18 @@ Steam rewrites its shortcut list when it closes, so the Steam entry is only writ
 
 - **Gaming Mode:** Library, Non-Steam, **Hyrule Online**, Play. Enter the host's address, port, password and your player name. The last values are remembered.
 - **Desktop Mode:** run the "Hyrule Online" menu entry or `~/hyrule-online/hyrule-online.sh`. To skip the dialogs: `hyrule-online.sh HOST PORT [PASSWORD] [NAME]`.
+- Without arguments the launcher asks **Join** or **Host** and remembers the answer.
 - Starting takes about a minute before the game connects. To stop a session: `hyrule-online.sh --stop`, or the "Stop session" action of the menu entry.
 
-Controllers are not set up by the installer. If a controller does nothing in game, configure it in Cemu (Options, Input settings).
+## Host from SteamOS
+
+- **Gaming Mode or Desktop Mode:** start **Hyrule Online** and choose **Host**. Enter a port (default 5050) and a password. From a terminal: `hyrule-online.sh --host [PORT [PASSWORD]]`, add `--no-play` to only run the server.
+- The server runs as the user service `hyrule-server` (the dedicated server from the Milk Bar release, run with Proton If a controller does nothing in game, configure it in Cemu (Options, Input settings).
 
 ## Troubleshooting
 
 - **Wrong password:** the server answers `Response:3`. Ask the host for the password.
+- **Server did not start:** see `~/hyrule-online/logs/server.log` and `server.err`. Do not test the port with a plain TCP connection: the server crashes on a connection that sends nothing.
 - **"Could not join HOST:PORT":** the host must have started the server, and you must be on the same network or VPN. Check address and port.
 - **Proton not found later:** Steam removed or updated Proton. Install Proton 10.0 again, then run `~/hyrule-online/install.sh`.
 - **Anything else:** logs are in `~/hyrule-online/logs/` (`client.log`, `client.err`) and `~/hyrule-online/cemu/log.txt`.
@@ -43,7 +48,7 @@ Controllers are not set up by the installer. If a controller does nothing in gam
 Nothing from the following is bundled. The installer downloads each component from its upstream source and checks a pinned SHA-256 before using it; a mismatch stops the install.
 
 - Cemu 1.26.2 (cemu.info) and the Cemu graphic packs (github.com/cemu-project)
-- Milk Bar Launcher 2.0.1 (only `InjectDLL.dll` is used) and the Milk Bar CLI (github.com/MilkBarModding, github.com/CarlosEvCode)
+- Milk Bar Launcher 2.0.1 (only `InjectDLL.dll` and the `DedicatedServer` folder are used) and the Milk Bar CLI (github.com/MilkBarModding, github.com/CarlosEvCode)
 - .NET 8 Desktop Runtime and the Visual C++ runtime (Microsoft)
 - Proton (Valve), which you install from Steam
 
@@ -51,4 +56,4 @@ You must provide your own legally dumped game. No game data is downloaded or dis
 
 ## Checks
 
-`./test.sh` runs offline checks of the scripts (syntax, validation, the Steam shortcut file writer, resume state). It does not start the game.
+`./test.sh` runs offline checks of the scripts (syntax, validation, the server config and invite builders, the Steam shortcut file writer, resume state). It does not start the game.

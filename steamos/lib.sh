@@ -49,6 +49,23 @@ ask_text() {
   fi
 }
 
+# ask_choice <title> <text> <default> <option>...: prints the chosen option, fails when cancelled.
+# In the terminal a typed prefix is enough, in any case.
+ask_choice() {
+  local title=$1 text=$2 def=$3 v o args=()
+  shift 3
+  if have_gui; then
+    for o; do if [ "$o" = "$def" ]; then args+=(TRUE "$o"); else args+=(FALSE "$o"); fi; done
+    zenity --list --radiolist --hide-header --column= --column= --title "$title" --text "$text" --width=460 --height=260 "${args[@]}" 2>/dev/null
+  else
+    while :; do
+      read -r -p "$text ($*) [$def]: " v || return 1
+      v=${v:-$def}
+      for o; do if [[ ${o,,} == "${v,,}"* ]]; then printf '%s' "$o"; return 0; fi; done
+    done
+  fi
+}
+
 # ask_dir <title> <default>: prints a folder path, fails when cancelled.
 ask_dir() {
   local v

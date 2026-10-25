@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2034  # variables are read by the functions in lib.sh
-# Hyrule Online - guided SteamOS installer (join client). See README.md.
+# Hyrule Online - guided SteamOS installer (join and host). See README.md.
 # Usage: install.sh [--dry-run] [--yes --dump PATH] [--mod PATH] [--dir PATH] [--link] [--uninstall]
 #   --dry-run    print what would be done, change nothing
 #   --yes        no questions (needs --dump); never closes Steam, never deletes the game copy
@@ -47,7 +47,7 @@ STEAM_ROOT=${HYRULE_STEAM_ROOT:-$HOME/.steam/steam}
 [ -d "$STEAM_ROOT" ] || STEAM_ROOT=$HOME/.local/share/Steam
 APP_NAME="Hyrule Online"
 DESKTOP_FILE=$HOME/.local/share/applications/hyrule-online.desktop
-STEP_N=0 STEP_TOTAL=9 DEFERRED=
+STEP_N=0 STEP_TOTAL=10 DEFERRED=
 
 usage() { sed -n '2,10p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 
@@ -273,7 +273,7 @@ step_dir() {
 step_download() {
   local f
   if [ "$DRY" = 1 ]; then
-    echo "    [dry-run] would download and verify (SHA-256): Cemu 1.26.2f (25 MB), graphic packs v989 (3 MB), Milk Bar Launcher 2.0.1 (65 MB, only InjectDLL.dll is used),"
+    echo "    [dry-run] would download and verify (SHA-256): Cemu 1.26.2f (25 MB), graphic packs v989 (3 MB), Milk Bar Launcher 2.0.1 (65 MB, only InjectDLL.dll and the dedicated server are used),"
     echo "    [dry-run] the Milk Bar CLI (0.3 MB), .NET 8 Desktop Runtime 8.0.31 (59 MB) and the Visual C++ runtime (26 MB)"
     return 0
   fi
@@ -312,6 +312,18 @@ step_extract() {
   fi
   patch_cli || return 1
   rm -rf "$tmp"
+}
+
+# The dedicated server comes from the same verified zip as InjectDLL.dll; the zip is only fetched again if an earlier run deleted it.
+step_server() {
+  local tmp=$DIR/.extract
+  if [ "$DRY" = 1 ]; then echo "    [dry-run] would unpack the dedicated server from MilkBarLauncher.zip into $DIR/server"; return 0; fi
+  [ -f "$DIR/server/MBL.DedicatedServer.exe" ] && return 0
+  mkdir -p "$DIR/downloads" && fetch "$MILKBAR_URL" "$MILKBAR_SHA" MilkBarLauncher.zip || return 1
+  rm -rf "$tmp/srv" "$DIR/server"
+  extract "$DIR/downloads/MilkBarLauncher.zip" "$tmp/srv" 'DedicatedServer/*' || return 1
+  [ -f "$tmp/srv/DedicatedServer/MBL.DedicatedServer.exe" ] || { echo "The dedicated server is missing from MilkBarLauncher.zip." >&2; return 1; }
+  mv "$tmp/srv/DedicatedServer" "$DIR/server" && rm -rf "$tmp"
 }
 
 # shellcheck source=/dev/null
@@ -500,7 +512,7 @@ step_launcher() {
 [Desktop Entry]
 Type=Application
 Name=$APP_NAME
-Comment=Join a Hyrule Online server (Breath of the Wild co-op)
+Comment=Join or host a Hyrule Online server (Breath of the Wild co-op)
 Exec="$DIR/hyrule-online.sh"
 Path=$DIR
 Terminal=false
@@ -554,7 +566,7 @@ summary() {
 Gaming Mode: Library > Non-Steam > $APP_NAME > Play (start Steam again if you closed it).
 Desktop Mode: run $DIR/hyrule-online.sh or the \"$APP_NAME\" menu entry.
 
-You need the server address, port and password from the person hosting (hosting stays on Windows).
+To join you need the server address, port and password from the host. To host, choose Host when it asks.
 Controller setup is not automated: if the controller does nothing in game, set it up in Cemu (Options > Input settings)."
   else
     text="Almost done. Still to do: $DEFERRED
@@ -575,6 +587,7 @@ do_uninstall() {
     return 0
   fi
   ask_yesno "Remove $APP_NAME and its install folder $DIR?" || [ "$YES" = 1 ] || exit 0
+  systemctl --user stop hyrule-server.service hyrule-client.service 2>/dev/null
   if [ "$YES" != 1 ]; then
     ask_yesno "Also delete the copied game files (game, update, DLC:$big )? Your original dump is never touched." && keep_game=0
     ask_yesno "Also delete your copied save? This is the progress made on this device." && keep_save=0
@@ -643,6 +656,7 @@ You need about 15 GB of free space and your own game dump and mod pack (see READ
   step_dir
   run_step download "Downloading and verifying the components" step_download
   run_step extract "Unpacking Cemu, the graphic packs and the Milk Bar client" step_extract
+  run_step server "Unpacking the dedicated server (for hosting)" step_server
   run_step prefix "Preparing Wine (.NET 8 and Visual C++ in their own prefix)" step_prefix
   run_step dump "Getting your game files" step_dump
   run_step config "Applying the Cemu configuration" step_config
