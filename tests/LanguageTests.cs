@@ -33,6 +33,7 @@ namespace HyruleOnline {
   static readonly string[] Computed = {
    "Launcher.cs: english",                        // Re-translation of the stored status and prompt texts, which were already checked where they were set.
    "Launcher.cs: statusText",
+   "OnlineUi.cs: eventText",                      // ServerEvent only stores texts that the audit already checks as literals.
    "Launcher.cs: promptText",
    "Launcher.cs: steps[step].Key",
    "Launcher.cs: ServerRules.SpecialNames[i]",    // CheckComputed reads SpecialNames.
@@ -48,7 +49,7 @@ namespace HyruleOnline {
   // Literals assigned in code that are units, not words.
   static readonly string[] Units = { " FPS", " Hz" };
 
-  static readonly string[] Helpers = { "Tr", "Fail", "SetStatus", "SetPrompt", "Step" };
+  static readonly string[] Helpers = { "Tr", "Fail", "SetStatus", "SetPrompt", "Step", "ServerEvent" };
   static readonly string[] TextProperties = { "Text", "Content", "ToolTip", "Header", "Title" };
   static readonly string[] English = { "the", "and", "is", "are", "with", "for", "of", "to", "when", "then", "your", "this", "that", "from", "you", "will", "not", "can", "does", "each", "only", "while", "before", "after" };
 

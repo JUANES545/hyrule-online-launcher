@@ -20,6 +20,10 @@ namespace HyruleOnline {
   public string Language = "en", LauncherLanguage = "en";
   public string OnlineMode = ServerConnection.Local, HostPassword = "", HostDescription = ServerConnection.DefaultDescription, HostAddress = "", JoinAddress = "", JoinPassword = "";
   public int HostPort = ServerConnection.DefaultPort;
+  public string LastPage = "Play";
+
+  // The pages the launcher can reopen on; the first-run setup is never one of them.
+  public static readonly string[] RememberedPages = { "Play", "Online", "Graphics", "Multiplayer", "Language", "Details" };
 
   public static Prefs Read(string file) {
    var prefs = new Prefs();
@@ -64,6 +68,7 @@ namespace HyruleOnline {
     prefs.HostAddress = ServerConnection.CleanText((string)root.Element("HostAddress"), 100);
     prefs.JoinAddress = ServerConnection.CleanText((string)root.Element("JoinAddress"), 200);
     prefs.JoinPassword = ServerConnection.CleanText((string)root.Element("JoinPassword"), 40);
+    prefs.LastPage = Array.IndexOf(RememberedPages, (string)root.Element("LastPage")) >= 0 ? (string)root.Element("LastPage") : "Play";
     return prefs;
    }
    catch (Exception) { return new Prefs(); }

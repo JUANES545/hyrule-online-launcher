@@ -127,6 +127,7 @@ namespace HyruleOnline {
     Require(online.OnlineMode == "Host" && online.HostPort == 6001 && online.HostPassword == "pw" && online.HostDescription == "Hi" && online.HostAddress == "1.2.3.4" && online.JoinAddress == "hyrule://h:1" && online.JoinPassword == "j", "online settings are read");
     var onlineOdd = Load(temp, "<Preferences><OnlineMode>Nope</OnlineMode><HostPort>80</HostPort></Preferences>");
     Require(onlineOdd.OnlineMode == "Local" && onlineOdd.HostPort == 5050 && onlineOdd.HostDescription == "Explore Hyrule with Friends!" && onlineOdd.JoinAddress == "", "online settings fall back to private play");
+    Require(Load(temp, "<Preferences><LastPage>Online</LastPage></Preferences>").LastPage == "Online" && Load(temp, "<Preferences><LastPage>Nope</LastPage></Preferences>").LastPage == "Play" && Load(temp, "<Preferences/>").LastPage == "Play", "the last page is remembered and checked");
 
     // The keys SavePrefs writes must all be read back.
     string launcher = Read(Path.Combine(root, "src", "Launcher", "Launcher.cs"));

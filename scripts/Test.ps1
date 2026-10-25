@@ -32,6 +32,16 @@ if ($LASTEXITCODE -ne 0) { throw 'Shader cache test compilation failed.' }
 & (Join-Path $output 'ShaderCacheTests.exe')
 if ($LASTEXITCODE -ne 0) { throw 'Shader cache tests failed.' }
 
+& (Join-Path $framework 'csc.exe') /nologo /target:exe /platform:x64 "/out:$(Join-Path $output 'ServerEventsTests.exe')" (Join-Path $root 'tests\ServerEventsTests.cs') (Join-Path $root 'src\Launcher\ServerEvents.cs')
+if ($LASTEXITCODE -ne 0) { throw 'Server events test compilation failed.' }
+& (Join-Path $output 'ServerEventsTests.exe')
+if ($LASTEXITCODE -ne 0) { throw 'Server events tests failed.' }
+
+& (Join-Path $framework 'csc.exe') /nologo /target:exe /platform:x64 "/out:$(Join-Path $output 'NetworkHintTests.exe')" (Join-Path $root 'tests\NetworkHintTests.cs') (Join-Path $root 'src\Launcher\NetworkHint.cs')
+if ($LASTEXITCODE -ne 0) { throw 'Network hint test compilation failed.' }
+& (Join-Path $output 'NetworkHintTests.exe')
+if ($LASTEXITCODE -ne 0) { throw 'Network hint tests failed.' }
+
 & (Join-Path $PSScriptRoot 'Test-Layout.ps1')
 
 # The model check needs the clean install (project Python and the extracted Milk Bar launcher); without it only the unit tests run.

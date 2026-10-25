@@ -10,6 +10,7 @@ namespace HyruleOnline {
  sealed partial class Launcher {
   string onlineMode = ServerConnection.Local, hostPassword = "", hostDescription = ServerConnection.DefaultDescription, hostAddress = "", joinAddress = "", joinPassword = "";
   int hostPort = ServerConnection.DefaultPort, playersBeforeJoin = 2;
+  readonly Roster roster = new Roster();
 
   bool Joining { get { return onlineMode == ServerConnection.Join; } }
 
@@ -23,11 +24,117 @@ namespace HyruleOnline {
    };
    foreach (var name in new[] { "HostPortBox", "HostPasswordBox", "HostDescriptionBox", "HostAddressBox", "JoinAddressBox", "JoinPasswordBox" }) C<TextBox>(name).LostFocus += (s, e) => CommitOnline();
    Placeholder(C<TextBox>("JoinAddressBox"), C<TextBlock>("JoinAddressHint"));
-   C<Button>("CopyInvite").Click += (s, e) => {
-    try { Clipboard.SetText(C<TextBox>("InviteBox").Text); Write("The invite was copied."); }
-    catch (Exception error) { Write("The invite could not be copied: " + error.Message); }
-   };
+   C<Button>("CopyInvite").Click += (s, e) => CopyInvite();
+   C<Button>("PlayCopyInvite").Click += (s, e) => CopyInvite();
+   C<Button>("TestConnection").Click += (s, e) => TestJoin();
    C<Button>("OpenFirewall").Click += (s, e) => AllowFirewall();
+  }
+
+  void CopyInvite() {
+   try { Clipboard.SetText(C<TextBox>("InviteBox").Text); ServerEvent("The invite was copied."); }
+   catch (Exception error) { Write("The invite could not be copied: " + error.Message); }
+  }
+
+  // The kind of address decides what a friend needs to reach it, so the hint follows the address in the box.
+  string AddressHint(string address) {
+   string vpn = NetworkHint.VpnName(address);
+   if (vpn == null) foreach (var found in NetworkHint.Vpns()) if (found.Address == address) vpn = found.Name;
+   if (vpn != null) return Tr("This is a {0} address. Friends on the same {0} network can join from anywhere.", vpn);
+   switch (NetworkHint.Classify(address)) {
+    case AddressKind.Home: return Tr("This is a home network address, so only people on the same network can join. For anyone else, install a VPN such as Tailscale on both PCs, or forward the port on your router and use your public address.");
+    case AddressKind.None: return Tr("No network address was found. Connect this PC to a network, or type an address.");
+    default: return Tr("Friends can join from anywhere if the port is forwarded on your router.");
+   }
+  }
+
+  string ReachText(NetworkHint.Reach reach, string host, int port, bool afterStart) {
+   if (reach == NetworkHint.Reach.Open) return Tr(afterStart ? "The server at {0}:{1} answers, but the player could not join. Check the password first." : "The server at {0}:{1} answers. This does not check the password.", host, port);
+   if (reach == NetworkHint.Reach.UnknownHost) return Tr("Could not find {0}. Check the address in the invite.", host);
+   return Tr("Could not reach {0}:{1}. Check the invite, that the host has a session running, and that its firewall allows the port.", host, port);
+  }
+
+  void TestJoin() {
+   string host, password;
+   int port;
+   var result = C<TextBlock>("TestResult");
+   if (!ServerTarget(out host, out port, out password)) { result.Text = Tr("Enter an invite or an address first."); return; }
+   var button = C<Button>("TestConnection");
+   button.IsEnabled = false;
+   result.Text = Tr("Testing {0}:{1}...", host, port);
+   System.Threading.ThreadPool.QueueUserWorkItem(state => {
+    var reach = NetworkHint.Probe(host, port, 4000);
+    Window.Dispatcher.BeginInvoke(new Action(() => { result.Text = ReachText(reach, host, port, false); button.IsEnabled = true; }));
+   });
+  }
+
+  // Joining failed: the launcher cannot read the protocol's reason, so it tells apart "nobody answers" from "answers but refused".
+  void ExplainJoinFailure() {
+   string host, password, original = failure;
+   int port;
+   if (!Joining || !ServerTarget(out host, out port, out password)) return;
+   System.Threading.ThreadPool.QueueUserWorkItem(state => {
+    var reach = NetworkHint.Probe(host, port, 4000);
+    Window.Dispatcher.BeginInvoke(new Action(() => {
+     if (failure != original) return;
+     string hint = ReachText(reach, host, port, true);
+     failure = reach == NetworkHint.Reach.Open ? original + " " + hint : hint;
+     SetStatus("Start failed: {0}", failure);
+    }));
+   });
+  }
+
+  string eventText;
+  object[] eventArgs;
+
+  // A server that ends while the session is up and nobody asked for it: say so and offer the restart (Start becomes Restart session).
+  void ServerStopped(int code) {
+   if (stopping || script != null || !sessionLive || Joining) return;
+   serverCrashed = true;
+   Write("The server stopped (exit code " + code + ").");
+   SetStatus("The server stopped.");
+   SetPrompt(CrashPrompt);
+   roster.Clear();
+   ShowOnlineStatus();
+   UpdateStart();
+  }
+
+  void ServerEvent(string english, params object[] args) {
+   eventText = english; eventArgs = args;
+   Write(string.Format(english, args));
+   ShowOnlineStatus();
+  }
+
+  void ResetServerEvents() { roster.Clear(); eventText = null; ShowOnlineStatus(); }
+
+  // The server's own lines tell who is in and why a player was turned away.
+  void ReadServerLine(string line) {
+   string name;
+   int slot, code;
+   bool changed = roster.Apply(line);
+   if (ServerEvents.TryRefused(line, out name, out code)) ServerEvent(code == ServerEvents.WrongPassword ? "{0} could not join: wrong password." : "{0} could not join (error {1}).", name, code);
+   else if (ServerEvents.TryJoined(line, out name, out slot)) ServerEvent("{0} joined.", name);
+   else if (ServerEvents.TryLeft(line, out name)) ServerEvent("{0} left.", name);
+   else if (changed) ShowOnlineStatus();
+  }
+
+  // Under Play: where the session is open and who is in it.
+  void ShowOnlineStatus() {
+   bool host = onlineMode == ServerConnection.Host;
+   C<UIElement>("OnlineStatus").Visibility = onlineMode == ServerConnection.Local ? Visibility.Collapsed : Visibility.Visible;
+   C<UIElement>("PlayCopyInvite").Visibility = host ? Visibility.Visible : Visibility.Collapsed;
+   var lines = new List<string>();
+   string target, password;
+   int port;
+   if (host) {
+    string address = hostAddress.Length > 0 ? hostAddress : DetectedAddress();
+    lines.Add(Tr(serverHost.Running ? "Server open at {0}:{1}." : "Friends will join at {0}:{1} once the session starts.", address, hostPort));
+    if (roster.Count > 0) lines.Add(Tr("In the world: {0}", roster.Text()));
+    else if (serverHost.Running) lines.Add(Tr("Nobody has joined yet."));
+   }
+   else if (ServerTarget(out target, out port, out password)) lines.Add(Tr("Playing on the server at {0}:{1}.", target, port));
+   else lines.Add(Tr("Enter an invite on the Online page."));
+   if (eventText != null) lines.Add(Tr(eventText, eventArgs));
+   C<TextBlock>("OnlineStatusText").Text = string.Join(Environment.NewLine, lines.ToArray());
   }
 
   // The hint sits over an empty box and disappears while the box has text or focus, like a form field.
@@ -64,6 +171,7 @@ namespace HyruleOnline {
    if (bare.IndexOf(':') >= 0 && ServerConnection.TryParse(bare, out shownHost, out shownPort, out shownSecret)) { typed = shownHost; hostPort = shownPort; }
    else typed = bare;
    hostAddress = typed == DetectedAddress() ? "" : typed;
+   if (C<TextBox>("JoinAddressBox").Text != joinAddress) C<TextBlock>("TestResult").Text = "";
    joinAddress = ServerConnection.CleanText(C<TextBox>("JoinAddressBox").Text, 200);
    joinPassword = ServerConnection.CleanText(C<TextBox>("JoinPasswordBox").Text, 40);
    SavePrefs();
@@ -71,7 +179,18 @@ namespace HyruleOnline {
    UpdateStart();
   }
 
-  static string DetectedAddress() { return ServerConnection.Best(ServerConnection.Addresses()) ?? ""; }
+  // A tunnel address (Tailscale, ZeroTier, Hamachi, Radmin) works from anywhere, so it is offered before a home address.
+  static string detectedAddress;
+  static int detectedAt;
+
+  // Adapter enumeration is slow on machines with many virtual adapters, and the status refreshes every 2 s, so keep the answer for 30 s.
+  static string DetectedAddress() {
+   if (detectedAddress != null && Environment.TickCount - detectedAt < 30000) return detectedAddress;
+   var vpns = NetworkHint.Vpns();
+   detectedAddress = vpns.Count > 0 ? vpns[0].Address : ServerConnection.Best(ServerConnection.Addresses()) ?? "";
+   detectedAt = Environment.TickCount;
+   return detectedAddress;
+  }
 
   void ShowOnline() {
    filling = true;
@@ -96,8 +215,10 @@ namespace HyruleOnline {
    bool host = onlineMode == ServerConnection.Host;
    Func<bool, Visibility> show = on => on ? Visibility.Visible : Visibility.Collapsed;
    C<UIElement>("HostFields").Visibility = C<UIElement>("HostShare").Visibility = show(host);
-   C<UIElement>("JoinFields").Visibility = C<UIElement>("JoinHelp").Visibility = show(Joining);
-   C<TextBlock>("OnlineModeInfo").Text = Tr(host ? "Friends who run this launcher can join this PC. The world rules are the ones on the Multiplayer page."
+   C<UIElement>("JoinFields").Visibility = C<UIElement>("JoinHelp").Visibility = C<UIElement>("WorldJoinNote").Visibility = show(Joining);
+   if (host) { string shown = C<TextBox>("HostAddressBox").Text; C<TextBlock>("NetworkHintText").Text = AddressHint(shown); }
+   ShowOnlineStatus();
+   C<TextBlock>("OnlineModeInfo").Text = Tr(host ? "Friends who run this launcher can join this PC. The world rules are the ones on the World page."
     : Joining ? "You play on one screen with one controller on a friend's server. The friend sets the rules."
     : "The server only accepts players from this PC.");
    ShowFirewall();

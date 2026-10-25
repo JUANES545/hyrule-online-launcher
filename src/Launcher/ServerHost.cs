@@ -11,6 +11,7 @@ namespace HyruleOnline {
   Process process;
 
   public event Action<string> Line;
+  public event Action<int> Exited;
 
   public bool Running {
    get {
@@ -32,9 +33,15 @@ namespace HyruleOnline {
     RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true,
     StandardOutputEncoding = Encoding.UTF8, StandardErrorEncoding = Encoding.UTF8
    };
-   var started = new Process { StartInfo = info };
+   var started = new Process { StartInfo = info, EnableRaisingEvents = true };
    started.OutputDataReceived += (s, e) => Add(e.Data);
    started.ErrorDataReceived += (s, e) => Add(e.Data);
+   started.Exited += (s, e) => {
+    int code = -1;
+    try { code = ((Process)s).ExitCode; } catch (Exception) { }
+    var handler = Exited;
+    if (handler != null) handler(code);
+   };
    started.Start();
    started.BeginOutputReadLine(); started.BeginErrorReadLine();
    process = started;

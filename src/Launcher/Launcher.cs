@@ -148,6 +148,8 @@ namespace HyruleOnline {
   // The plan the running games were started with. Windows and ReShade follow it until the session restarts, because the game resolution cannot change while it runs.
   DisplayPlan sessionPlan;
   const string RestartPrompt = "Some changes only apply after a restart. Press Restart session to apply them.";
+  const string CrashPrompt = "The server stopped. Press Restart session to bring it back.";
+  bool serverCrashed;
   string language = "en", launcherLanguage = "en";
   List<GameLanguage> gameLanguages = new List<GameLanguage> { GameLanguages.English };
   readonly Translator translator = new Translator();
@@ -248,7 +250,9 @@ namespace HyruleOnline {
     log.ScrollToEnd();
     bool? tags = ServerCommands.NameTags(line);
     if (tags.HasValue) ShowNameTags(tags.Value);
+    ReadServerLine(line);
    }));
+   serverHost.Exited += code => Window.Dispatcher.BeginInvoke(new Action(() => ServerStopped(code)));
    Placeholder(C<TextBox>("ServerCommand"), C<TextBlock>("ServerCommandHint"));
    C<TextBox>("ServerCommand").KeyDown += (s, e) => {
     if (e.Key != Key.Enter) return;
@@ -276,7 +280,7 @@ namespace HyruleOnline {
    WireSetup();
    Window.Closing += OnClosing;
    Window.SizeChanged += (s, e) => FitShell();
-   Window.Loaded += (s, e) => { FitPrimary(); ShowPage(0); UpdatePlan(); RefreshProcesses(); C<Button>("Start").Focus(); timer.Start(); StartSetupCheck(); };
+   Window.Loaded += (s, e) => { FitPrimary(); ShowPage(Math.Max(0, Array.IndexOf(PageNames, lastPage))); UpdatePlan(); RefreshProcesses(); C<Button>("Start").Focus(); timer.Start(); StartSetupCheck(); };
    timer.Interval = TimeSpan.FromMilliseconds(33);
    timer.Tick += (s, e) => Tick();
   }
@@ -309,15 +313,18 @@ namespace HyruleOnline {
    UpdatePlayLayout();
   }
 
-  static readonly string[] PageNames = { "Play", "Online", "Graphics", "Multiplayer", "Language", "Details" };
+  static readonly string[] PageNames = Prefs.RememberedPages;
   int page;
+  string lastPage = "Play";
   ushort[] previousButtons = new ushort[4];
 
   void ShowPage(int index) {
    if (setupActive) return;
    ClosePickers();
    ResetCursors();
+   int before = page;
    page = PageNav.Move(0, index, PageNames.Length);
+   if (page != before) { lastPage = PageNames[page]; SavePrefs(); }
    for (int i = 0; i < PageNames.Length; i++) {
     bool current = i == page;
     C<FrameworkElement>(PageNames[i] + "Page").Visibility = current ? Visibility.Visible : Visibility.Collapsed;
@@ -371,7 +378,7 @@ namespace HyruleOnline {
    }
    sharedShaders = saved.SharedShaders; language = saved.Language; launcherLanguage = saved.LauncherLanguage;
    shortcutText = saved.Shortcut; Router.Shortcut = MenuShortcut.Parse(shortcutText);
-   onlineMode = saved.OnlineMode; hostPort = saved.HostPort; hostPassword = saved.HostPassword; hostDescription = saved.HostDescription; hostAddress = saved.HostAddress; joinAddress = saved.JoinAddress; joinPassword = saved.JoinPassword;
+   onlineMode = saved.OnlineMode; hostPort = saved.HostPort; hostPassword = saved.HostPassword; hostDescription = saved.HostDescription; hostAddress = saved.HostAddress; joinAddress = saved.JoinAddress; joinPassword = saved.JoinPassword; lastPage = saved.LastPage;
    if (Joining) playerCount = 1;
   }
 
@@ -606,7 +613,7 @@ namespace HyruleOnline {
      new XElement("Rotation1", rotations[0]), new XElement("Rotation2", rotations[1]),
      new XElement("Name1", names[0]), new XElement("Model1", models[0]), new XElement("Name2", names[1]), new XElement("Model2", models[1]),
      new XElement("SharedShaderCache", sharedShaders ? "1" : "0"), new XElement("Language", language), new XElement("LauncherLanguage", launcherLanguage), new XElement("MenuLayout", Router.MenuLayout < 0 ? "Auto" : PadKind.Names[Router.MenuLayout]), new XElement("MenuShortcut", shortcutText),
-     new XElement("OnlineMode", onlineMode), new XElement("HostPort", hostPort), new XElement("HostPassword", hostPassword), new XElement("HostDescription", hostDescription), new XElement("HostAddress", hostAddress), new XElement("JoinAddress", joinAddress), new XElement("JoinPassword", joinPassword))).Save(PrefsFile);
+     new XElement("OnlineMode", onlineMode), new XElement("HostPort", hostPort), new XElement("HostPassword", hostPassword), new XElement("HostDescription", hostDescription), new XElement("HostAddress", hostAddress), new XElement("JoinAddress", joinAddress), new XElement("JoinPassword", joinPassword), new XElement("LastPage", lastPage))).Save(PrefsFile);
    }
    catch (Exception error) { Write("Could not save the display settings: " + error.Message); }
   }
@@ -1361,7 +1368,7 @@ namespace HyruleOnline {
 
   void StartSession() {
    if (setupActive || seeding) return;
-   failure = null; lastError = null; shaderProblem = null; joined[0] = joined[1] = false;
+   failure = null; lastError = null; shaderProblem = null; joined[0] = joined[1] = false; serverCrashed = false;
    if (Scripts.Owned(root).Count != 0) { BeginSession(); return; }
    if (!PrepareDisplay()) return;
    PrepareShaderCache(BeginSession);
@@ -1383,6 +1390,7 @@ namespace HyruleOnline {
    appliedSignature = Signature();
    Write(Joining ? "Joining " + host + ":" + port + "." : "World rules: " + rules.Name + ", " + ServerRules.SpecialNames[rules.Special] + ".");
    ShowNameTags(!Joining);
+   ResetServerEvents();
    Step("Server", Joining ? "Remote" : "Starting", Joining ? Good : Busy); Step("A", "Waiting", Idle); Step("B", playerCount == 2 ? "Waiting" : "Stopped", Idle);
    Write(playerCount == 1 ? "Starting a one player session." : "Starting the session.");
    if (!Joining) {
@@ -1431,6 +1439,7 @@ namespace HyruleOnline {
     SetStatus("Start failed: {0}", failure);
     SetPrompt("Use Stop session to close anything that was started, then try again.");
     Write("Start failed (exit code " + code + ").");
+    ExplainJoinFailure();
    }
    RefreshProcesses();
   }
@@ -1441,7 +1450,7 @@ namespace HyruleOnline {
    SetPrompt("");
    StopScript();
    Scripts.Run(root, "Stop-Online.ps1", "", Line, Error, code => Window.Dispatcher.BeginInvoke(new Action(() => {
-    stopping = false; failure = null; joined[0] = joined[1] = false; placed.Clear(); appliedSignature = null; sessionPlan = null; RefreshProcesses();
+    stopping = false; failure = null; serverCrashed = false; joined[0] = joined[1] = false; placed.Clear(); appliedSignature = null; sessionPlan = null; ResetServerEvents(); RefreshProcesses();
     if (!restartAfterStop) return;
     restartAfterStop = false;
     if (sessionLive) Write("The previous session did not close completely, so it was not restarted.");
@@ -1467,11 +1476,11 @@ namespace HyruleOnline {
    var start = C<Button>("Start");
    bool settled = !stopping && !seeding;
    if (sessionLive && settled && appliedSignature == null) appliedSignature = Signature();
-   bool dirty = sessionLive && settled && RestartGate.Differs(appliedSignature, Signature());
+   bool dirty = sessionLive && settled && (serverCrashed || RestartGate.Differs(appliedSignature, Signature()));
    if (dirty != restartPending) {
     restartPending = dirty;
-    if (dirty) SetPrompt(RestartPrompt);
-    else if (promptText == RestartPrompt) SetPrompt("");
+    if (dirty) SetPrompt(serverCrashed ? CrashPrompt : RestartPrompt);
+    else if (promptText == RestartPrompt || promptText == CrashPrompt) SetPrompt("");
    }
    string label = Tr(dirty ? "RESTART SESSION" : "START SESSION");
    var startText = C<TextBlock>("StartText");
@@ -1495,6 +1504,7 @@ namespace HyruleOnline {
   void OnClosing(object sender, System.ComponentModel.CancelEventArgs e) {
    if (script == null && Scripts.Owned(root).Count == 0) return;
    TraceInput("Closing the launcher and stopping the open session.");
+   stopping = true;
    StopScript();
    var done = new ManualResetEvent(false);
    Scripts.Run(root, "Stop-Online.ps1", "", t => { }, t => { }, code => done.Set());
@@ -1521,10 +1531,12 @@ namespace HyruleOnline {
     Step("Server", Joining && sessionLive ? "Remote" : server ? "Running" : "Stopped", Joining ? (sessionLive ? Good : Idle) : server ? Good : Idle);
     Step("A", a ? (joined[0] ? "Joined the server" : "Game open") : "Stopped", a ? (joined[0] ? Good : Busy) : Idle);
     Step("B", b ? (joined[1] ? "Joined the server" : "Game open") : "Stopped", b ? (joined[1] ? Good : Busy) : Idle);
-    if (owned.Count > 0 && failure == null) SetStatus("Session running.");
+    if (owned.Count > 0 && failure == null) SetStatus(serverCrashed ? "The server stopped." : "Session running.");
     else if (owned.Count == 0 && failure == null) { SetStatus("Ready."); SetPrompt(""); }
    }
    sessionLive = owned.Count > 0;
+   if (!sessionLive) serverCrashed = false;
+   ShowOnlineStatus();
    gameRunning = a || b;
    C<Button>("ReturnGame").Visibility = gameRunning ? Visibility.Visible : Visibility.Collapsed;
    if (!sessionLive && script == null && !stopping) { appliedSignature = null; sessionPlan = null; }
@@ -1540,15 +1552,18 @@ namespace HyruleOnline {
   void EnableAppearance(bool enabled) {
    appearanceEnabled = enabled;
    foreach (var name in new[] { "P1NameBox", "P2NameBox", "HostPortBox", "HostPasswordBox", "HostDescriptionBox", "HostAddressBox", "JoinAddressBox", "JoinPasswordBox" }) C<TextBox>(name).IsEnabled = enabled;
-   foreach (var name in new[] { "RulesBox", "SpecialBox", "OnlineModeBox" }) C<ComboBox>(name).IsEnabled = enabled;
-   foreach (var name in new[] { "P1AvatarButton",    "P2AvatarButton", "UseRecommendedRules" }) C<Button>(name).IsEnabled = enabled;
+   // A friend's server sets the world rules, so they are locked while joining.
+   foreach (var name in new[] { "RulesBox", "SpecialBox" }) C<ComboBox>(name).IsEnabled = enabled && !Joining;
+   C<ComboBox>("OnlineModeBox").IsEnabled = enabled;
+   foreach (var name in new[] { "P1AvatarButton",    "P2AvatarButton" }) C<Button>(name).IsEnabled = enabled;
+   C<Button>("UseRecommendedRules").IsEnabled = enabled && !Joining;
    C<Button>("Mode").IsEnabled = enabled && !Joining;
    foreach (var name in new[] { "View1", "View2" }) C<Button>(name).IsEnabled = enabled && playerCount == 2;
    C<Button>("ResetTurns").IsEnabled = enabled && (rotations[0] != 0 || rotations[1] != 0);
    foreach (var tile in C<Canvas>("MonitorMap").Children.OfType<Button>()) tile.IsEnabled = enabled;
    C<UIElement>("ModeIcon").Opacity = enabled ? 1 : 0.4;
    if (!enabled) ClosePickers();
-   foreach (var name in RuleBoxes) C<CheckBox>(name).IsEnabled = enabled;
+   foreach (var name in RuleBoxes) C<CheckBox>(name).IsEnabled = enabled && !Joining;
   }
 
   void SetButtons() {
