@@ -1,8 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Net;
-using System.Net.Sockets;
 
 namespace HyruleOnline {
  static class NetworkHintTests {
@@ -34,11 +31,6 @@ namespace HyruleOnline {
   static void Adapter(string name, string description, string[] addresses, string expected) {
    string actual = Describe(NetworkHint.FromAdapter(name, description, addresses));
    Check(actual == expected, "FromAdapter(" + name + ", " + description + ") is [" + actual + "], expected [" + expected + "]");
-  }
-
-  static void Probe(string host, int port, NetworkHint.Reach expected) {
-   var actual = NetworkHint.Probe(host, port, 3000);
-   Check(actual == expected, "Probe(" + host + ", " + port + ") is " + actual + ", expected " + expected);
   }
 
   static int Main() {
@@ -105,23 +97,6 @@ namespace HyruleOnline {
 
    try { Check(NetworkHint.Vpns() != null, "Vpns() returns a list"); }
    catch (Exception error) { Check(false, "Vpns() threw " + error.Message); }
-
-   var listener = new TcpListener(IPAddress.Loopback, 0);
-   listener.Start();
-   int port = ((IPEndPoint)listener.LocalEndpoint).Port;
-   Probe("127.0.0.1", port, NetworkHint.Reach.Open);
-   listener.Stop();
-   Probe("127.0.0.1", port, NetworkHint.Reach.Refused);
-   Probe("no-such-host.invalid", 5050, NetworkHint.Reach.UnknownHost);
-   Probe("127.0.0.1", 0, NetworkHint.Reach.Failed);
-   Probe("127.0.0.1", 70000, NetworkHint.Reach.Failed);
-   Probe("", 5050, NetworkHint.Reach.Failed);
-
-   var clock = Stopwatch.StartNew();
-   var slow = NetworkHint.Probe("10.255.255.1", 5050, 500);
-   clock.Stop();
-   Check(slow != NetworkHint.Reach.Open, "a non-routable address is not open (" + slow + ")");
-   Check(clock.ElapsedMilliseconds < 1500, "the probe honours its timeout (" + clock.ElapsedMilliseconds + " ms)");
 
    Console.WriteLine((failures == 0 ? "PASS" : "FAIL") + ": network hint, " + (checks - failures) + " of " + checks + " checks passed.");
    return failures == 0 ? 0 : 1;

@@ -7,10 +7,8 @@ using System.Text.RegularExpressions;
 namespace HyruleOnline {
  enum AddressKind { None, Home, Vpn, Public, Name }
 
- // Tells whether an address shared in an invite works only at home or from anywhere, finds installed VPNs and tests a TCP connection.
+ // Tells whether an address shared in an invite works only at home or from anywhere, and finds installed VPNs. It never connects to a server: the server crashes on any connection that does not speak its protocol.
  static class NetworkHint {
-  public enum Reach { Open, Refused, TimedOut, UnknownHost, Failed }
-
   public sealed class Found { public string Name; public string Address; }
 
   // Only overlay networks whose addresses friends can reach; privacy VPNs are left out on purpose.
@@ -86,30 +84,6 @@ namespace HyruleOnline {
    }
    catch (Exception) { return new List<Found>(); }
    return found;
-  }
-
-  // Blocking connect test with a real timeout; meant for a worker thread.
-  public static Reach Probe(string host, int port, int timeoutMs) {
-   if (string.IsNullOrWhiteSpace(host) || port < 1 || port > 65535) return Reach.Failed;
-   var client = new TcpClient();
-   try {
-    var pending = client.BeginConnect(host.Trim(), port, null, null);
-    if (!pending.AsyncWaitHandle.WaitOne(timeoutMs < 0 ? 0 : timeoutMs)) return Reach.TimedOut;
-    client.EndConnect(pending);
-    return client.Connected ? Reach.Open : Reach.Failed;
-   }
-   catch (SocketException error) {
-    switch (error.SocketErrorCode) {
-     case SocketError.ConnectionRefused: return Reach.Refused;
-     case SocketError.TimedOut: return Reach.TimedOut;
-     case SocketError.HostNotFound:
-     case SocketError.NoData:
-     case SocketError.TryAgain: return Reach.UnknownHost;
-     default: return Reach.Failed;
-    }
-   }
-   catch (Exception) { return Reach.Failed; }
-   finally { try { client.Close(); } catch (Exception) { } }
   }
  }
 }

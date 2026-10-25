@@ -27,7 +27,6 @@ namespace HyruleOnline {
    Placeholder(C<TextBox>("JoinAddressBox"), C<TextBlock>("JoinAddressHint"));
    C<Button>("CopyInvite").Click += (s, e) => CopyInvite();
    C<Button>("PlayCopyInvite").Click += (s, e) => CopyInvite();
-   C<Button>("TestConnection").Click += (s, e) => TestJoin();
    C<Button>("OpenFirewall").Click += (s, e) => AllowFirewall();
   }
 
@@ -48,42 +47,12 @@ namespace HyruleOnline {
    }
   }
 
-  string ReachText(NetworkHint.Reach reach, string host, int port, bool afterStart) {
-   if (reach == NetworkHint.Reach.Open) return Tr(afterStart ? "The server at {0}:{1} answers, but the player could not join. Check the password first." : "The server at {0}:{1} answers. This does not check the password.", host, port);
-   if (reach == NetworkHint.Reach.UnknownHost) return Tr("Could not find {0}. Check the address in the invite.", host);
-   return Tr("Could not reach {0}:{1}. Check the invite, that the host has a session running, and that its firewall allows the port.", host, port);
-  }
-
-  void TestJoin() {
-   string host, password;
-   int port;
-   var result = C<TextBlock>("TestResult");
-   if (!ServerTarget(out host, out port, out password)) { result.Text = Tr("Enter an invite or an address first."); return; }
-   var button = C<Button>("TestConnection");
-   button.IsEnabled = false;
-   result.Text = Tr("Testing {0}:{1}...", host, port);
-   System.Threading.ThreadPool.QueueUserWorkItem(state => {
-    var reach = NetworkHint.Probe(host, port, 4000);
-    Window.Dispatcher.BeginInvoke(new Action(() => { result.Text = ReachText(reach, host, port, false); button.IsEnabled = true; }));
-   });
-  }
-
-  // Joining failed: the launcher cannot read the protocol's reason, so it tells apart "nobody answers" from "answers but refused".
+  // Joining failed. The launcher never probes the port: the server crashes on any connection that does not speak its protocol.
   void ExplainJoinFailure() {
-   string host, password, original = failure;
-   int port;
-   if (!Joining || !ServerTarget(out host, out port, out password)) return;
-   System.Threading.ThreadPool.QueueUserWorkItem(state => {
-    var reach = NetworkHint.Probe(host, port, 4000);
-    Window.Dispatcher.BeginInvoke(new Action(() => {
-     if (failure != original) return;
-     string hint = ReachText(reach, host, port, true);
-     failure = reach == NetworkHint.Reach.Open ? original + " " + hint : hint;
-     SetStatus("Start failed: {0}", failure);
-    }));
-   });
+   if (!Joining) return;
+   failure = failure + " " + Tr("Check the invite, the password, that the host has a session running, and that its firewall allows the port.");
+   SetStatus("Start failed: {0}", failure);
   }
-
   string eventText;
   object[] eventArgs;
 
@@ -180,7 +149,6 @@ namespace HyruleOnline {
    addressProblem = typed.Length > 0 && !ServerConnection.ValidHost(typed);
    if (addressProblem) typed = hostAddress;
    hostAddress = typed == DetectedAddress() ? "" : typed;
-   if (C<TextBox>("JoinAddressBox").Text != joinAddress) C<TextBlock>("TestResult").Text = "";
    joinAddress = ServerConnection.CleanText(C<TextBox>("JoinAddressBox").Text, 200);
    joinPassword = ServerConnection.CleanText(C<TextBox>("JoinPasswordBox").Text, 40);
    SavePrefs();

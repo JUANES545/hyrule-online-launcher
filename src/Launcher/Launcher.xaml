@@ -452,8 +452,6 @@
        </Grid>
        <StackPanel Orientation="Horizontal"><TextBlock Text="Password" Style="{StaticResource FieldLabel}"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="The server password, if the invite does not carry it."/></StackPanel>
        <TextBox x:Name="JoinPasswordBox" Style="{StaticResource NameBox}" HorizontalContentAlignment="Left" MaxLength="40" Height="44" FontStyle="Normal" Margin="0,4,0,12" AutomationProperties.Name="Server password to join"/>
-       <Button x:Name="TestConnection" Content="Test connection" HorizontalAlignment="Left" FontStyle="Normal" FontSize="16" Padding="22,9" ToolTip="Checks that the server answers on that address and port. It does not check the password."/>
-       <TextBlock x:Name="TestResult" Foreground="#C9D6DB" FontSize="13" TextWrapping="Wrap" Margin="0,8,0,0"/>
       </StackPanel>
      </StackPanel>
     </Border>
