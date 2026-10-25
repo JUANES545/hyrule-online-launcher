@@ -25,6 +25,7 @@ session_active() { systemctl --user is-active --quiet "$UNIT.service"; }
 # Stops only what this launcher started: its systemd unit and the Wine processes of its own prefix.
 stop_session() {
   systemctl --user stop "$UNIT.service" 2>/dev/null
+  # shellcheck source=/dev/null
   ( . "$HERE/env.sh" && wineserver -k ) 2>/dev/null
   return 0
 }
@@ -48,6 +49,8 @@ ask_values() {
   ask_valid NAME "Hyrule Online" "Your player name (letters, numbers, _ and -, up to 16)" valid_name "Use 1 to 16 letters, numbers, _ or -."
 }
 
+# $1 and $2 are expanded by the inner bash, on purpose.
+# shellcheck disable=SC2016
 tcp_ok() { timeout 5 bash -c 'exec 3<>"/dev/tcp/$1/$2"' _ "$1" "$2" 2>/dev/null; }
 
 start_session() {
@@ -69,11 +72,16 @@ start_session() {
 export WINEDEBUG=err+all,fixme-all
 args=(--ip "$HOST" --port "$PORT" --name "$NAME" --model Link:Link --cemu "$CEMU_W" --game "$GAME_W" --dll "$DLL_W" --timeout 300)
 [ -n "$PASS" ] && args+=(--password "$PASS")
-exec wine64 MilkBar.CLI.exe "${args[@]}"
+cmd=(wine64 MilkBar.CLI.exe "${args[@]}")
+# Keep the device awake while playing; only when the inhibitor is actually allowed.
+if command -v systemd-inhibit >/dev/null 2>&1 && systemd-inhibit --what=sleep true 2>/dev/null; then
+  cmd=(systemd-inhibit --what=sleep --who="Hyrule Online" --why="Playing online" "${cmd[@]}")
+fi
+exec "${cmd[@]}"
 EOF
   } > "$HERE/run/client-run.sh"
   # systemd-run starts from a clean environment, so Steam's overlay preload never reaches Wine.
-  for var in DISPLAY XAUTHORITY WAYLAND_DISPLAY SDL_GAMECONTROLLERCONFIG; do
+  for var in DISPLAY XAUTHORITY WAYLAND_DISPLAY DBUS_SESSION_BUS_ADDRESS SDL_GAMECONTROLLERCONFIG; do
     [ -n "${!var:-}" ] && envargs+=("--setenv=$var=${!var}")
   done
   [ -n "${DISPLAY:-}" ] || envargs+=("--setenv=DISPLAY=:0")
@@ -113,10 +121,11 @@ Logs: $HERE/logs/client.log, $HERE/logs/client.err and $HERE/cemu/log.txt"
 main() {
   case "${1:-}" in
     --stop) stop_session; echo "Stopped."; exit 0 ;;
-    -h|--help) sed -n '2,5p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,4p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
   esac
   [ $# -ne 1 ] || fatal "Usage: hyrule-online.sh host port [password] [name]"
   [ -f "$HERE/env.sh" ] && [ -f "$HERE/cemu/Cemu.exe" ] || fatal "Hyrule Online is not installed in $HERE. Run install.sh first."
+  # shellcheck source=/dev/null
   ( . "$HERE/env.sh" && command -v wine64 >/dev/null ) \
     || fatal "The Proton folder used at install time is gone. Install Proton 10.0 from Steam again, or run install.sh once more."
 

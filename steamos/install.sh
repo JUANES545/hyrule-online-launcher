@@ -39,7 +39,7 @@ DLC_VER=80
 # reach the connect step, so the working setup raises it to 70 s.
 CLI_WAIT_MS=70000
 
-DRY=0 YES=0 LINK=0 UNINSTALL=0 DUMP= MOD= DIR=
+DRY=0 YES=0 LINK=0 UNINSTALL=0 DUMP='' MOD='' DIR=''
 NEED_GB=25
 STATE=${HYRULE_STATE:-${XDG_CONFIG_HOME:-$HOME/.config}/hyrule-online/state}
 STEAM_ROOT=${HYRULE_STEAM_ROOT:-$HOME/.steam/steam}
@@ -107,7 +107,7 @@ meta_field() { sed -n "s/.*<$2[^>]*>\([^<]*\)<\/$2>.*/\1/p" "$1" | head -n1; }
 
 # scan_dump <folder>: sets SCAN_BASE, SCAN_UPDATE, SCAN_DLC, SCAN_SAVE (folders or empty) and SCAN_NOTE.
 scan_dump() {
-  SCAN_BASE= SCAN_UPDATE= SCAN_DLC= SCAN_SAVE= SCAN_NOTE=
+  SCAN_BASE='' SCAN_UPDATE='' SCAN_DLC='' SCAN_SAVE='' SCAN_NOTE=''
   local meta dir id ver d
   while IFS= read -r meta; do
     dir=${meta%/meta/meta.xml}
@@ -188,7 +188,7 @@ Fix the problem and run install.sh again. Finished steps are skipped."
 
 PF_ERR=
 preflight() {
-  local missing= t
+  local missing='' t
   PF_ERR=
   if [ "$(id -u)" -eq 0 ]; then PF_ERR="Run the installer as your normal user, not as root."; return 1; fi
   if [ "$(uname -s)" != Linux ] || [ "$(uname -m)" != x86_64 ]; then PF_ERR="This installer needs Linux on x86_64 (SteamOS on a Steam Deck or ROG Ally)."; return 1; fi
@@ -222,12 +222,16 @@ step_dir() {
     die "$DIR already exists and is not a Hyrule Online install. Choose another folder."
   fi
   if ! state_done dump && [ "$(free_gb "$DIR")" -lt "$NEED_GB" ]; then
-    [ "$DRY" = 1 ] && echo "    WARNING: about $NEED_GB GB are needed, only $(free_gb "$DIR") GB are free; a real run would stop here." \
-      || die "Not enough free space for $DIR: about $NEED_GB GB are needed, $(free_gb "$DIR") GB are free."
+    if [ "$DRY" = 1 ]; then
+      echo "    WARNING: about $NEED_GB GB are needed, only $(free_gb "$DIR") GB are free; a real run would stop here."
+    else
+      die "Not enough free space for $DIR: about $NEED_GB GB are needed, $(free_gb "$DIR") GB are free."
+    fi
   fi
   echo "    Install folder: $DIR"
   if [ "$DRY" = 1 ]; then echo "    [dry-run] would create $DIR"; return 0; fi
-  mkdir -p "$DIR/downloads" && : > "$DIR/.hyrule-online" || die "Cannot write to $DIR."
+  mkdir -p "$DIR/downloads" || die "Cannot write to $DIR."
+  : > "$DIR/.hyrule-online" || die "Cannot write to $DIR."
   state_set install_dir "$DIR"
 }
 
@@ -275,6 +279,7 @@ step_extract() {
   rm -rf "$tmp"
 }
 
+# shellcheck source=/dev/null
 wine_run() { ( . "$DIR/env.sh" && export WINEDEBUG=-all && "$@" ); }
 
 step_prefix() {
@@ -476,7 +481,6 @@ steam_configs() { local d; for d in "$STEAM_ROOT"/userdata/*/config; do [ -d "$d
 
 # Steam rewrites shortcuts.vdf when it exits, so the file is only edited while Steam is closed.
 steam_closed() {
-  local i
   pgrep -x steam >/dev/null 2>&1 || return 0
   if [ "$YES" = 1 ] || ! ask_yesno "Steam is running. It rewrites its shortcut list when it closes, so $APP_NAME can only be added while Steam is closed.
 
@@ -484,13 +488,14 @@ Close Steam now? (Save anything you have open in it first. You can start Steam a
     return 1
   fi
   steam -shutdown >/dev/null 2>&1 &
-  for i in $(seq 1 30); do pgrep -x steam >/dev/null 2>&1 || return 0; sleep 1; done
+  for _ in $(seq 1 30); do pgrep -x steam >/dev/null 2>&1 || return 0; sleep 1; done
   return 1
 }
 
 step_steam() {
-  local files=() f
+  local files=() icon=() f
   while IFS= read -r f; do files+=("$f"); done < <(steam_configs)
+  [ -f "$DIR/hyrule-online.png" ] && icon=(--icon "$DIR/hyrule-online.png")
   if [ "$DRY" = 1 ]; then echo "    [dry-run] would add the '$APP_NAME' non-Steam shortcut to ${#files[@]} Steam user(s) (Steam running: $(pgrep -x steam >/dev/null 2>&1 && echo yes || echo no))"; return 0; fi
   if [ "${#files[@]}" = 0 ]; then
     echo "    No Steam user found. Start Steam once, sign in, close it, then run $DIR/install.sh again." >&2
@@ -500,8 +505,7 @@ step_steam() {
     echo "    Steam is still open, so the Steam entry was not added. Close Steam, then run $DIR/install.sh again." >&2
     return 2
   fi
-  python3 "$DIR/steam_shortcut.py" add "$DIR/hyrule-online.sh" "$APP_NAME" "${files[@]}" --startdir "$DIR" \
-    $([ -f "$DIR/hyrule-online.png" ] && echo --icon "$DIR/hyrule-online.png") || return 1
+  python3 "$DIR/steam_shortcut.py" add "$DIR/hyrule-online.sh" "$APP_NAME" "${files[@]}" --startdir "$DIR" "${icon[@]}" || return 1
 }
 
 summary() {
@@ -522,11 +526,10 @@ Run $DIR/install.sh again to finish. Steps that are already done are skipped."
   fi
   progress_stop
   msg_box info "$text"
-  echo "$text"
 }
 
 do_uninstall() {
-  local files=() f e big keep_game=1 keep_save=1 kept=
+  local files=() f e big keep_game=1 keep_save=1 kept=''
   DIR=${DIR:-$(state_get install_dir)}
   DIR=${DIR:-$HOME/hyrule-online}; DIR=${DIR%/}
   valid_dir "$DIR" && [ -f "$DIR/.hyrule-online" ] || die "No $APP_NAME install found in $DIR."

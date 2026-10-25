@@ -26,14 +26,19 @@ echo "== syntax =="
 for f in "$HERE"/*.sh; do check "bash -n ${f##*/}" bash -n "$f"; done
 check "python compiles" "$PY" -m py_compile "$SHORT"
 if command -v shellcheck >/dev/null 2>&1; then
-  for f in "$HERE"/*.sh; do check "shellcheck ${f##*/}" shellcheck -x -S warning "$f"; done
+  for f in "$HERE"/*.sh; do
+    if out=$(shellcheck -x -S warning "$f" 2>&1); then ok; else bad "shellcheck ${f##*/}"; printf '%s\n' "$out"; fi
+  done
 else echo "shellcheck not installed, skipped"; fi
-check "no CRLF in scripts" bash -c '! grep -q "$(printf "\r")" "$@"' _ "$HERE"/*.sh "$HERE"/*.py
+no_cr() { ! grep -q $'\r' "$@"; }
+check "no CRLF in scripts" no_cr "$HERE"/*.sh "$HERE"/*.py
 
 echo "== lib.sh =="
 export HYRULE_NO_GUI=1
 . "$HERE/lib.sh"
 for h in 192.168.1.43 example.com my-host.lan 10.0.0.1 localhost; do check "host $h" valid_host "$h"; done
+# '$(x)' must stay literal: it checks that shell syntax is rejected as a host name.
+# shellcheck disable=SC2016
 for h in "" 256.1.1.1 1.2.3 1.2.3.4.5 -bad.com bad-.com "a b" a..b 'a;b' '$(x)'; do refuse "host '$h'" valid_host "$h"; done
 for p in 1 5050 65535 05050; do check "port $p" valid_port "$p"; done
 for p in 0 65536 -1 abc "" 1.5 123456; do refuse "port '$p'" valid_port "$p"; done
@@ -96,7 +101,7 @@ state_set a 1; state_mark dir; state_set a 2
 equal "state overwrite" 2 "$(state_get a)"
 check "state done" state_done dir
 refuse "state not done" state_done download
-( . "$HERE/install.sh"; STATE=$TMP/state/state; state_done dir ) && ok || bad "state survives a new shell (resume)"
+if HYRULE_STATE=$TMP/state/state bash -c '. "$1"; state_done dir' _ "$HERE/install.sh"; then ok; else bad "state survives a new shell (resume)"; fi
 DRY=1; state_set zzz 1; DRY=0
 equal "dry run does not write state" "" "$(state_get zzz)"
 
@@ -166,6 +171,9 @@ refuse "patch_cli refuses an unknown build" patch_cli
 echo "== hyrule-online.sh =="
 . "$HERE/hyrule-online.sh"
 refuse "tcp pre-check on a closed port" tcp_ok 127.0.0.1 1
+for v in DISPLAY XAUTHORITY DBUS_SESSION_BUS_ADDRESS; do check "session passes $v to systemd-run" grep -q "for var in .*$v" "$TDIR/hyrule-online.sh"; done
+check "session uses systemd-inhibit" grep -q 'systemd-inhibit --what=sleep' "$TDIR/hyrule-online.sh"
+check "Cemu stays pinned to 1.26.2" grep -q 'cemu_1.26.2.zip' "$TDIR/install.sh"
 HERE_CONF=$TMP/conf; HERE=$TMP; CONF=$HERE_CONF
 HOST=10.0.0.5 PORT=5050 NAME=Link PASS='p w'; conf_save
 [ "$(uname -s)" != Linux ] || equal "config perms" 600 "$(stat -c %a "$CONF")"
