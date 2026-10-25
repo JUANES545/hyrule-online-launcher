@@ -24,9 +24,9 @@ session_active() { systemctl --user is-active --quiet "$UNIT.service"; }
 
 # Stops only what this launcher started: its systemd unit and the Wine processes of its own prefix.
 stop_session() {
-  systemctl --user stop "$UNIT.service" 2>/dev/null
   # shellcheck source=/dev/null
   ( . "$HERE/env.sh" && wineserver -k ) 2>/dev/null
+  systemctl --user stop "$UNIT.service" 2>/dev/null
   return 0
 }
 
@@ -49,9 +49,7 @@ ask_values() {
   ask_valid NAME "Hyrule Online" "Your player name (letters, numbers, _ and -, up to 16)" valid_name "Use 1 to 16 letters, numbers, _ or -."
 }
 
-# $1 and $2 are expanded by the inner bash, on purpose.
-# shellcheck disable=SC2016
-tcp_ok() { timeout 5 bash -c 'exec 3<>"/dev/tcp/$1/$2"' _ "$1" "$2" 2>/dev/null; }
+# No TCP pre-check on purpose: the Milk Bar dedicated server crashes on a connection that sends nothing.
 
 start_session() {
   local var envargs=()
@@ -86,7 +84,7 @@ EOF
   done
   [ -n "${DISPLAY:-}" ] || envargs+=("--setenv=DISPLAY=:0")
   systemctl --user reset-failed "$UNIT.service" 2>/dev/null
-  systemd-run --user --collect --unit="$UNIT" "${envargs[@]}" \
+  systemd-run --user --collect --unit="$UNIT" -p TimeoutStopSec=10 "${envargs[@]}" \
     -p StandardOutput=file:"$LOG" -p StandardError=file:"$HERE/logs/client.err" \
     bash "$HERE/run/client-run.sh" >/dev/null 2>&1
 }
@@ -111,7 +109,7 @@ wait_connect() {
   if ! session_active; then
     if grep -q '"Response":3' "$LOG" 2>/dev/null; then why="Wrong password (Response:3)."
     elif ! grep -q '5/5' "$LOG" 2>/dev/null; then why="Cemu or the Milk Bar client could not start."
-    else why="The server did not accept the connection."; fi
+    else why="Could not join $HOST:$PORT. Check that the host has started the server, that you are on the same network or VPN, and that the address and port are right."; fi
   fi
   stop_session
   fatal "$why
@@ -147,12 +145,12 @@ main() {
   PORT=$((10#$PORT))
   conf_save
 
-  tcp_ok "$HOST" "$PORT" || fatal "Cannot reach $HOST:$PORT.
-Check that the host has started the server, that you are on the same network or VPN, and that the address and port are right."
   start_session || fatal "Could not start the session. Is systemd available for your user (systemd-run --user)?"
   wait_connect
+  echo "Joined $HOST:$PORT as $NAME. Close the game to leave."
   while session_active; do sleep 3; done
   stop_session
+  echo "Session ended."
 }
 
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then main "$@"; fi

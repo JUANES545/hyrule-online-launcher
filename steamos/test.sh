@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2034  # variables are read by the functions in lib.sh
 # Offline checks for the SteamOS scripts: no network, no game files, nothing outside a temp folder.
 set -u
 TDIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -167,10 +168,14 @@ check "patch keeps .orig" cmp -s "$DIR/milkbar/MilkBar.CLI.dll.orig" <(printf 'A
 check "patch_cli is repeatable" patch_cli
 printf 'nothing here' > "$DIR/milkbar/MilkBar.CLI.dll"; rm -f "$DIR/milkbar/MilkBar.CLI.dll.orig"
 refuse "patch_cli refuses an unknown build" patch_cli
+mkdir -p "$DIR/downloads" "$DIR/prefix/drive_c/users/Public" "$DIR/prefix/drive_c/users/u"
+python3 -c 'import sys,zipfile; zipfile.ZipFile(sys.argv[1],"w").writestr("Milk Bar Launcher.dll", b"not the real dll")' "$DIR/downloads/MilkBarLauncher.zip"
+refuse "install_appdata refuses a DLL without the data files" install_appdata
+equal "install_appdata leaves no file behind on failure" "" "$(ls "$DIR/prefix/drive_c/users/u/AppData/Roaming/BOTWM" 2>/dev/null)"
 
 echo "== hyrule-online.sh =="
 . "$HERE/hyrule-online.sh"
-refuse "tcp pre-check on a closed port" tcp_ok 127.0.0.1 1
+refuse "no TCP pre-check (it crashes the Milk Bar server)" grep -q tcp_ok "$TDIR/hyrule-online.sh"
 for v in DISPLAY XAUTHORITY DBUS_SESSION_BUS_ADDRESS; do check "session passes $v to systemd-run" grep -q "for var in .*$v" "$TDIR/hyrule-online.sh"; done
 check "session uses systemd-inhibit" grep -q 'systemd-inhibit --what=sleep' "$TDIR/hyrule-online.sh"
 check "Cemu stays pinned to 1.26.2" grep -q 'cemu_1.26.2.zip' "$TDIR/install.sh"

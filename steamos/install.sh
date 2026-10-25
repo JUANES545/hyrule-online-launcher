@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2034  # variables are read by the functions in lib.sh
 # Hyrule Online - guided SteamOS installer (join client). See README.md.
 # Usage: install.sh [--dry-run] [--yes --dump PATH] [--mod PATH] [--dir PATH] [--link] [--uninstall]
 #   --dry-run    print what would be done, change nothing
@@ -168,6 +169,40 @@ if data.count(pattern) != 1:
 i = data.index(pattern)
 data[i:i + 5] = bytes([0x20]) + ms.to_bytes(4, "little")
 open(dll, "wb").write(data)
+PY
+}
+
+# The in-game mod reads four data files from %APPDATA%\BOTWM (without them Cemu dies with "IsObject()" on join).
+# Milk Bar embeds them in Milk Bar Launcher.dll as length-prefixed blobs; each one is found by size and checked by SHA-256.
+install_appdata() {
+  local zip=$DIR/downloads/MilkBarLauncher.zip user=""
+  local d
+  for d in "$DIR/prefix/drive_c/users"/*; do
+    [ -d "$d" ] && [ "${d##*/}" != Public ] && { user=${d##*/}; break; }
+  done
+  [ -n "$user" ] || { echo "The Wine prefix has no user folder." >&2; return 1; }
+  python3 - "$zip" "$DIR/prefix/drive_c/users/$user/AppData/Roaming/BOTWM" <<'PY'
+import hashlib, os, struct, sys, zipfile
+zpath, dest = sys.argv[1:3]
+files = [
+    ("ArmorMapping.txt", 2618, "1C628CFCE01BF978BA52D371BFCDB02D416BC37038FBEDD8FC47C888AE4484F7"),
+    ("QuestFlags.txt", 174333, "F100458C8FEBAF9AD9FAAE9F49E78C33D85E1A144CFC777DE69D78993318C102"),
+    ("QuestFlagsNames.txt", 174234, "33B16D29FC343A87EC4363BF6759519FA8E3DBC1C5695EC12AC0FD1AFADFA500"),
+    ("WeaponDamages.txt", 3845, "3A526EEB8A98CE51D6FF8759DC8AAE7CA3333F5BDBEC1546663916F67C38F738"),
+]
+blob = zipfile.ZipFile(zpath).read("Milk Bar Launcher.dll")
+os.makedirs(dest, exist_ok=True)
+for name, size, sha in files:
+    prefix, i, found = struct.pack("<I", size), -1, None
+    while found is None:
+        i = blob.find(prefix, i + 1)
+        if i < 0:
+            sys.exit("Milk Bar Launcher.dll does not contain " + name)
+        if hashlib.sha256(blob[i + 4:i + 4 + size]).hexdigest().upper() == sha:
+            found = blob[i + 4:i + 4 + size]
+    with open(os.path.join(dest, name + ".tmp"), "wb") as f:
+        f.write(found)
+    os.replace(os.path.join(dest, name + ".tmp"), os.path.join(dest, name))
 PY
 }
 
@@ -371,9 +406,10 @@ step_dump() {
 
 step_config() {
   local c=$DIR/cemu gp p
-  if [ "$DRY" = 1 ]; then echo "    [dry-run] would copy the mod pack, link update/DLC into Cemu's mlc01, and write settings.xml and the game profile"; return 0; fi
+  if [ "$DRY" = 1 ]; then echo "    [dry-run] would copy the mod pack, link update/DLC into Cemu's mlc01, add the mod's data files to the prefix, and write settings.xml and the game profile"; return 0; fi
   gp=$(state_get mod_src)
   [ -d "$gp" ] || { echo "The mod pack folder is not set. Run install.sh again." >&2; return 1; }
+  install_appdata || return 1
   for p in BreathOfTheWild_BCML bcmlPatches HyruleOnline; do
     [ -d "$gp/$p" ] && [ ! -e "$c/graphicPacks/$p" ] || continue
     rm -rf "$c/graphicPacks/$p.partial"

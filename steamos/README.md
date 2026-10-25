@@ -33,7 +33,7 @@ Controllers are not set up by the installer. If a controller does nothing in gam
 ## Troubleshooting
 
 - **Wrong password:** the server answers `Response:3`. Ask the host for the password.
-- **Cannot reach host:** the host must have started the server, and you must be on the same network or VPN. Check address and port.
+- **"Could not join HOST:PORT":** the host must have started the server, and you must be on the same network or VPN. Check address and port.
 - **Proton not found later:** Steam removed or updated Proton. Install Proton 10.0 again, then run `~/hyrule-online/install.sh`.
 - **Anything else:** logs are in `~/hyrule-online/logs/` (`client.log`, `client.err`) and `~/hyrule-online/cemu/log.txt`.
 - **Uninstall:** `~/hyrule-online/install.sh --uninstall`. It asks before deleting the game copy and your save, and never touches your original dump or Steam.
