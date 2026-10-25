@@ -26,12 +26,17 @@ PATH=$TMP/bin:$PATH
 echo "== syntax =="
 for f in "$HERE"/*.sh; do check "bash -n ${f##*/}" bash -n "$f"; done
 check "python compiles" "$PY" -m py_compile "$SHORT"
+if [ -f "$HERE/launcher.py" ]; then
+  check "launcher.py compiles" "$PY" -m py_compile "$HERE/launcher.py"
+  check "launcher.py starts with a python3 shebang" grep -q "^#!/usr/bin/env python3" "$HERE/launcher.py"
+  [ -f "$HERE/launcher_test.py" ] && check "launcher.py logic tests" "$PY" "$HERE/launcher_test.py"
+else echo "launcher.py not found, skipped"; fi
 if command -v shellcheck >/dev/null 2>&1; then
   for f in "$HERE"/*.sh; do
     if out=$(shellcheck -x -S warning "$f" 2>&1); then ok; else bad "shellcheck ${f##*/}"; printf '%s\n' "$out"; fi
   done
 else echo "shellcheck not installed, skipped"; fi
-no_cr() { ! grep -q $'\r' "$@"; }
+no_cr() { local f; for f; do [ "$(tr -cd '\r' < "$f" | wc -c)" = 0 ] || return 1; done; }
 check "no CRLF in scripts" no_cr "$HERE"/*.sh "$HERE"/*.py
 
 echo "== lib.sh =="
@@ -258,6 +263,9 @@ equal "host binds every address" IP=0.0.0.0 "$(grep '^IP=' "$INI")"
 equal "host port" Port=6000 "$(grep '^Port=' "$INI")"
 equal "host password" 'p w' "$(ini_get Password)"
 equal "host saved the rules" "${PRESET_BITS[0]}" "$(conf_get rules)"
+refuse "host refuses a password with a semicolon" eval '( server_session host 6001 "a;b" )'
+server_session host 6000 'a#b=c' >/dev/null 2>&1
+equal "host keeps # and = in a password" 'a#b=c' "$(ini_get Password)"
 conf_set rules 00000002; conf_set desc 'My world'
 server_session host >/dev/null 2>&1
 equal "host reuses the saved rules" 00000002 "$(ini_rules)"
@@ -278,6 +286,35 @@ equal "failed join checklist (same as the Windows launcher)" "Check the invite, 
 [ ! -f "$TDIR/../src/Launcher/Lang.cs" ] || check "checklist is in the Windows launcher" grep -qF "$CHECKLIST" "$TDIR/../src/Launcher/Lang.cs"
 check "wrong password is reported" grep -q 'could not join: wrong password' "$TDIR/hyrule-online.sh"
 
+# --status, --rules/--desc and --presets: the command line the window uses.
+IPS='2: wlan0    inet 192.168.1.43/24 scope global wlan0
+4: tailscale0    inet 100.110.16.75/32 scope global tailscale0'
+ip() { printf '%s\n' "$IPS"; }
+SA=0 CA=0; server_active() { [ "$SA" = 1 ]; }; session_active() { [ "$CA" = 1 ]; }
+LOG=$TMP/client.log; V=$(app_version); rm -f "$TMP/run/mode"
+equal "status idle" "version=$V mode=idle server=down client=down joined=no port=" "$(status_line)"
+set_mode host 5050; conf_set hostpass 'p w'; SA=1
+equal "status host with both invites" "version=$V mode=host server=up client=down joined=no port=5050 invite=hyrule://192.168.1.43:5050?pw=p%20w invite_vpn=hyrule://100.110.16.75:5050?pw=p%20w" "$(status_line)"
+set_mode local 5051
+equal "status local has no invite" "version=$V mode=local server=up client=down joined=no port=5051" "$(status_line)"
+SA=0 CA=1; set_mode join 5052; conf_set host h.example; echo 'SUCCESS' > "$LOG"
+equal "status join" "version=$V mode=join server=down client=up joined=yes port=5052 host=h.example" "$(status_line)"
+SA=0 CA=0
+equal "status ignores a stale mode file" "version=$V mode=idle server=down client=down joined=no port=" "$(status_line)"
+equal "status is one line" 1 "$(main --status | wc -l)"
+equal "presets list" "10111100 Game Completion" "$(main --presets | head -n1)"
+equal "five presets" 5 "$(main --presets | wc -l)"
+equal "rules_bits by name" 00000002 "$(rules_bits 'death swap')"
+equal "rules_bits by digits" 10101010 "$(rules_bits 10101010)"
+for r in 1010101 10101013 'Nope' ''; do refuse "rules_bits '$r'" rules_bits "$r"; done
+RULES_ARG="Hide n' seek" DESC_ARG='  Fun  world  ' NOPLAY=1 ASK=0
+server_session local >/dev/null 2>&1
+equal "--rules sets the rules" 10000000 "$(ini_rules)"
+equal "--desc is cleaned and used" 'Fun  world' "$(ini_get Description)"
+equal "--rules is remembered" 10000000 "$(conf_get rules)"
+refuse "an unknown --rules is refused" eval '( RULES_ARG=bogus server_session local )'
+RULES_ARG='' DESC_ARG=''
+check "README documents the CLI used by the GUI" grep -q '^## CLI used by the GUI' "$TDIR/README.md"
 echo "== version =="
 V=
 for f in "$TDIR/../VERSION" "$TDIR/VERSION"; do [ -f "$f" ] && { V=$(head -n1 "$f" | tr -d '[:space:]'); break; }; done

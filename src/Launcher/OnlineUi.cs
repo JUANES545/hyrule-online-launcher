@@ -138,7 +138,7 @@ namespace HyruleOnline {
   // Reads the boxes, writes the cleaned text back and refreshes what depends on it.
   void CommitOnline() {
    hostPort = ServerConnection.CleanPort(C<TextBox>("HostPortBox").Text);
-   hostPassword = ServerConnection.CleanText(C<TextBox>("HostPasswordBox").Text, 40);
+   hostPassword = ServerConnection.HostPassword(C<TextBox>("HostPasswordBox").Text);
    hostDescription = ServerConnection.CleanText(C<TextBox>("HostDescriptionBox").Text, 80);
    string typed = ServerConnection.CleanText(C<TextBox>("HostAddressBox").Text, 100), shownHost, shownSecret;
    int shownPort;

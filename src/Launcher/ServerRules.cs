@@ -221,6 +221,9 @@ namespace HyruleOnline {
    return result.Length > max ? result.Substring(0, max) : result;
   }
 
+  // The server's ini reader treats ';' as a comment and cuts the password there, so a host password never holds one.
+  public static string HostPassword(string text) { return CleanText((text ?? "").Replace(";", ""), 40); }
+
   public static string Invite(string host, int port, string password) {
    return "hyrule://" + host + ":" + port + (string.IsNullOrEmpty(password) ? "" : "?pw=" + Uri.EscapeDataString(password));
   }

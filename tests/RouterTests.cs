@@ -378,6 +378,7 @@ namespace HyruleOnline {
    var stale = ServerConnection.StaleRulePorts(rules, 5050);
    Require(stale.Count == 2 && stale[0] == 5051 && stale[1] == 6000 && ServerConnection.StaleRulePorts("", 5050).Count == 0 && ServerConnection.StaleRulePorts(null, 1).Count == 0, "old firewall rules are found once each and the current port is kept");
    Require(ServerConnection.CleanText(" a\r\nb\t ", 10) == "ab" && ServerConnection.CleanText("abcdef", 3) == "abc" && ServerConnection.CleanText(null, 3) == "" && ServerConnection.CleanMode("Nope") == "Local" && ServerConnection.CleanMode("Join") == "Join", "text and mode cleaning");
+   Require(ServerConnection.HostPassword("a;b#c=d") == "ab#c=d" && ServerConnection.HostPassword(null) == "", "a host password drops the ini comment character");
    Require(ServerConnection.Best(new[] { "192.168.1.5", "100.100.1.2", "10.0.0.2" }) == "100.100.1.2" && ServerConnection.Best(new[] { "169.254.1.1", "172.20.0.3" }) == "172.20.0.3" && ServerConnection.Best(new[] { "169.254.1.1", "100.10.0.1" }) == null && ServerConnection.Best(new string[0]) == null, "the address worth sharing");
 
    const string ini = "\uFEFF[Connection]\r\n# where\r\nIP=localhost\r\nPort=5050\r\nPassword=\r\n\r\n[ServerInformation]\r\nDescription=Old\r\n\r\n[DefaultGamemode]\r\nName=Custom\r\n";

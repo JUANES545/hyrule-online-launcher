@@ -1,11 +1,16 @@
 #!/usr/bin/env bash
 # Hyrule Online - play, host or join from SteamOS. Started by the Steam shortcut (Gaming Mode) or by hand.
-# Usage: hyrule-online.sh                                   menu: Play on this device, Host, Join or Stop
+# Usage: hyrule-online.sh                                   window (launcher.py) or menu: Play on this device, Host, Join or Stop
 #        hyrule-online.sh invite|host:port [password] [name]    join (an invite looks like hyrule://host:port?pw=PASSWORD)
 #        hyrule-online.sh host port [password] [name]       join (dialogs for whatever is missing)
-#        hyrule-online.sh --host [port [password]] [--no-play]   host here (saved port, password and rules) and join it
-#        hyrule-online.sh --local [--no-play]               private server on this device only (127.0.0.1) and join it
+#        hyrule-online.sh --host [port [password]]          host here (saved port, password and rules) and join it
+#        hyrule-online.sh --local                           private server on this device only (127.0.0.1) and join it
+#        options for --host and --local: --no-play (server only), --rules PRESET|01234567, --desc TEXT, --name NAME
 #        hyrule-online.sh --stop                            stop the server and the game
+#        hyrule-online.sh --status                          one line: server=up|down client=up|down mode=... (see README)
+#        hyrule-online.sh --check                           check the install without starting anything
+#        hyrule-online.sh --presets                         list the world rule presets
+#        hyrule-online.sh --no-gui                          with no other argument: the zenity menu instead of the window
 #        hyrule-online.sh --version
 set -u
 HERE=$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)
@@ -130,6 +135,13 @@ start_session() {
   rm -f "$HERE"/cemu/shaderCache/transferable/*.bin "$HERE"/cemu/shaderCache/precompiled/*.bin "$HERE"/cemu/shaderCache/driver/vk/*.bin
   mkdir -p "$HERE/logs" "$HERE/run"
   rm -f "$HERE/cemu/log.txt" "$LOG" "$HERE/logs/client.err"
+  write_client_run
+  run_unit "$UNIT" "$HERE/run/client-run.sh" "$LOG" "$HERE/logs/client.err"
+}
+
+# Writes the run script of the game for $HOST, $PORT, $NAME and $PASS (nothing is started).
+write_client_run() {
+  mkdir -p "$HERE/run"
   # The password only lives in this private file, never in a script or a command line of ours.
   ( umask 077
     { printf 'HOST=%q\nPORT=%q\nNAME=%q\nPASS=%q\n' "$HOST" "$PORT" "$NAME" "$PASS"
@@ -148,7 +160,6 @@ EOF
     inhibit_lines "Playing online"
     echo 'exec "${cmd[@]}"'
   } > "$HERE/run/client-run.sh"
-  run_unit "$UNIT" "$HERE/run/client-run.sh" "$LOG" "$HERE/logs/client.err"
 }
 
 # Waits for the client log to say it joined. Cemu needs about a minute to get there.
@@ -193,6 +204,14 @@ rules_name() {
   local i
   for i in "${!PRESETS[@]}"; do [ "${PRESET_BITS[i]}" = "$1" ] && { printf '%s' "${PRESETS[i]}"; return 0; }; done
   printf Custom
+}
+
+# rules_bits <preset name | 8 digits>: prints the 8 digits.
+rules_bits() {
+  local i
+  if [[ $1 =~ ^[01]{7}[012]$ ]]; then printf '%s' "$1"; return 0; fi
+  for i in "${!PRESETS[@]}"; do [ "${PRESETS[i],,}" = "${1,,}" ] && { printf '%s' "${PRESET_BITS[i]}"; return 0; }; done
+  return 1
 }
 
 # write_server_ini <file> <ip> <port> <password> <description> <rules>: the same keys the Windows launcher writes.
@@ -244,10 +263,15 @@ pick_ip() {
   [ -n "$best" ] && printf '%s' "$best"
 }
 
-# Only detects; the firewall is never changed. Prints the names of active ones.
+# Only detects; the firewall is never changed. Prints the names of active ones (firewalld stays quiet when
+# its default zone already allows the TCP port, as on SteamOS where 1024-65535 is open).
 firewall_active() {
   local n out=''
-  for n in ufw firewalld nftables; do systemctl is-active --quiet "$n" 2>/dev/null && out+="$n "; done
+  for n in ufw firewalld nftables; do
+    systemctl is-active --quiet "$n" 2>/dev/null || continue
+    [ "$n" = firewalld ] && firewall-cmd --query-port="$1/tcp" >/dev/null 2>&1 && continue
+    out+="$n "
+  done
   if [ -z "$out" ] && [ -n "$(nft list ruleset 2>/dev/null)" ]; then out='nftables '; fi
   printf '%s' "${out% }"
 }
@@ -256,7 +280,7 @@ firewall_active() {
 invite_text() {
   local ips lan vpn fw
   ips=$(ip -4 -o addr show scope global 2>/dev/null)
-  lan=$(pick_ip lan <<<"$ips"); vpn=$(pick_ip vpn <<<"$ips"); fw=$(firewall_active)
+  lan=$(pick_ip lan <<<"$ips"); vpn=$(pick_ip vpn <<<"$ips"); fw=$(firewall_active "$1")
   echo "The Hyrule Online server is running on port $1."
   if [ -n "$lan" ]; then printf '\nInvite (same network):\n%s\n' "$(invite_url "$lan" "$1" "$2")"; fi
   if [ -n "$vpn" ]; then printf '\nInvite (Tailscale or other VPN):\n%s\n' "$(invite_url "$vpn" "$1" "$2")"; fi
@@ -276,6 +300,12 @@ start_server() {
   mkdir -p "$HERE/logs" "$HERE/run"
   rm -f "$SRV_LOG" "$HERE/logs/server.err" "$HERE/server/LatestLog.txt"
   write_server_ini "$HERE/server/ServerConfig.ini" "$SRV_IP" "$PORT" "$PASS" "$DESC" "$BITS" || return 1
+  write_server_run
+  run_unit "$SRV_UNIT" "$HERE/run/server-run.sh" "$SRV_LOG" "$HERE/logs/server.err"
+}
+
+write_server_run() {
+  mkdir -p "$HERE/run"
   {
     echo '#!/usr/bin/env bash'
     printf '. %q\ncd %q || exit 1\n' "$HERE/env.sh" "$HERE/server"
@@ -289,7 +319,6 @@ EOF
     # The server spins at 100% CPU once its stdin is closed, so it gets one that stays open.
     echo '"${cmd[@]}" < <(exec tail -f /dev/null)'
   } > "$HERE/run/server-run.sh"
-  run_unit "$SRV_UNIT" "$HERE/run/server-run.sh" "$SRV_LOG" "$HERE/logs/server.err"
 }
 
 server_failed() {
@@ -343,7 +372,9 @@ server_session() {
   [ -f "$HERE/server/MBL.DedicatedServer.exe" ] || fatal "The dedicated server is not installed. Run $HERE/install.sh again to unpack it."
   BITS=$(conf_get rules); DESC=$(conf_get desc)
   [[ $BITS =~ ^[01]{7}[012]$ ]] || BITS=${PRESET_BITS[0]}
-  DESC=${DESC:-$DEFAULT_DESC} SRV_IP=127.0.0.1 PORT=5050 PASS=''
+  DESC=$(clean_text "${DESC_ARG:-${DESC:-$DEFAULT_DESC}}" 80); DESC=${DESC:-$DEFAULT_DESC}
+  SRV_IP=127.0.0.1 PORT=5050 PASS=''
+  if [ -n "${RULES_ARG:-}" ]; then BITS=$(rules_bits "$RULES_ARG") || fatal "Unknown world rules: $RULES_ARG (use a preset name from --presets, or 8 digits)"; fi
   # No desktop and no terminal to ask in: the saved (or default) values are used.
   have_gui || [ -t 0 ] || ASK=0
   if [ "$kind" = host ]; then
@@ -357,18 +388,22 @@ server_session() {
     elif [ $# -gt 0 ]; then PORT=$1 PASS=${2:-}; fi
     valid_host_port "$PORT" || fatal "The port must be a number from 1024 to 65535, not: $PORT"
     PORT=$((10#$PORT))
-    PASS=$(clean_text "$PASS" 40); DESC=$(clean_text "$DESC" 80); DESC=${DESC:-$DEFAULT_DESC}
-    conf_set hostport "$PORT"; conf_set hostpass "$PASS"; conf_set desc "$DESC"
+    PASS=$(clean_text "$PASS" 40)
+    # The server reads its ini with MadMilkman.Ini, where ; starts a comment, so it would keep only the text before it.
+    [[ $PASS != *\;* ]] || fatal "The server password cannot contain a semicolon (;): the server would cut it there. Use another password."
+    DESC=$(clean_text "$DESC" 80); DESC=${DESC:-$DEFAULT_DESC}
+    conf_set hostport "$PORT"; conf_set hostpass "$PASS"
   elif [ "$ASK" = 1 ]; then ask_rules; fi
-  conf_set rules "$BITS"
+  conf_set rules "$BITS"; conf_set desc "$DESC"
 
+  set_mode "$kind" "$PORT"
   start_server || fatal "Could not start the server. Is systemd available for your user (systemd-run --user)?"
   wait_server
   if [ "$kind" = host ]; then show_invite "$PORT" "$PASS"
   else echo "Private server running on 127.0.0.1:$PORT. Only this device can join it."; fi
   if [ "$NOPLAY" = 1 ]; then echo "Server running. Stop it with: $HERE/hyrule-online.sh --stop"; return 0; fi
 
-  HOST=127.0.0.1; NAME=$(conf_get name); NAME=${NAME:-Ally}
+  HOST=127.0.0.1; NAME=${NAME_ARG:-$(conf_get name)}; NAME=${NAME:-Ally}
   start_session || fatal "Could not start the game. Is systemd available for your user (systemd-run --user)?"
   wait_connect
   echo "Joined your own server as $NAME. The server keeps running after you close the game; stop it with: $HERE/hyrule-online.sh --stop"
@@ -380,9 +415,9 @@ join_session() {
   elif [[ $1 == *:* ]] || [ $# -eq 1 ]; then
     parse_invite "$1" || fatal "That is not a valid invite or address: $1
 Use hyrule://host:port?pw=PASSWORD, host:port, or: host port [password] [name]"
-    HOST=$INV_HOST PORT=$INV_PORT PASS=${2:-$INV_PASS}; NAME=${3:-$(conf_get name)}; NAME=${NAME:-Link}
+    HOST=$INV_HOST PORT=$INV_PORT PASS=${2:-$INV_PASS}; NAME=${3:-${NAME_ARG:-$(conf_get name)}}; NAME=${NAME:-Link}
   else
-    HOST=$1 PORT=$2 PASS=${3:-}; NAME=${4:-$(conf_get name)}; NAME=${NAME:-Link}
+    HOST=$1 PORT=$2 PASS=${3:-}; NAME=${4:-${NAME_ARG:-$(conf_get name)}}; NAME=${NAME:-Link}
   fi
   valid_host "$HOST" || fatal "That is not a valid server address: $HOST"
   valid_port "$PORT" || fatal "The port must be a number from 1 to 65535, not: $PORT"
@@ -390,6 +425,7 @@ Use hyrule://host:port?pw=PASSWORD, host:port, or: host port [password] [name]"
   [[ $PASS != *$'\n'* ]] || fatal "The password cannot contain a line break."
   PORT=$((10#$PORT))
   conf_save
+  set_mode join "$PORT"
 
   start_session || fatal "Could not start the session. Is systemd available for your user (systemd-run --user)?"
   wait_connect
@@ -399,23 +435,93 @@ Use hyrule://host:port?pw=PASSWORD, host:port, or: host port [password] [name]"
   echo "Session ended."
 }
 
+# ---- for the window (launcher.py) and scripts ----
+set_mode() { mkdir -p "$HERE/run" && printf '%s %s\n' "$1" "$2" > "$HERE/run/mode"; }
+
+# One line of key=value pairs, split on spaces and then on the first "=" (no value has a space):
+# version mode(idle|local|host|join) server(up|down) client(up|down) joined(yes|no) port [host (join only)] [invite] [invite_vpn]
+status_line() {
+  local kind='' port='' srv=down cli=down joined=no mode=idle ips lan vpn pw
+  server_active && srv=up
+  session_active && cli=up
+  [ "$cli" = up ] && grep -q SUCCESS "$LOG" 2>/dev/null && joined=yes
+  if [ -f "$HERE/run/mode" ]; then read -r kind port < "$HERE/run/mode"; fi
+  if [ "$srv$cli" != downdown ]; then mode=${kind:-unknown}; else port=; fi
+  printf 'version=%s mode=%s server=%s client=%s joined=%s port=%s' "$(app_version)" "$mode" "$srv" "$cli" "$joined" "$port"
+  [ "$mode" != join ] || printf ' host=%s' "$(conf_get host)"
+  if [ "$srv" = up ] && [ "$kind" = host ]; then
+    ips=$(ip -4 -o addr show scope global 2>/dev/null)
+    lan=$(pick_ip lan <<<"$ips"); vpn=$(pick_ip vpn <<<"$ips"); pw=$(conf_get hostpass)
+    [ -z "${lan:-$vpn}" ] || printf ' invite=%s' "$(invite_url "${lan:-$vpn}" "$port" "$pw")"
+    [ -z "$vpn" ] || printf ' invite_vpn=%s' "$(invite_url "$vpn" "$port" "$pw")"
+  fi
+  echo
+}
+
+# The window needs a display, python3 with tkinter and launcher.py next to this script.
+have_window() {
+  [ "${HYRULE_NO_GUI:-0}" != 1 ] && [ -n "${DISPLAY:-}" ] && [ -f "$HERE/launcher.py" ] && python3 -c 'import tkinter' 2>/dev/null
+}
+
+# Checks the install and writes the run scripts to prove they are fine, but starts nothing. Exit 1 when something is missing.
+check_install() {
+  local f bad=0
+  for f in env.sh cemu/Cemu.exe game/code/U-King.rpx milkbar/InjectDLL.dll milkbar/MilkBar.CLI.exe server/MBL.DedicatedServer.exe; do
+    if [ -f "$HERE/$f" ]; then echo "ok: $f"; else echo "missing: $f"; bad=1; fi
+  done
+  # shellcheck source=/dev/null
+  if ( . "$HERE/env.sh" && wine64 --version ) >/dev/null 2>&1; then echo "ok: wine64 of the install"; else echo "missing: wine64 (the Proton folder of the install)"; bad=1; fi
+  if systemctl --user show-environment >/dev/null 2>&1; then echo "ok: systemd --user"; else echo "missing: systemd --user"; bad=1; fi
+  if session_active || server_active; then echo "skipped: run scripts (a session is running)"
+  else
+    HOST=127.0.0.1 PORT=5050 NAME=Check PASS='' write_client_run && write_server_run && bash -n "$HERE/run/client-run.sh" && bash -n "$HERE/run/server-run.sh" \
+      && echo "ok: run scripts" || { echo "missing: valid run scripts"; bad=1; }
+  fi
+  if have_window; then echo "info: window available (launcher.py)"; else echo "info: no window, the zenity menu is used"; fi
+  return $bad
+}
+
 main() {
-  local a args=() mode=$M_JOIN
-  NOPLAY=0 ASK=0
-  for a in "$@"; do if [ "$a" = --no-play ]; then NOPLAY=1; else args+=("$a"); fi; done
+  local a args=() mode=$M_JOIN rc
+  NOPLAY=0 ASK=0 NOGUI=0 RULES_ARG='' DESC_ARG='' NAME_ARG=''
+  while [ $# -gt 0 ]; do
+    case $1 in
+      --no-play) NOPLAY=1 ;;
+      --no-gui) NOGUI=1 ;;
+      --rules|--desc|--name)
+        [ $# -ge 2 ] || fatal "$1 needs a value."
+        case $1 in --rules) RULES_ARG=$2 ;; --desc) DESC_ARG=$2 ;; *) NAME_ARG=$2 ;; esac
+        shift ;;
+      *) args+=("$1") ;;
+    esac
+    shift
+  done
   set -- "${args[@]+"${args[@]}"}"
   case "${1:-}" in
     --stop) stop_session; echo "Stopped."; exit 0 ;;
+    --status) status_line; exit 0 ;;
+    --check) check_install; exit ;;
+    --presets) for a in "${!PRESETS[@]}"; do echo "${PRESET_BITS[a]} ${PRESETS[a]}"; done; exit 0 ;;
     --version) echo "Hyrule Online $(app_version)"; exit 0 ;;
-    -h|--help) sed -n '2,9p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,14p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
   esac
+  [ -z "$NAME_ARG" ] || valid_name "$NAME_ARG" || fatal "The player name must be 1 to 16 letters, numbers, _ or -: $NAME_ARG"
   [ -f "$HERE/env.sh" ] && [ -f "$HERE/cemu/Cemu.exe" ] || fatal "Hyrule Online is not installed in $HERE. Run install.sh first."
   # shellcheck source=/dev/null
   ( . "$HERE/env.sh" && command -v wine64 >/dev/null ) \
     || fatal "The Proton folder used at install time is gone. Install Proton 10.0 from Steam again, or run install.sh once more."
   echo "Hyrule Online $(app_version)"
 
+  [ -z "$NAME_ARG" ] || conf_set name "$NAME_ARG"
+
   trap 'stop_session; exit 143' INT TERM HUP
+  if [ $# -eq 0 ] && [ "$NOGUI" != 1 ] && have_window; then
+    # The window only drives this script; closing it leaves a running server alone. If it fails to start, the menu is used.
+    mkdir -p "$HERE/logs"
+    python3 "$HERE/launcher.py" 2>>"$HERE/logs/launcher.err"; rc=$?
+    [ "$rc" != 0 ] || exit 0
+    echo "The window stopped with an error (code $rc, see $HERE/logs/launcher.err). Using the menu."
+  fi
   if [ $# -eq 0 ]; then
     ASK=1
     mode=$(conf_get mode)
@@ -427,6 +533,7 @@ main() {
   fi
   if [ "$mode" = "$M_STOP" ]; then stop_session; echo "Stopped."; exit 0; fi
   if session_active || server_active; then
+    have_gui || [ -t 0 ] || fatal "A Hyrule Online session is already running. Stop it first: $HERE/hyrule-online.sh --stop"
     ask_yesno "A Hyrule Online session is already running. Stop it and start a new one?" || exit 0
     stop_session
   fi

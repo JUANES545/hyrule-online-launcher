@@ -504,7 +504,8 @@ EOF
 step_launcher() {
   local f
   if [ "$DRY" = 1 ]; then echo "    [dry-run] would install hyrule-online.sh into $DIR and write $DESKTOP_FILE"; return 0; fi
-  for f in install.sh hyrule-online.sh lib.sh steam_shortcut.py; do
+  for f in install.sh hyrule-online.sh lib.sh steam_shortcut.py launcher.py; do
+    [ -f "$SELF_DIR/$f" ] || { [ "$f" = launcher.py ] && continue; return 1; }
     [ "$SELF_DIR/$f" -ef "$DIR/$f" ] || install -m 755 "$SELF_DIR/$f" "$DIR/$f" || return 1
   done
   [ "$(app_version)" = unknown ] || printf '%s\n' "$(app_version)" > "$DIR/VERSION" || return 1
@@ -663,6 +664,7 @@ You need about 15 GB of free space and your own game dump and mod pack (see READ
   run_step prefix "Preparing Wine (.NET 8 and Visual C++ in their own prefix)" step_prefix
   run_step dump "Getting your game files" step_dump
   run_step config "Applying the Cemu configuration" step_config
+  [ "$DRY" = 1 ] || state_set done_launcher 0   # the scripts are copied again on every run, so an update reaches the install
   run_step launcher "Installing the launcher and the menu entry" step_launcher
   run_step steam "Adding the Steam library entry" step_steam
   summary
