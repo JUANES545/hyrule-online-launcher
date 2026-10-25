@@ -187,7 +187,7 @@ A fourth page next to Play, Graphics and Language, aimed at local play but built
 
 ## Online page: host or join a server (built; joined from the Ally over the LAN)
 
-A page between Multiplayer and Language with three modes (`OnlineMode` in the preferences).
+A page right after Play (tab order: Play, Online, Graphics, Local multiplayer, Language, Details) with three modes (`OnlineMode` in the preferences). The old Multiplayer tab is now "Local multiplayer" (world rules and live controls), and the Play page's switch reads "Switch to local multiplayer". The tab row is a `WrapPanel`, so on a narrow portrait window it wraps instead of overflowing; `LayoutTests` checks that it fits at every size.
 
 - **Play on this PC (default):** the launcher writes `IP=127.0.0.1`, port 5050 and an empty password into `ServerConfig.ini`, so the server is private. Before this it kept `IP=localhost`, which binds one interface only (it picked Tailscale in a test).
 - **Host a server:** `IP=0.0.0.0` (all interfaces; tested with a temp copy of the server) plus the user's port, password and description (`[Connection]` and `[ServerInformation]`; comments, line endings and the BOM are kept). The page shows the address to share (detected LAN or Tailscale address, editable for a public address or a name) and an invite `hyrule://host:port?pw=password` with a Copy button. The Windows Firewall button adds an inbound TCP rule `Hyrule Online Server <port>` through an elevated `netsh`; it shows whether the rule already exists. No public-IP service is queried, so port forwarding or Tailscale is up to the user.

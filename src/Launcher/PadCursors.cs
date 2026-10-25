@@ -134,7 +134,7 @@ namespace HyruleOnline {
    if (string.IsNullOrEmpty(stateDumpFile)) return;
    string[] who = { "p1", "p2", "any" };
    var cursorText = cursors.Select(c => who[c.Owner] + "=" + (!c.Active || c.Target == null ? "-" : string.IsNullOrEmpty(c.Target.Name) ? c.Target.GetType().Name : c.Target.Name) + (c.Combo != null ? "(open)" : "")).ToArray();
-   string bar = page == 1 ? "GraphicsHint" : page == 2 ? "MultiplayerHint" : null;
+   string bar = HintBar();
    File.AppendAllText(stateDumpFile, step + " | page=" + PageNames[page] + " | " + string.Join(" ", cursorText) + (bar == null ? "" : " | hint=" + C<TextBlock>(bar).Text) + Environment.NewLine);
   }
 
@@ -188,8 +188,10 @@ namespace HyruleOnline {
    if (cursor.Picker < 0) element.BringIntoView();
   }
 
+  string HintBar() { string name = PageNames[page]; return name == "Graphics" || name == "Multiplayer" ? name + "Hint" : null; }
+
   void ShowHint(FrameworkElement element) {
-   string bar = page == 1 ? "GraphicsHint" : page == 2 ? "MultiplayerHint" : null;
+   string bar = HintBar();
    if (bar != null && element != null) C<TextBlock>(bar).Text = element.ToolTip as string ?? Tr("Hover an option, or move the focus to it, to see what it does.");
   }
 

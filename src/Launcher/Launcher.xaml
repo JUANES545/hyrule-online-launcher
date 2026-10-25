@@ -159,16 +159,16 @@
   <TextBlock Text="BREATH OF THE WILD" TextAlignment="Center" FontFamily="{DynamicResource LogoFont}" FontStretch="Normal" FontSize="34" FontWeight="Normal" Foreground="#E2D5B2" Margin="0,2,0,2"/>
   <TextBlock Text="ONLINE MULTIPLAYER" TextAlignment="Center" Foreground="#A7B5B5"   FontSize="14" Margin="1,0,0,6"/>
    </StackPanel>
-   <StackPanel x:Name="NavRow" Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,8">
+   <WrapPanel x:Name="NavRow" Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,8">
     <Border x:Name="NavPrev" Width="54" Height="30" CornerRadius="16,5,5,5" Background="#801B252B" BorderBrush="#A5BAC5" BorderThickness="2" Margin="0,0,14,0" VerticalAlignment="Center" ToolTip="Previous page (LB or Ctrl+Shift+Tab)" AutomationProperties.Name="Previous page (LB)"><TextBlock Text="LB" FontStyle="Normal" FontWeight="Bold" FontSize="15" Foreground="#CFE3E4" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0"/></Border>
     <Button x:Name="TabPlay" Content="PLAY" Tag="0" Style="{StaticResource TabButton}"/>
-    <Button x:Name="TabGraphics" Content="GRAPHICS" Tag="1" Style="{StaticResource TabButton}"/>
-    <Button x:Name="TabMultiplayer" Content="MULTIPLAYER" Tag="2" Style="{StaticResource TabButton}"/>
-    <Button x:Name="TabOnline" Content="ONLINE" Tag="3" Style="{StaticResource TabButton}"/>
+    <Button x:Name="TabOnline" Content="ONLINE" Tag="1" Style="{StaticResource TabButton}"/>
+    <Button x:Name="TabGraphics" Content="GRAPHICS" Tag="2" Style="{StaticResource TabButton}"/>
+    <Button x:Name="TabMultiplayer" Content="LOCAL MULTIPLAYER" Tag="3" Style="{StaticResource TabButton}"/>
     <Button x:Name="TabLanguage" Content="LANGUAGE" Tag="4" Style="{StaticResource TabButton}"/>
     <Button x:Name="TabDetails" Content="DETAILS" Tag="5" Style="{StaticResource TabButton}"/>
     <Border x:Name="NavNext" Width="54" Height="30" CornerRadius="5,16,5,5" Background="#801B252B" BorderBrush="#A5BAC5" BorderThickness="2" Margin="14,0,0,0" VerticalAlignment="Center" ToolTip="Next page (RB or Ctrl+Tab)" AutomationProperties.Name="Next page (RB)"><TextBlock Text="RB" FontStyle="Normal" FontWeight="Bold" FontSize="15" Foreground="#CFE3E4" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0"/></Border>
-   </StackPanel>
+       </WrapPanel>
    <Grid Grid.Row="2" x:Name="Pages" Margin="14,0,14,6">
     <ScrollViewer x:Name="PlayPage" VerticalScrollBarVisibility="Auto" Focusable="False"><Grid x:Name="PlayBody">
    <Grid.ColumnDefinitions><ColumnDefinition Width="1.1*"/><ColumnDefinition Width="0.9*"/></Grid.ColumnDefinitions>

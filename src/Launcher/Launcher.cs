@@ -236,7 +236,7 @@ namespace HyruleOnline {
      Window.Dispatcher.BeginInvoke(new Action(ChangedDisplayChoice));
     };
    }
-   foreach (var tab in new[] { "TabPlay", "TabGraphics", "TabMultiplayer", "TabOnline", "TabLanguage", "TabDetails" }) {
+   foreach (var tab in new[] { "TabPlay", "TabOnline", "TabGraphics", "TabMultiplayer", "TabLanguage", "TabDetails" }) {
     var button = C<Button>(tab);
     button.Click += (s, e) => ShowPage(int.Parse((string)((Button)s).Tag));
    }
@@ -309,7 +309,7 @@ namespace HyruleOnline {
    UpdatePlayLayout();
   }
 
-  static readonly string[] PageNames = { "Play", "Graphics", "Multiplayer", "Online", "Language", "Details" };
+  static readonly string[] PageNames = { "Play", "Online", "Graphics", "Multiplayer", "Language", "Details" };
   int page;
   ushort[] previousButtons = new ushort[4];
 
@@ -1146,7 +1146,7 @@ namespace HyruleOnline {
   // The switch always offers the other mode, so its text and tooltip follow the current one.
   void ShowModeSwitch() {
    bool two = playerCount == 2;
-   C<TextBlock>("ModeText").Text = two ? Tr("Switch to single player") : Tr("Switch to multiplayer");
+   C<TextBlock>("ModeText").Text = two ? Tr("Switch to single player") : Tr("Switch to local multiplayer");
    C<Button>("Mode").ToolTip = two ? Tr("Play alone: one game on the whole primary display.") : Tr("Two players on this PC, with the screen split or one display each.");
   }
 
