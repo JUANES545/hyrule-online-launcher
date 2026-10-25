@@ -3,3 +3,4 @@
 *.log
 
 !tests/fixtures/*.log
+__pycache__/

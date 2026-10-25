@@ -51,6 +51,15 @@ jobs:
       - name: Package
         shell: powershell
         run: .\scripts\Package.ps1
+      - name: Package SteamOS installer
+        shell: bash
+        run: |
+          v="${{ steps.meta.outputs.version }}"
+          bash steamos/test.sh
+          rm -rf .artifacts/steamos-stage && mkdir -p .artifacts/steamos-stage
+          cp -r steamos ".artifacts/steamos-stage/HyruleOnline-$v-steamos"
+          tar -czf ".artifacts/dist/HyruleOnline-$v-steamos.tar.gz" -C .artifacts/steamos-stage "HyruleOnline-$v-steamos"
+          (cd .artifacts/dist && sha256sum "HyruleOnline-$v-steamos.tar.gz" > "HyruleOnline-$v-steamos.tar.gz.sha256")
       - name: Publish release
         shell: bash
         env:
@@ -58,6 +67,7 @@ jobs:
         run: |
           v="${{ steps.meta.outputs.version }}"
           gh release create "v$v" .artifacts/dist/HyruleOnline-$v-setup.exe .artifacts/dist/HyruleOnline-$v-portable.zip \
+            .artifacts/dist/HyruleOnline-$v-steamos.tar.gz .artifacts/dist/HyruleOnline-$v-steamos.tar.gz.sha256 \
             --target "${{ github.sha }}" --title "Hyrule Online $v" --generate-notes
 
   backport:

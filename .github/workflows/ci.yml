@@ -33,3 +33,11 @@ jobs:
           name: portable-package
           path: .artifacts/dist/*.zip
           retention-days: 7
+
+  steamos:
+    name: SteamOS installer checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test
+        run: bash steamos/test.sh
