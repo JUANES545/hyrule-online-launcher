@@ -9,7 +9,7 @@ namespace HyruleOnline {
  // The Online page: play on this PC only, host a server friends can join, or join a friend's server.
  sealed partial class Launcher {
   string onlineMode = ServerConnection.Local, hostPassword = "", hostDescription = ServerConnection.DefaultDescription, hostAddress = "", joinAddress = "", joinPassword = "";
-  int hostPort = ServerConnection.DefaultPort, playersBeforeJoin = 2;
+  int hostPort = ServerConnection.DefaultPort;
   readonly Roster roster = new Roster();
   bool addressProblem;
 
@@ -157,13 +157,9 @@ namespace HyruleOnline {
    show();
   }
 
-  // Joining plays one local player, so the player count is set aside until the mode changes back.
   void SetOnlineMode(string next) {
    if (next == onlineMode) return;
-   bool wasJoining = Joining;
    onlineMode = next;
-   if (Joining) { playersBeforeJoin = playerCount; SetPlayerCount(1, actorSlot); }
-   else if (wasJoining && playersBeforeJoin == 2) SetPlayerCount(2, actorSlot);
    SavePrefs();
    ShowOnline();
    UpdateStart();
@@ -232,7 +228,7 @@ namespace HyruleOnline {
    if (host) { string shown = C<TextBox>("HostAddressBox").Text; C<TextBlock>("NetworkHintText").Text = (addressProblem ? Tr("That address is not valid, so the previous one was kept. Use letters, digits, dots and dashes only.") + " " : "") + AddressHint(shown); }
    ShowOnlineStatus();
    C<TextBlock>("OnlineModeInfo").Text = Tr(host ? "Friends who run this launcher can join this PC. The world rules are the ones on the World page."
-    : Joining ? "You play on one screen with one controller on a friend's server. The friend sets the rules."
+    : Joining ? "One or two players on this PC join a friend's server. The friend sets the rules."
     : "The server only accepts players from this PC.");
    ShowFirewall();
   }

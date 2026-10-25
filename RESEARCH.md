@@ -377,3 +377,4 @@ A fresh unzip or the thin installer holds only the launcher, the input router/br
 2. Does the pattern scan work on our Cemu 1.26.2 copy, and does it conflict with the `BOTWMultiplayer` graphic pack?
 3. Which parts of our launcher (display policy, Apollo/Artemis, controller routing, Steam shortcut) can drive two Cemu processes.
 4. Local per-instance pipe name and port handling.
+- **Join with two local players:** Join no longer forces one player and the Switch to local multiplayer button stays enabled there, so both Cemu windows connect to the friend's server (Start-Online.ps1 -RemoteServer already started one or two). The server's player limit is the constant ServerData.PLAYERLIMIT = 32, read by reflection, so two local players plus a SteamOS client fit. **Not verified:** a real three player session (two on this PC and one from the Ally) in game.

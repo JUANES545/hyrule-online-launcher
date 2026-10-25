@@ -477,7 +477,7 @@
     <StackPanel x:Name="JoinHelp">
      <TextBlock Text="JOINING A SERVER" Style="{StaticResource SectionTitle}" Margin="0,0,0,12"/>
      <Border Background="#A0152027" CornerRadius="8" Padding="24,20" BorderBrush="#3449585A" BorderThickness="1">
-      <TextBlock Foreground="#C9D6DB" FontSize="14" TextWrapping="Wrap" Text="Ask the host for their invite and paste it here. You play on this PC with one controller. The host chooses the world rules and runs the server."/>
+      <TextBlock Foreground="#C9D6DB" FontSize="14" TextWrapping="Wrap" Text="Ask the host for their invite and paste it here. You play on this PC with one or two players. The host chooses the world rules and runs the server."/>
      </Border>
     </StackPanel>
    </StackPanel>

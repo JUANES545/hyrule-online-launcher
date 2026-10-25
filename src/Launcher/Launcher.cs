@@ -379,7 +379,6 @@ namespace HyruleOnline {
    sharedShaders = saved.SharedShaders; language = saved.Language; launcherLanguage = saved.LauncherLanguage;
    shortcutText = saved.Shortcut; Router.Shortcut = MenuShortcut.Parse(shortcutText);
    onlineMode = saved.OnlineMode; hostPort = saved.HostPort; hostPassword = saved.HostPassword; hostDescription = saved.HostDescription; hostAddress = saved.HostAddress; joinAddress = saved.JoinAddress; joinPassword = saved.JoinPassword; lastPage = saved.LastPage;
-   if (Joining) playerCount = 1;
   }
 
   // The name and avatar of each player sit on that player's card and are written into its Milk Bar settings when a session starts.
@@ -1557,7 +1556,7 @@ namespace HyruleOnline {
    C<ComboBox>("OnlineModeBox").IsEnabled = enabled;
    foreach (var name in new[] { "P1AvatarButton",    "P2AvatarButton" }) C<Button>(name).IsEnabled = enabled;
    C<Button>("UseRecommendedRules").IsEnabled = enabled && !Joining;
-   C<Button>("Mode").IsEnabled = enabled && !Joining;
+   C<Button>("Mode").IsEnabled = enabled;
    foreach (var name in new[] { "View1", "View2" }) C<Button>(name).IsEnabled = enabled && playerCount == 2;
    C<Button>("ResetTurns").IsEnabled = enabled && (rotations[0] != 0 || rotations[1] != 0);
    foreach (var tile in C<Canvas>("MonitorMap").Children.OfType<Button>()) tile.IsEnabled = enabled;
