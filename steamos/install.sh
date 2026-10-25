@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2034  # variables are read by the functions in lib.sh
-# Hyrule Online - guided SteamOS installer (join and host). See README.md.
+# Hyrule Online - guided SteamOS installer (play, host and join). See README.md.
 # Usage: install.sh [--dry-run] [--yes --dump PATH] [--mod PATH] [--dir PATH] [--link] [--uninstall]
 #   --dry-run    print what would be done, change nothing
 #   --yes        no questions (needs --dump); never closes Steam, never deletes the game copy
@@ -507,12 +507,13 @@ step_launcher() {
   for f in install.sh hyrule-online.sh lib.sh steam_shortcut.py; do
     [ "$SELF_DIR/$f" -ef "$DIR/$f" ] || install -m 755 "$SELF_DIR/$f" "$DIR/$f" || return 1
   done
+  [ "$(app_version)" = unknown ] || printf '%s\n' "$(app_version)" > "$DIR/VERSION" || return 1
   mkdir -p "$DIR/logs" "$DIR/run" "$(dirname "$DESKTOP_FILE")" || return 1
   cat > "$DESKTOP_FILE" <<EOF
 [Desktop Entry]
 Type=Application
 Name=$APP_NAME
-Comment=Join or host a Hyrule Online server (Breath of the Wild co-op)
+Comment=Play, host or join a Hyrule Online server (Breath of the Wild co-op)
 Exec="$DIR/hyrule-online.sh"
 Path=$DIR
 Terminal=false
@@ -566,7 +567,7 @@ summary() {
 Gaming Mode: Library > Non-Steam > $APP_NAME > Play (start Steam again if you closed it).
 Desktop Mode: run $DIR/hyrule-online.sh or the \"$APP_NAME\" menu entry.
 
-To join you need the server address, port and password from the host. To host, choose Host when it asks.
+The menu offers Play on this device, Host a server, Join a server and Stop. To join you need the invite (or address, port and password) from the host.
 Controller setup is not automated: if the controller does nothing in game, set it up in Cemu (Options > Input settings)."
   else
     text="Almost done. Still to do: $DEFERRED
@@ -649,11 +650,13 @@ main() {
 You need about 15 GB of free space and your own game dump and mod pack (see README.md). Continue?" || exit 0
   fi
   [ "$DRY" = 1 ] && echo "Dry run: nothing will be changed."
+  echo "$APP_NAME $(app_version)"
   progress_start "$APP_NAME setup"
   say_step "Checking this device"
   preflight || die "$PF_ERR"
   say_step "Choosing the install folder"
   step_dir
+  state_set version "$(app_version)"
   run_step download "Downloading and verifying the components" step_download
   run_step extract "Unpacking Cemu, the graphic packs and the Milk Bar client" step_extract
   run_step server "Unpacking the dedicated server (for hosting)" step_server

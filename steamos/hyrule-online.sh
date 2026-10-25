@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
-# Hyrule Online - join or host a server from SteamOS. Started by the Steam shortcut (Gaming Mode) or by hand.
-# Usage: hyrule-online.sh                                   ask Join or Host
+# Hyrule Online - play, host or join from SteamOS. Started by the Steam shortcut (Gaming Mode) or by hand.
+# Usage: hyrule-online.sh                                   menu: Play on this device, Host, Join or Stop
+#        hyrule-online.sh invite|host:port [password] [name]    join (an invite looks like hyrule://host:port?pw=PASSWORD)
 #        hyrule-online.sh host port [password] [name]       join (dialogs for whatever is missing)
-#        hyrule-online.sh --host [port [password]] [--no-play]   host here (port 5050) and join it; --no-play only hosts
+#        hyrule-online.sh --host [port [password]] [--no-play]   host here (saved port, password and rules) and join it
+#        hyrule-online.sh --local [--no-play]               private server on this device only (127.0.0.1) and join it
 #        hyrule-online.sh --stop                            stop the server and the game
+#        hyrule-online.sh --version
 set -u
 HERE=$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)
 . "$HERE/lib.sh"
@@ -13,6 +16,9 @@ SRV_UNIT=hyrule-server
 CONF="$HERE/join.conf"
 LOG="$HERE/logs/client.log"
 SRV_LOG="$HERE/logs/server.log"
+# Same wording as the Windows launcher.
+CHECKLIST="Check the invite, the password, that the host has a session running, and that its firewall allows the port."
+M_LOCAL="Play on this device" M_HOST="Host a server" M_JOIN="Join a server" M_STOP="Stop"
 
 conf_get() { [ -f "$CONF" ] && sed -n "s/^$1=//p" "$CONF" | head -n1; }
 
@@ -55,12 +61,43 @@ ask_valid() {
   done
 }
 
+# Same rules as ServerConnection.TryParse in the Windows launcher. Sets INV_HOST, INV_PORT and INV_PASS.
+url_unescape() {
+  local s=$1 out=''
+  while [[ $s =~ ^([^%]*)%([0-9A-Fa-f]{2})(.*)$ ]]; do
+    out+=${BASH_REMATCH[1]}$(printf '%b' "\\x${BASH_REMATCH[2]}")
+    s=${BASH_REMATCH[3]}
+  done
+  printf '%s' "$out$s"
+}
+
+# parse_invite <hyrule://host:port?pw=PASSWORD | host:port | host>
+parse_invite() {
+  local t=${1#"${1%%[![:space:]]*}"} q='' re='(^|&)pw=([^&]*)'
+  INV_HOST='' INV_PORT=5050 INV_PASS=''
+  t=${t%"${t##*[![:space:]]}"}
+  [ "${#t}" -le 200 ] || return 1
+  [[ ${t,,} != hyrule://* ]] || t=${t:9}
+  if [[ $t == *\?* ]]; then q=${t#*\?} t=${t%%\?*}; fi
+  if [[ $q =~ $re ]]; then INV_PASS=$(url_unescape "${BASH_REMATCH[2]}"); fi
+  while [[ $t == */ ]]; do t=${t%/}; done
+  if [[ $t == *:* ]]; then
+    valid_port "${t##*:}" || return 1
+    INV_PORT=$((10#${t##*:})) t=${t%:*}
+  fi
+  valid_host "$t" || return 1
+  INV_HOST=$t
+}
+
 ask_values() {
+  local inv
   HOST=$(conf_get host); PORT=$(conf_get port); NAME=$(conf_get name); PASS=$(conf_get password)
-  PORT=${PORT:-5050}; NAME=${NAME:-Link}
-  ask_valid HOST "Hyrule Online" "Server address (IP or name)" valid_host "That is not a valid server address."
-  ask_valid PORT "Hyrule Online" "Server port" valid_port "The port must be a number from 1 to 65535."
-  PASS=$(ask_text "Hyrule Online" "Server password (leave empty if there is none)" "$PASS" hide) || exit 0
+  inv=${HOST:+$HOST:${PORT:-5050}}; NAME=${NAME:-Link}
+  : "$inv"  # read by ask_valid through its name
+  ask_valid inv "Hyrule Online" "Invite or address (paste the invite, or type host:port)" parse_invite "That is not a valid invite or address. Use hyrule://host:port?pw=PASSWORD or host:port."
+  HOST=$INV_HOST PORT=$INV_PORT
+  if [ -n "$INV_PASS" ]; then PASS=$INV_PASS
+  else PASS=$(ask_text "Hyrule Online" "Server password (leave empty if there is none)" "$PASS" hide) || exit 0; fi
   ask_valid NAME "Hyrule Online" "Your player name (letters, numbers, _ and -, up to 16)" valid_name "Use 1 to 16 letters, numbers, _ or -."
 }
 
@@ -122,7 +159,7 @@ wait_connect() {
     if grep -q 'SUCCESS' "$LOG" 2>/dev/null; then progress_stop; return 0; fi
     if grep -q '"Response":3' "$LOG" 2>/dev/null; then
       progress_stop; stop_client
-      fatal "Wrong password. The server at $HOST:$PORT refused it (Response:3). Ask the host for the password and try again."
+      fatal "$NAME could not join: wrong password (Response:3). Ask the host for the password and try again."
     fi
     session_active || break
     progress "Starting the game and joining $HOST:$PORT... ${t}s (about a minute)" || { progress_stop; stop_client; exit 0; }
@@ -130,11 +167,11 @@ wait_connect() {
   done
   progress_stop
   grep -q 'SUCCESS' "$LOG" 2>/dev/null && return 0
-  local why="The game did not finish joining within 6 minutes."
+  local why="The game did not finish joining within 6 minutes. $CHECKLIST"
   if ! session_active; then
     if grep -q '"Response":3' "$LOG" 2>/dev/null; then why="Wrong password (Response:3)."
     elif ! grep -q '5/5' "$LOG" 2>/dev/null; then why="Cemu or the Milk Bar client could not start."
-    else why="Could not join $HOST:$PORT. Check that the host has started the server, that you are on the same network or VPN, and that the address and port are right."; fi
+    else why="Could not join $HOST:$PORT. $CHECKLIST"; fi
   fi
   stop_client
   fatal "$why
@@ -142,34 +179,44 @@ Logs: $HERE/logs/client.log, $HERE/logs/client.err and $HERE/cemu/log.txt"
 }
 
 # ---- hosting ----
+# World rules as 8 digits: Enemies Quests Koroks Towers Shrines Locations "Divine Beasts" Special.
+# The first 7 are 1 when shared; Special is 0 none, 1 Hunter Vs Speedrunner, 2 Death Swap.
+# Same presets and defaults as the Windows World page (ServerRules.cs); the default is Game Completion.
+RULE_NAMES=(Enemies Quests Koroks Towers Shrines Locations "Divine Beasts")
+SPECIALS=(None "Hunter Vs Speedrunner" "Death Swap")
+PRESETS=("Game Completion" "Hunter Vs Speedrunner" "Any% Speedrun" "Hide n' seek" "Death Swap")
+PRESET_BITS=(10111100 10011101 10011100 10000000 00000002)
+DEFAULT_DESC="Explore Hyrule with Friends!"
+
+# The preset with exactly these rules, else Custom (like the Windows launcher).
+rules_name() {
+  local i
+  for i in "${!PRESETS[@]}"; do [ "${PRESET_BITS[i]}" = "$1" ] && { printf '%s' "${PRESETS[i]}"; return 0; }; done
+  printf Custom
+}
+
+# write_server_ini <file> <ip> <port> <password> <description> <rules>: the same keys the Windows launcher writes.
 write_server_ini() {
+  local b=$6 k=(EnemySync QuestSync KorokSync TowerSync ShrineSync LocationSync DungeonSync) i
   ( umask 077
-    cat > "$1" <<EOF
-[Connection]
-IP=0.0.0.0
-Port=$2
-Password=$3
-
-[ServerInformation]
-Description=Hyrule Online on SteamOS
-
-[Gamemode]
-DefaultGamemode=True
-
-[DefaultGamemode]
-Name=Custom
-EnemySync=True
-QuestSync=False
-KorokSync=True
-TowerSync=True
-ShrineSync=True
-LocationSync=True
-DungeonSync=False
-Special=0
-EOF
+    {
+      printf '[Connection]\nIP=%s\nPort=%s\nPassword=%s\n\n' "$2" "$3" "$4"
+      printf '[ServerInformation]\nDescription=%s\n\n[Gamemode]\nDefaultGamemode=True\n\n' "$5"
+      printf '[DefaultGamemode]\nName=%s\n' "$(rules_name "$b")"
+      for i in "${!k[@]}"; do printf '%s=%s\n' "${k[i]}" "$([ "${b:i:1}" = 1 ] && echo True || echo False)"; done
+      printf 'Special=%s\n' "${b:7:1}"
+    } > "$1"
   )
 }
 
+# clean_text <text> <max>: no control characters, trimmed and cut, like the Windows launcher.
+clean_text() {
+  local s; s=$(printf '%s' "$1" | tr -d '[:cntrl:]')
+  s=${s#"${s%%[![:space:]]*}"}; s=${s%"${s##*[![:space:]]}"}
+  printf '%s' "${s:0:$2}"
+}
+
+valid_host_port() { valid_port "$1" && [ "$((10#$1))" -ge 1024 ]; }
 # Percent-encodes every byte except A-Z a-z 0-9 . _ ~ - (the same text Uri.EscapeDataString makes).
 url_escape() {
   local LC_ALL=C s=$1 c i out=''
@@ -228,7 +275,7 @@ show_invite() {
 start_server() {
   mkdir -p "$HERE/logs" "$HERE/run"
   rm -f "$SRV_LOG" "$HERE/logs/server.err" "$HERE/server/LatestLog.txt"
-  write_server_ini "$HERE/server/ServerConfig.ini" "$PORT" "$PASS" || return 1
+  write_server_ini "$HERE/server/ServerConfig.ini" "$SRV_IP" "$PORT" "$PASS" "$DESC" "$BITS" || return 1
   {
     echo '#!/usr/bin/env bash'
     printf '. %q\ncd %q || exit 1\n' "$HERE/env.sh" "$HERE/server"
@@ -258,29 +305,67 @@ wait_server() {
   while [ "$t" -lt 90 ]; do
     if grep -q 'Server opened' "$SRV_LOG" 2>/dev/null; then progress_stop; return 0; fi
     server_active || { progress_stop; server_failed; }
-    progress "Starting the server on port $PORT... ${t}s" || { progress_stop; stop_session; exit 0; }
+    progress "Starting the server on $SRV_IP:$PORT$([ "$SRV_IP" != 127.0.0.1 ] || echo " (only this device can join)")... ${t}s" || { progress_stop; stop_session; exit 0; }
     sleep 2; t=$((t + 2))
   done
   progress_stop
   server_failed
 }
 
-host_session() {
-  [ -f "$HERE/server/MBL.DedicatedServer.exe" ] || fatal "The dedicated server is not installed. Run $HERE/install.sh again to unpack it."
-  if [ "$ASK" = 0 ]; then PORT=${1:-5050} PASS=${2:-}
+# Picks the world rules (a preset, or Custom with a checklist) into BITS.
+ask_rules() {
+  local pick i out new=''
+  pick=$(ask_choice "Hyrule Online" "World rules: what everyone on the server shares" "$(rules_name "$BITS")" "${PRESETS[@]}" Custom) || exit 0
+  for i in "${!PRESETS[@]}"; do [ "${PRESETS[i]}" = "$pick" ] && BITS=${PRESET_BITS[i]}; done
+  [ "$pick" = Custom ] || return 0
+  local on=() args=() cur=''
+  for i in "${!RULE_NAMES[@]}"; do
+    if [ "${BITS:i:1}" = 1 ]; then on+=("${RULE_NAMES[i]}"); args+=(TRUE "${RULE_NAMES[i]}"); else args+=(FALSE "${RULE_NAMES[i]}"); fi
+  done
+  if have_gui; then
+    out=$(zenity --list --checklist --hide-header --column= --column= --separator=, --title "Hyrule Online" \
+      --text "Tick what everyone on the server shares" --width=460 --height=380 "${args[@]}" 2>/dev/null) || exit 0
   else
-    PORT=$(conf_get hostport); PASS=$(conf_get hostpass); PORT=${PORT:-5050}
-    ask_valid PORT "Hyrule Online" "Port to host on" valid_port "The port must be a number from 1 to 65535."
-    PASS=$(ask_text "Hyrule Online" "Server password (leave empty for none)" "$PASS" hide) || exit 0
+    cur=$(IFS=,; printf '%s' "${on[*]}")
+    out=$(ask_text "Hyrule Online" "Shared rules, comma separated (${RULE_NAMES[*]})" "$cur") || exit 0
   fi
-  valid_port "$PORT" || fatal "The port must be a number from 1 to 65535, not: $PORT"
-  [[ $PASS != *$'\n'* ]] || fatal "The password cannot contain a line break."
-  PORT=$((10#$PORT))
-  conf_set hostport "$PORT"; conf_set hostpass "$PASS"
+  out=${out//, /,}
+  for i in "${!RULE_NAMES[@]}"; do if [[ ",${out,,}," == *",${RULE_NAMES[i],,},"* ]]; then new+="1"; else new+="0"; fi; done
+  pick=$(ask_choice "Hyrule Online" "Special mode" "${SPECIALS[${BITS:7:1}]}" "${SPECIALS[@]}") || exit 0
+  for i in "${!SPECIALS[@]}"; do [ "${SPECIALS[i]}" = "$pick" ] && BITS=$new$i; done
+}
+
+# server_session local|host [port [password]]: starts the server, then joins it from this device unless --no-play.
+# local binds 127.0.0.1 only (one player, nobody else can join); host binds 0.0.0.0 and shows the invite.
+server_session() {
+  local kind=$1
+  shift
+  [ -f "$HERE/server/MBL.DedicatedServer.exe" ] || fatal "The dedicated server is not installed. Run $HERE/install.sh again to unpack it."
+  BITS=$(conf_get rules); DESC=$(conf_get desc)
+  [[ $BITS =~ ^[01]{7}[012]$ ]] || BITS=${PRESET_BITS[0]}
+  DESC=${DESC:-$DEFAULT_DESC} SRV_IP=127.0.0.1 PORT=5050 PASS=''
+  # No desktop and no terminal to ask in: the saved (or default) values are used.
+  have_gui || [ -t 0 ] || ASK=0
+  if [ "$kind" = host ]; then
+    SRV_IP=0.0.0.0
+    PORT=$(conf_get hostport); PASS=$(conf_get hostpass); PORT=${PORT:-5050}
+    if [ "$ASK" = 1 ]; then
+      ask_rules
+      ask_valid PORT "Hyrule Online" "Port to host on (1024 to 65535)" valid_host_port "The port must be a number from 1024 to 65535."
+      PASS=$(ask_text "Hyrule Online" "Server password (leave empty for none)" "$PASS" hide) || exit 0
+      DESC=$(ask_text "Hyrule Online" "Server description" "$DESC") || exit 0
+    elif [ $# -gt 0 ]; then PORT=$1 PASS=${2:-}; fi
+    valid_host_port "$PORT" || fatal "The port must be a number from 1024 to 65535, not: $PORT"
+    PORT=$((10#$PORT))
+    PASS=$(clean_text "$PASS" 40); DESC=$(clean_text "$DESC" 80); DESC=${DESC:-$DEFAULT_DESC}
+    conf_set hostport "$PORT"; conf_set hostpass "$PASS"; conf_set desc "$DESC"
+  elif [ "$ASK" = 1 ]; then ask_rules; fi
+  conf_set rules "$BITS"
 
   start_server || fatal "Could not start the server. Is systemd available for your user (systemd-run --user)?"
   wait_server
-  show_invite "$PORT" "$PASS"
+  if [ "$kind" = host ]; then show_invite "$PORT" "$PASS"
+  else echo "Private server running on 127.0.0.1:$PORT. Only this device can join it."; fi
   if [ "$NOPLAY" = 1 ]; then echo "Server running. Stop it with: $HERE/hyrule-online.sh --stop"; return 0; fi
 
   HOST=127.0.0.1; NAME=$(conf_get name); NAME=${NAME:-Ally}
@@ -290,13 +375,14 @@ host_session() {
   while server_active; do sleep 3; done
   server_failed
 }
-
 join_session() {
-  [ $# -ne 1 ] || fatal "Usage: hyrule-online.sh host port [password] [name]"
-  if [ $# -ge 2 ]; then
-    HOST=$1; PORT=$2; PASS=${3:-}; NAME=${4:-$(conf_get name)}; NAME=${NAME:-Link}
+  if [ $# -eq 0 ]; then ask_values
+  elif [[ $1 == *:* ]] || [ $# -eq 1 ]; then
+    parse_invite "$1" || fatal "That is not a valid invite or address: $1
+Use hyrule://host:port?pw=PASSWORD, host:port, or: host port [password] [name]"
+    HOST=$INV_HOST PORT=$INV_PORT PASS=${2:-$INV_PASS}; NAME=${3:-$(conf_get name)}; NAME=${NAME:-Link}
   else
-    ask_values
+    HOST=$1 PORT=$2 PASS=${3:-}; NAME=${4:-$(conf_get name)}; NAME=${NAME:-Link}
   fi
   valid_host "$HOST" || fatal "That is not a valid server address: $HOST"
   valid_port "$PORT" || fatal "The port must be a number from 1 to 65535, not: $PORT"
@@ -314,32 +400,41 @@ join_session() {
 }
 
 main() {
-  local a args=() mode=Join
+  local a args=() mode=$M_JOIN
   NOPLAY=0 ASK=0
   for a in "$@"; do if [ "$a" = --no-play ]; then NOPLAY=1; else args+=("$a"); fi; done
   set -- "${args[@]+"${args[@]}"}"
   case "${1:-}" in
     --stop) stop_session; echo "Stopped."; exit 0 ;;
-    -h|--help) sed -n '2,6p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --version) echo "Hyrule Online $(app_version)"; exit 0 ;;
+    -h|--help) sed -n '2,9p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
   esac
   [ -f "$HERE/env.sh" ] && [ -f "$HERE/cemu/Cemu.exe" ] || fatal "Hyrule Online is not installed in $HERE. Run install.sh first."
   # shellcheck source=/dev/null
   ( . "$HERE/env.sh" && command -v wine64 >/dev/null ) \
     || fatal "The Proton folder used at install time is gone. Install Proton 10.0 from Steam again, or run install.sh once more."
+  echo "Hyrule Online $(app_version)"
 
   trap 'stop_session; exit 143' INT TERM HUP
+  if [ $# -eq 0 ]; then
+    ASK=1
+    mode=$(conf_get mode)
+    case $mode in Host) mode=$M_HOST ;; Join|"") mode=$M_JOIN ;; esac
+    mode=$(ask_choice "Hyrule Online $(app_version)" "What do you want to do?" "$mode" "$M_LOCAL" "$M_HOST" "$M_JOIN" "$M_STOP") || exit 0
+    conf_set mode "$mode"
+  elif [ "$1" = --host ]; then mode=$M_HOST; shift
+  elif [ "$1" = --local ]; then mode=$M_LOCAL; shift
+  fi
+  if [ "$mode" = "$M_STOP" ]; then stop_session; echo "Stopped."; exit 0; fi
   if session_active || server_active; then
     ask_yesno "A Hyrule Online session is already running. Stop it and start a new one?" || exit 0
     stop_session
   fi
-
-  if [ $# -eq 0 ]; then
-    mode=$(conf_get mode)
-    mode=$(ask_choice "Hyrule Online" "Join a server or host one on this device?" "${mode:-Join}" Join Host) || exit 0
-    conf_set mode "$mode"; ASK=1
-  elif [ "$1" = --host ]; then mode=Host; shift
-  fi
-  if [ "$mode" = Host ]; then host_session "$@"; else join_session "$@"; fi
+  case $mode in
+    "$M_LOCAL") server_session local ;;
+    "$M_HOST") server_session host "$@" ;;
+    *) join_session "$@" ;;
+  esac
 }
 
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then main "$@"; fi

@@ -187,14 +187,112 @@ check "server keeps stdin open" grep -q 'tail -f /dev/null' "$TDIR/hyrule-online
 check "server rolls forward to .NET 8" grep -q 'DOTNET_ROLL_FORWARD=Major' "$TDIR/hyrule-online.sh"
 check "installer unpacks the server step" grep -q 'run_step server' "$TDIR/install.sh"
 
-write_server_ini "$TMP/ServerConfig.ini" 6000 'p w;#=x'
-equal "ini ip" IP=0.0.0.0 "$(grep '^IP=' "$TMP/ServerConfig.ini")"
-equal "ini port" Port=6000 "$(grep '^Port=' "$TMP/ServerConfig.ini")"
-equal "ini password" 'Password=p w;#=x' "$(grep '^Password=' "$TMP/ServerConfig.ini")"
-equal "ini description" 'Description=Hyrule Online on SteamOS' "$(grep '^Description=' "$TMP/ServerConfig.ini")"
-equal "ini default rules" 1 "$(grep -c '^DefaultGamemode=True$' "$TMP/ServerConfig.ini")"
-check "ini has the shipped sections" grep -q '^\[DefaultGamemode\]$' "$TMP/ServerConfig.ini"
-check "ini has no CR" no_cr "$TMP/ServerConfig.ini"
+INI=$TMP/ServerConfig.ini
+ini_get() { sed -n "s/^$1=//p" "$INI"; }
+# The rule digits read back from an ini, the way the Windows launcher reads the same keys.
+ini_rules() {
+  local k b=''
+  for k in EnemySync QuestSync KorokSync TowerSync ShrineSync LocationSync DungeonSync; do if [ "$(ini_get $k)" = True ]; then b+="1"; else b+="0"; fi; done
+  printf '%s%s' "$b" "$(ini_get Special)"
+}
+write_server_ini "$INI" 0.0.0.0 6000 'p w;#=x' 'A description' 10111100
+equal "ini ip" IP=0.0.0.0 "$(grep '^IP=' "$INI")"
+equal "ini port" Port=6000 "$(grep '^Port=' "$INI")"
+equal "ini password" 'p w;#=x' "$(ini_get Password)"
+equal "ini description" 'A description' "$(ini_get Description)"
+equal "ini default gamemode" 1 "$(grep -c '^DefaultGamemode=True$' "$INI")"
+equal "ini section order" '[Connection] [ServerInformation] [Gamemode] [DefaultGamemode]' "$(grep '^\[' "$INI" | tr '\n' ' ' | sed 's/ $//')"
+equal "ini empty password" Password= "$(write_server_ini "$INI" 127.0.0.1 5050 '' d 10111100; grep '^Password=' "$INI")"
+check "ini has no CR" no_cr "$INI"
+equal "preset count" "${#PRESETS[@]}" "${#PRESET_BITS[@]}"
+equal "default preset" "Game Completion" "${PRESETS[0]}"
+equal "default rules are the shipped ones" "EnemySync=True QuestSync=False KorokSync=True TowerSync=True ShrineSync=True LocationSync=True DungeonSync=False Special=0" \
+  "$(write_server_ini "$INI" 127.0.0.1 5050 '' d "${PRESET_BITS[0]}"; sed -n '/^EnemySync/,$p' "$INI" | tr '\n' ' ' | sed 's/ $//')"
+for i in "${!PRESETS[@]}"; do
+  write_server_ini "$INI" 0.0.0.0 5050 '' d "${PRESET_BITS[i]}"
+  equal "preset ${PRESETS[i]} round trip" "${PRESET_BITS[i]}" "$(ini_rules)"
+  equal "preset ${PRESETS[i]} name" "${PRESETS[i]}" "$(ini_get Name)"
+  check "preset ${PRESETS[i]} digits" grep -Eq '^[01]{7}[012]$' <<<"${PRESET_BITS[i]}"
+done
+write_server_ini "$INI" 0.0.0.0 5050 '' d 01010102
+equal "custom rules round trip" 01010102 "$(ini_rules)"; equal "custom name" Custom "$(ini_get Name)"
+equal "Hunter Vs Speedrunner is special 1" 1 "${PRESET_BITS[1]:7:1}"
+equal "Death Swap is special 2" 2 "${PRESET_BITS[4]:7:1}"
+equal "clean_text strips controls and trims" ab "$(clean_text $'  a\tb\n ' 10)"
+equal "clean_text cuts" abc "$(clean_text abcdef 3)"
+check "host port 1024" valid_host_port 1024; check "host port 65535" valid_host_port 65535
+refuse "host port 1023" valid_host_port 1023; refuse "host port 65536" valid_host_port 65536
+BITS=10111100
+ask_rules 2>/dev/null <<<$'custom\nEnemies, Koroks\nDeath\n'
+equal "custom rules dialog (terminal)" 10100002 "$BITS"
+ask_rules 2>/dev/null <<<$'hide\n'
+equal "preset dialog (terminal)" 10000000 "$BITS"
+
+pi() { parse_invite "$1" && printf '%s|%s|%s' "$INV_HOST" "$INV_PORT" "$INV_PASS"; }
+equal "invite plain" '192.168.1.43|5050|' "$(pi hyrule://192.168.1.43:5050)"
+equal "invite upper case scheme and space" 'host.example|6000|p w&x' "$(pi '  HYRULE://host.example:6000?pw=p%20w%26x ')"
+equal "invite trailing slash" 'h|1|' "$(pi hyrule://h:1//)"
+equal "invite default port" 'host|5050|' "$(pi host)"
+equal "host:port" 'host|7000|' "$(pi host:7000)"
+equal "invite pw among other keys" 'h|5050|xé' "$(pi 'hyrule://h:5050?a=b&pw=x%C3%A9&c=d')"
+equal "invite empty pw" 'h|5050|' "$(pi 'hyrule://h:5050?pw=')"
+equal "invite plus is kept" 'h|5050|a+b' "$(pi 'h:5050?pw=a+b')"
+equal "invite bad escape is kept" 'h|5050|%zz' "$(pi 'h:5050?pw=%zz')"
+for t in "" hyrule:// h:0 h:65536 h:abc h: :5050 "bad host:5050" a..b:5050 'h;x:5050' h:5050:6000 "$(printf 'a%.0s' $(seq 1 201))"; do refuse "invite '$t'" parse_invite "$t"; done
+for pw in 'p w&x#=/?%' é a+b 100% 'a\x41b' '"q"' "it's"; do
+  equal "invite round trip $pw" "h|5050|$pw" "$(pi "$(invite_url h 5050 "$pw")")"
+done
+
+# Local binds loopback only; Host binds every address. The unit start and the game are stubbed out.
+run_unit() { :; }; wait_server() { :; }; start_session() { :; }; wait_connect() { :; }
+HERE=$TMP; CONF=$TMP/conf; mkdir -p "$TMP/server"; : > "$TMP/server/MBL.DedicatedServer.exe"
+NOPLAY=1 ASK=0
+INI=$TMP/server/ServerConfig.ini
+server_session local >/dev/null 2>&1
+equal "local binds loopback" IP=127.0.0.1 "$(grep '^IP=' "$INI")"
+equal "local port" Port=5050 "$(grep '^Port=' "$INI")"
+equal "local has no password" Password= "$(grep '^Password=' "$INI")"
+equal "local description" "$DEFAULT_DESC" "$(ini_get Description)"
+server_session host 6000 'p w' >/dev/null 2>&1
+equal "host binds every address" IP=0.0.0.0 "$(grep '^IP=' "$INI")"
+equal "host port" Port=6000 "$(grep '^Port=' "$INI")"
+equal "host password" 'p w' "$(ini_get Password)"
+equal "host saved the rules" "${PRESET_BITS[0]}" "$(conf_get rules)"
+conf_set rules 00000002; conf_set desc 'My world'
+server_session host >/dev/null 2>&1
+equal "host reuses the saved rules" 00000002 "$(ini_rules)"
+equal "host reuses the saved description" 'My world' "$(ini_get Description)"
+equal "host reuses the saved port" Port=6000 "$(grep '^Port=' "$INI")"
+join_session 'hyrule://h.example:6001?pw=a%20b' '' Zelda >/dev/null 2>&1
+equal "join from an invite" 'h.example|6001|a b|Zelda' "$HOST|$PORT|$PASS|$NAME"
+join_session h.example:6002 typed >/dev/null 2>&1
+equal "a typed password wins over the invite" 'h.example|6002|typed' "$HOST|$PORT|$PASS"
+join_session 10.0.0.9 6003 pw2 Navi >/dev/null 2>&1
+equal "join with host port password name" '10.0.0.9|6003|pw2|Navi' "$HOST|$PORT|$PASS|$NAME"
+equal "join saved the values" '10.0.0.9' "$(conf_get host)"
+server_session local >/dev/null 2>&1
+equal "local still binds loopback" IP=127.0.0.1 "$(grep '^IP=' "$INI")"
+equal "local reuses the saved rules" 00000002 "$(ini_rules)"
+check "local says it is private" grep -q 'Only this device can join' "$TDIR/hyrule-online.sh"
+equal "failed join checklist (same as the Windows launcher)" "Check the invite, the password, that the host has a session running, and that its firewall allows the port." "$CHECKLIST"
+[ ! -f "$TDIR/../src/Launcher/Lang.cs" ] || check "checklist is in the Windows launcher" grep -qF "$CHECKLIST" "$TDIR/../src/Launcher/Lang.cs"
+check "wrong password is reported" grep -q 'could not join: wrong password' "$TDIR/hyrule-online.sh"
+
+echo "== version =="
+V=
+for f in "$TDIR/../VERSION" "$TDIR/VERSION"; do [ -f "$f" ] && { V=$(head -n1 "$f" | tr -d '[:space:]'); break; }; done
+check "VERSION looks like 1.2.3" grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' <<<"$V"
+equal "app_version reads VERSION" "$V" "$(app_version)"
+check "install.sh records the version" grep -q 'state_set version' "$TDIR/install.sh"
+check "install.sh installs VERSION" grep -q '> "$DIR/VERSION"' "$TDIR/install.sh"
+if [ -f "$TDIR/../.github/workflows/release.yml" ]; then
+  # The Windows build, the installer and the release all read the first line of the same VERSION file.
+  check "release.yml reads VERSION" grep -q 'head -n1 VERSION' "$TDIR/../.github/workflows/release.yml"
+  check "release.yml names the tarball with it" grep -qF 'HyruleOnline-$v-steamos.tar.gz' "$TDIR/../.github/workflows/release.yml"
+  check "Package.ps1 reads VERSION" grep -q "'VERSION'" "$TDIR/../scripts/Package.ps1"
+  grep -q 'VERSION' <(sed -n '/Package SteamOS installer/,/Publish release/p' "$TDIR/../.github/workflows/release.yml") \
+    || echo "NOTE: release.yml does not copy VERSION into the SteamOS tarball yet"
+fi
 equal "escape plain" abc-1._~ "$(url_escape abc-1._~)"
 equal "escape specials" 'p%20w%26x%23%3D%2F%3F%25' "$(url_escape 'p w&x#=/?%')"
 equal "escape utf-8" '%C3%A9' "$(url_escape é)"

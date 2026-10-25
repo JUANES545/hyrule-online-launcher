@@ -22,6 +22,15 @@ valid_host() {
 
 valid_name() { [[ $1 =~ ^[A-Za-z0-9_-]{1,16}$ ]]; }
 
+# The release number, from the VERSION file of the repository (next to these scripts once installed or packed).
+app_version() {
+  local d f; d=$(dirname "${BASH_SOURCE[0]}")
+  for f in "$d/VERSION" "$d/../VERSION"; do
+    if [ -f "$f" ]; then head -n1 "$f" | tr -d "[:space:]"; return 0; fi
+  done
+  printf unknown
+}
+
 # msg_box <info|warning|error> <text>
 msg_box() {
   if have_gui; then zenity "--$1" --no-markup --width=460 --text "$2" 2>/dev/null || true
