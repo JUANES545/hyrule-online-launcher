@@ -57,7 +57,12 @@ namespace HyruleOnline {
    hostPort = ServerConnection.CleanPort(C<TextBox>("HostPortBox").Text);
    hostPassword = ServerConnection.CleanText(C<TextBox>("HostPasswordBox").Text, 40);
    hostDescription = ServerConnection.CleanText(C<TextBox>("HostDescriptionBox").Text, 80);
-   string typed = ServerConnection.CleanText(C<TextBox>("HostAddressBox").Text, 100);
+   string typed = ServerConnection.CleanText(C<TextBox>("HostAddressBox").Text, 100), shownHost, shownSecret;
+   int shownPort;
+   // A "host:port" or invite typed here would make the invite "host:port:port"; keep the host and move the port to its own box.
+   string bare = typed.StartsWith("hyrule://", StringComparison.OrdinalIgnoreCase) ? typed.Substring(9) : typed;
+   if (bare.IndexOf(':') >= 0 && ServerConnection.TryParse(bare, out shownHost, out shownPort, out shownSecret)) { typed = shownHost; hostPort = shownPort; }
+   else typed = bare;
    hostAddress = typed == DetectedAddress() ? "" : typed;
    joinAddress = ServerConnection.CleanText(C<TextBox>("JoinAddressBox").Text, 200);
    joinPassword = ServerConnection.CleanText(C<TextBox>("JoinPasswordBox").Text, 40);

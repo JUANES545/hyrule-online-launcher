@@ -1453,7 +1453,8 @@ namespace HyruleOnline {
   string Signature() {
    Func<double, string> size = v => GraphicsMod.NearestScale(v).ToString(System.Globalization.CultureInfo.InvariantCulture);
    var parts = new List<object> { shadows, shadowDistance, antiAliasing, advanced.Api, advanced.VSync, advanced.AsyncCompile, advanced.AccurateBarriers, advanced.Upscale, advanced.Downscale, advanced.ShowFps, advanced.ShowUsage, advanced.ShowShaderNotice, advanced.Volume, sharedShaders, language,
-    rules.Special, rules.Enemies, rules.Quests, rules.Koroks, rules.Towers, rules.Shrines, rules.Locations, rules.DivineBeasts, pair != null, playerCount, onlineMode, hostPort, hostPassword, hostDescription, joinAddress, joinPassword };
+    rules.Special, rules.Enemies, rules.Quests, rules.Koroks, rules.Towers, rules.Shrines, rules.Locations, rules.DivineBeasts, pair != null, playerCount, onlineMode,
+    onlineMode == ServerConnection.Join ? joinAddress + "|" + joinPassword : onlineMode == ServerConnection.Host ? hostPort + "|" + hostPassword + "|" + hostDescription : "" };
     if (playerCount == 2) parts.AddRange(new object[] { rotations[0], rotations[1] });
    for (int i = 0; i < playerCount; i++) parts.AddRange(new object[] { Characters.CleanName(C<TextBox>("P" + (i + 1) + "NameBox").Text, Characters.DefaultNames[i]), models[i] });
    if (pair != null) for (int i = 0; i < 2; i++) parts.AddRange(new object[] { displays[i], size(scales[i]), fpsLimits[i] });
