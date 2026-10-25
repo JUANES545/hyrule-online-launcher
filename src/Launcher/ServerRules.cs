@@ -242,9 +242,25 @@ namespace HyruleOnline {
     if (!int.TryParse(text.Substring(colon + 1), out port) || port < 1 || port > 65535) return false;
     text = text.Substring(0, colon);
    }
-   if (!Regex.IsMatch(text, "^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$")) return false;
+   if (!ValidHost(text)) return false;
    host = text;
    return true;
+  }
+
+  public static bool ValidHost(string text) {
+   return Regex.IsMatch(text ?? "", "^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$");
+  }
+
+  public const string FirewallName = "Hyrule Online Server ";
+
+  // Ports of the launcher's own firewall rules other than the one in use, read from `netsh ... show rule name=all` (the labels are localized, the rule names are not).
+  public static List<int> StaleRulePorts(string output, int keep) {
+   var ports = new List<int>();
+   foreach (Match found in Regex.Matches(output ?? "", Regex.Escape(FirewallName) + "(\\d{1,5})\\s*$", RegexOptions.Multiline)) {
+    int port;
+    if (int.TryParse(found.Groups[1].Value, out port) && port != keep && !ports.Contains(port)) ports.Add(port);
+   }
+   return ports;
   }
 
   // The address worth sharing: a Tailscale one (reachable from anywhere), then a home network one; null when there is neither.

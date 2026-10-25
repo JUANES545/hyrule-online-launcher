@@ -373,6 +373,10 @@ namespace HyruleOnline {
    Require(invite == "hyrule://100.64.0.5:5051?pw=a%26b%20c" && ServerConnection.Invite("h", 5050, "") == "hyrule://h:5050", "invites are written");
    Require(ServerConnection.TryParse(invite, out host, out port, out password) && password == "a&b c", "an invite reads back");
    Require(ServerConnection.CleanPort("80") == 5050 && ServerConnection.CleanPort("abc") == 5050 && ServerConnection.CleanPort(null) == 5050 && ServerConnection.CleanPort(" 6001 ") == 6001, "ports");
+   Require(ServerConnection.ValidHost("friend.example.com") && ServerConnection.ValidHost("100.64.0.5") && !ServerConnection.ValidHost("host/path") && !ServerConnection.ValidHost("my host") && !ServerConnection.ValidHost("host:5050") && !ServerConnection.ValidHost("") && !ServerConnection.ValidHost(null), "host names are checked");
+   string rules = "Rule Name:                            Hyrule Online Server 5050\r\n----\r\nRule Name:    Hyrule Online Server 5051\r\nRule Name:    Hyrule Online Server 5051\r\nRule Name:    Hyrule Online Server 6000\r\nRule Name:    Other Hyrule Online Server 7000 x\r\nRule Name:    Something else\r\n";
+   var stale = ServerConnection.StaleRulePorts(rules, 5050);
+   Require(stale.Count == 2 && stale[0] == 5051 && stale[1] == 6000 && ServerConnection.StaleRulePorts("", 5050).Count == 0 && ServerConnection.StaleRulePorts(null, 1).Count == 0, "old firewall rules are found once each and the current port is kept");
    Require(ServerConnection.CleanText(" a\r\nb\t ", 10) == "ab" && ServerConnection.CleanText("abcdef", 3) == "abc" && ServerConnection.CleanText(null, 3) == "" && ServerConnection.CleanMode("Nope") == "Local" && ServerConnection.CleanMode("Join") == "Join", "text and mode cleaning");
    Require(ServerConnection.Best(new[] { "192.168.1.5", "100.100.1.2", "10.0.0.2" }) == "100.100.1.2" && ServerConnection.Best(new[] { "169.254.1.1", "172.20.0.3" }) == "172.20.0.3" && ServerConnection.Best(new[] { "169.254.1.1", "100.10.0.1" }) == null && ServerConnection.Best(new string[0]) == null, "the address worth sharing");
 

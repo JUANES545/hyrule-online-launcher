@@ -11,10 +11,11 @@ namespace HyruleOnline {
   string onlineMode = ServerConnection.Local, hostPassword = "", hostDescription = ServerConnection.DefaultDescription, hostAddress = "", joinAddress = "", joinPassword = "";
   int hostPort = ServerConnection.DefaultPort, playersBeforeJoin = 2;
   readonly Roster roster = new Roster();
+  bool addressProblem;
 
   bool Joining { get { return onlineMode == ServerConnection.Join; } }
 
-  static string FirewallRule(int port) { return "Hyrule Online Server " + port; }
+  static string FirewallRule(int port) { return ServerConnection.FirewallName + port; }
 
   void WatchOnline() {
    C<ComboBox>("OnlineModeBox").SelectionChanged += (s, e) => {
@@ -88,7 +89,17 @@ namespace HyruleOnline {
 
   // A server that ends while the session is up and nobody asked for it: say so and offer the restart (Start becomes Restart session).
   void ServerStopped(int code) {
-   if (stopping || script != null || !sessionLive || Joining) return;
+   if (stopping || Joining) return;
+   if (script != null) {
+    // Died while the start script was still waiting for it: stop waiting. ScriptExited keeps this reason.
+    Write("The server stopped while starting (exit code " + code + ").");
+    failure = Tr("The server stopped while starting (exit code {0}).", code);
+    SetStatus("Start failed: {0}", failure);
+    SetPrompt("Use Stop session to close anything that was started, then try again.");
+    StopScript();
+    return;
+   }
+   if (!sessionLive) return;
    serverCrashed = true;
    Write("The server stopped (exit code " + code + ").");
    SetStatus("The server stopped.");
@@ -170,6 +181,8 @@ namespace HyruleOnline {
    string bare = typed.StartsWith("hyrule://", StringComparison.OrdinalIgnoreCase) ? typed.Substring(9) : typed;
    if (bare.IndexOf(':') >= 0 && ServerConnection.TryParse(bare, out shownHost, out shownPort, out shownSecret)) { typed = shownHost; hostPort = shownPort; }
    else typed = bare;
+   addressProblem = typed.Length > 0 && !ServerConnection.ValidHost(typed);
+   if (addressProblem) typed = hostAddress;
    hostAddress = typed == DetectedAddress() ? "" : typed;
    if (C<TextBox>("JoinAddressBox").Text != joinAddress) C<TextBlock>("TestResult").Text = "";
    joinAddress = ServerConnection.CleanText(C<TextBox>("JoinAddressBox").Text, 200);
@@ -216,7 +229,7 @@ namespace HyruleOnline {
    Func<bool, Visibility> show = on => on ? Visibility.Visible : Visibility.Collapsed;
    C<UIElement>("HostFields").Visibility = C<UIElement>("HostShare").Visibility = show(host);
    C<UIElement>("JoinFields").Visibility = C<UIElement>("JoinHelp").Visibility = C<UIElement>("WorldJoinNote").Visibility = show(Joining);
-   if (host) { string shown = C<TextBox>("HostAddressBox").Text; C<TextBlock>("NetworkHintText").Text = AddressHint(shown); }
+   if (host) { string shown = C<TextBox>("HostAddressBox").Text; C<TextBlock>("NetworkHintText").Text = (addressProblem ? Tr("That address is not valid, so the previous one was kept. Use letters, digits, dots and dashes only.") + " " : "") + AddressHint(shown); }
    ShowOnlineStatus();
    C<TextBlock>("OnlineModeInfo").Text = Tr(host ? "Friends who run this launcher can join this PC. The world rules are the ones on the World page."
     : Joining ? "You play on one screen with one controller on a friend's server. The friend sets the rules."
@@ -247,17 +260,40 @@ namespace HyruleOnline {
    catch (Exception) { return false; }
   }
 
-  // Windows asks for administrator permission; the launcher itself keeps running without it.
+  // Windows asks for administrator permission once; the launcher itself keeps running without it. Rules left over from other ports are removed in the same step.
   void AllowFirewall() {
    int port = hostPort;
    C<Button>("OpenFirewall").IsEnabled = false;
    System.Threading.ThreadPool.QueueUserWorkItem(state => {
-    bool added = RunNetsh("advfirewall firewall add rule name=\"" + FirewallRule(port) + "\" dir=in action=allow protocol=TCP localport=" + port, true);
+    var commands = new List<string>();
+    foreach (int old in ServerConnection.StaleRulePorts(NetshOutput("advfirewall firewall show rule name=all"), port)) commands.Add("netsh advfirewall firewall delete rule name=\"" + FirewallRule(old) + "\"");
+    commands.Add("netsh advfirewall firewall add rule name=\"" + FirewallRule(port) + "\" dir=in action=allow protocol=TCP localport=" + port);
+    bool added = RunElevated("cmd.exe", "/c " + string.Join(" & ", commands.ToArray()));
     Window.Dispatcher.BeginInvoke(new Action(() => {
      Write(added ? "Firewall rule added for TCP port " + port + "." : "The firewall rule was not added.");
      ShowFirewall();
     }));
    });
+  }
+
+  static string NetshOutput(string arguments) {
+   try {
+    var info = new ProcessStartInfo("netsh.exe", arguments) { CreateNoWindow = true, UseShellExecute = false, RedirectStandardOutput = true };
+    using (var process = Process.Start(info)) {
+     string text = process.StandardOutput.ReadToEnd();
+     process.WaitForExit(20000);
+     return text;
+    }
+   }
+   catch (Exception) { return ""; }
+  }
+
+  static bool RunElevated(string file, string arguments) {
+   try {
+    var info = new ProcessStartInfo(file, arguments) { CreateNoWindow = true, WindowStyle = ProcessWindowStyle.Hidden, UseShellExecute = true, Verb = "runas" };
+    using (var process = Process.Start(info)) return process.WaitForExit(30000) && process.ExitCode == 0;
+   }
+   catch (Exception) { return false; }
   }
 
   // Where the local players connect: this PC's own server, or the friend's server.

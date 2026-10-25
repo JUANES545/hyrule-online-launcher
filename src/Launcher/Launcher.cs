@@ -1434,8 +1434,8 @@ namespace HyruleOnline {
 
   void ScriptExited(int code) {
    script = null;
-   if (code != 0) {
-    failure = lastError ?? Tr("The start script failed.");
+   if (code != 0 || failure != null) {
+    failure = failure ?? lastError ?? Tr("The start script failed.");
     SetStatus("Start failed: {0}", failure);
     SetPrompt("Use Stop session to close anything that was started, then try again.");
     Write("Start failed (exit code " + code + ").");

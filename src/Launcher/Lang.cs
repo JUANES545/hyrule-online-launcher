@@ -306,6 +306,8 @@ namespace HyruleOnline {
    new[] { "Enter an invite on the Online page.", "Escribe una invitación en la página En línea.", "Saisissez une invitation sur la page En ligne." },
    new[] { "The server stopped. Press Restart session to bring it back.", "El servidor se detuvo. Pulsa Reiniciar sesión para recuperarlo.", "Le serveur s'est arrêté. Appuyez sur Redémarrer la session pour le relancer." },
    new[] { "The server stopped.", "El servidor se detuvo.", "Le serveur s'est arrêté." },
+   new[] { "The server stopped while starting (exit code {0}).", "El servidor se detuvo al arrancar (código de salida {0}).", "Le serveur s'est arrêté au démarrage (code de sortie {0})." },
+   new[] { "That address is not valid, so the previous one was kept. Use letters, digits, dots and dashes only.", "Esa dirección no es válida, así que se mantuvo la anterior. Usa solo letras, dígitos, puntos y guiones.", "Cette adresse n'est pas valide, l'ancienne a donc été conservée. Utilisez uniquement des lettres, des chiffres, des points et des tirets." },
    new[] { "JOINING A SERVER", "UNIRSE A UN SERVIDOR", "REJOINDRE UN SERVEUR" },
    new[] { "Ask the host for their invite and paste it here. You play on this PC with one controller. The host chooses the world rules and runs the server.", "Pide su invitación al anfitrión y pégala aquí. Juegas en este PC con un solo mando. El anfitrión elige las reglas del mundo y ejecuta el servidor.", "Demandez son invitation à l'hôte et collez-la ici. Vous jouez sur ce PC avec une seule manette. L'hôte choisit les règles du monde et lance le serveur." },
    new[] { "Remote", "Remoto", "Distant" },
