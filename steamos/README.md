@@ -67,18 +67,32 @@ Three-way play: a Windows PC with two local players (Join mode, two players) plu
 
 One version, one `VERSION` file (the number in the release name): `hyrule-online.sh --version` and the installer print it, and the installer saves it in its state file. Both sides use the same invite format, the same rule presets and keys, and the same failure checklist. What the Ally does not do:
 
-| Feature | Windows launcher | SteamOS (Ally / Deck) |
+The window (`launcher.py`) is the same launcher drawn with Tk: the same dark theme, header, gold focus ring, tab order, status line, hint line and Start / Stop / Exit row, with the Windows texts (`strings.json`, English, Spanish and French, keyed by the English text of `Lang.cs` with "PC" written as "device"). The language is the saved one (`launcher.conf`, `~/.config/hyrule-online/`), else the system language, else English. The window is fullscreen in Gaming Mode (`HYRULE_FULLSCREEN=1` forces it) and 1280x800 otherwise; the layout scales with the screen and no main page scrolls.
+
+Controls (Steam Input maps the pad to these keys): arrows or D-pad move the focus to the nearest control, Tab / Shift+Tab walk the list, Enter or A presses, Esc or B closes a list or the help, goes back to Play, and on Play closes the launcher (it asks first if a session is running); LB / RB (Ctrl+Tab) change page.
+
+| Windows launcher element | SteamOS window | Notes |
 | --- | --- | --- |
-| Play on this device (private server) | yes | yes |
-| Host a server, invite, password, description | yes | yes (no copy button; the invite is in a dialog you can select and copy) |
-| Join with an invite, `host:port` and password | yes | yes |
-| World rules and presets | World page | dialogs at start; same names, defaults and ini keys |
-| Local players on one device | 1 or 2 | 1 only (no second Cemu window, no pad router) |
-| Firewall rule for the host port | added for you | not added; detected and warned about only |
-| Steam Input / controller router | yes | no; set the controller up in Cemu (Options, Input settings) |
-| Live controls (time, weather, name tags) | yes | no |
-| Graphics, language, avatar settings | yes | no; the installer's Cemu settings |
-| Test connection button | removed | none; nothing probes the port (a bare TCP connection crashes the server) |
+| Header, status line, hint line, Start / Stop session / Exit | same | Start becomes Restart session when the settings changed while running |
+| Tabs Play, Online, World, Language, Details; last tab and mode remembered | same order | Graphics tab is not applicable (see below) |
+| Online: mode (Play on this device / Host a server / Join a server) | same | choice list instead of a combo box |
+| Host: port (5 digits, 1024 to 65535, else 5050), password (40), description (80), address (100) | same limits | `;` is removed from the password and the page says so |
+| Invite box, Copy invite, VPN hint, "no network address" hint | same | the invite follows the form and the clipboard works |
+| Join: invite or address (200), password (40), invite parsing, bad invite error | same | `hyrule://host:port?pw=` as on Windows |
+| World: presets, special modes, seven rules, recommended rules, shared / not shared summary | same | locked with a note while joining; rules and presets come from `--presets` |
+| Language page, Details page (session log, server console, host-session info), Help | same | Details shows the logs; no command box |
+| Player name | same field | only `A-Za-z0-9_-`, 1 to 16 (Windows also allows space and dot) |
+| Second local player (swap, split, P2 name / avatar / motion) | not applicable | one display, one Cemu |
+| Controller assignment, vibration, pad router and cursors, menu shortcut, pad layout | not applicable | Steam Input does it; set the pad in Cemu |
+| Avatars, Graphics page, Cemu advanced settings, game language list | not applicable | the installer applies the Cemu settings |
+| Firewall rule button | not applicable | not added; detected and warned about only |
+| Display policy (primary display) | not applicable | gamescope owns the display |
+| Setup wizard and preflight | not applicable | `install.sh` and `hyrule-online.sh --check` |
+| Live controls (time, weather, name tags, pause sync, teleport), server console command box | not applicable | the server runs as a user service without them |
+| Return to game, "start while running" confirmation | not applicable | the launcher only has Start, Stop and Exit |
+| Test connection button | removed on both | a bare TCP connection crashes the server |
+
+Differences to keep in mind: Exit asks only when a session is running (the server and the game keep running if you exit); the invite parser rejects an address octet above 255; dialogs are lists inside the window (a second window may not get focus under gamescope). `install.sh` must copy `strings.json` next to `launcher.py`; without it the window is English only. Fullscreen, focus and the physical controller are only tested with simulated input; check them on the device.
 
 ## CLI used by the GUI
 

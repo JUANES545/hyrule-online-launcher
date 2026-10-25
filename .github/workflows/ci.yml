@@ -39,5 +39,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Test
+      - name: Install display tools
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends xvfb python3-tk imagemagick
+      - name: Installer and script tests
         run: bash steamos/test.sh
+      - name: Launcher unit tests
+        run: python3 steamos/launcher_test.py
+      - name: Launcher window check (stub script, virtual display)
+        run: xvfb-run -a -s "-screen 0 1280x800x24" python3 tests/steamos_gui_check.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: steamos-launcher-screenshots
+          path: .artifacts/gui/*.png
+          if-no-files-found: ignore
+          retention-days: 7

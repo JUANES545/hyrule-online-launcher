@@ -1,0 +1,502 @@
+{
+ "Enemies": {
+  "es": "Enemigos",
+  "fr": "Ennemis"
+ },
+ "Quests": {
+  "es": "Misiones",
+  "fr": "Quêtes"
+ },
+ "Koroks": {
+  "es": "Kologs",
+  "fr": "Korogus"
+ },
+ "Towers": {
+  "es": "Torres",
+  "fr": "Tours"
+ },
+ "Shrines": {
+  "es": "Santuarios",
+  "fr": "Sanctuaires"
+ },
+ "Locations": {
+  "es": "Lugares",
+  "fr": "Lieux"
+ },
+ "Divine Beasts": {
+  "es": "Bestias Divinas",
+  "fr": "Créatures divines"
+ },
+ "No special mode": {
+  "es": "Sin modo especial",
+  "fr": "Aucun mode spécial"
+ },
+ "Hover an option, or move the focus to it, to see what it does.": {
+  "es": "Pasa el ratón por una opción, o ponle el foco, para ver qué hace.",
+  "fr": "Survolez une option, ou placez le focus dessus, pour voir son effet."
+ },
+ "Check the invite, the password, that the host has a session running, and that its firewall allows the port.": {
+  "es": "Revisa la invitación, la contraseña, que el anfitrión tenga una sesión abierta y que su cortafuegos permita el puerto.",
+  "fr": "Vérifiez l'invitation, le mot de passe, que l'hôte a une session ouverte et que son pare-feu autorise le port."
+ },
+ "PLAY": {
+  "es": "JUGAR",
+  "fr": "JOUER"
+ },
+ "ONLINE": {
+  "es": "EN LÍNEA",
+  "fr": "EN LIGNE"
+ },
+ "WORLD": {
+  "es": "MUNDO",
+  "fr": "MONDE"
+ },
+ "LANGUAGE": {
+  "es": "IDIOMA",
+  "fr": "LANGUE"
+ },
+ "DETAILS": {
+  "es": "DETALLES",
+  "fr": "DÉTAILS"
+ },
+ "Play on this device": {
+  "es": "Jugar en este dispositivo",
+  "fr": "Jouer sur cet appareil"
+ },
+ "Host a server": {
+  "es": "Alojar un servidor",
+  "fr": "Héberger un serveur"
+ },
+ "Join a server": {
+  "es": "Unirse a un servidor",
+  "fr": "Rejoindre un serveur"
+ },
+ "The server only accepts players from this device.": {
+  "es": "El servidor solo acepta jugadores de este dispositivo.",
+  "fr": "Le serveur n'accepte que les joueurs de cet appareil."
+ },
+ "Friends who run this launcher can join this device. The world rules are the ones on the World page.": {
+  "es": "Los amigos que usen este launcher pueden unirse a este dispositivo. Las reglas del mundo son las de la página Mundo.",
+  "fr": "Les amis qui utilisent ce launcher peuvent rejoindre cet appareil. Les règles du monde sont celles de la page Monde."
+ },
+ "One player on this device joins a friend's server. The friend sets the rules.": {
+  "es": "Un jugador de este dispositivo entra en el servidor de un amigo. Tu amigo decide las reglas.",
+  "fr": "Un joueur de cet appareil rejoint le serveur d'un ami. Votre ami fixe les règles."
+ },
+ "Keeps enemies in sync: what one player defeats is defeated for both.": {
+  "es": "Sincroniza los enemigos: lo que derrota un jugador queda derrotado para ambos.",
+  "fr": "Synchronise les ennemis : ce qu'un joueur bat l'est pour les deux."
+ },
+ "Shares quest progress between the players.": {
+  "es": "Comparte el progreso de las misiones entre los jugadores.",
+  "fr": "Partage la progression des quêtes entre les joueurs."
+ },
+ "Shares the Korok seeds found by each player.": {
+  "es": "Comparte las semillas Kolog que encuentra cada jugador.",
+  "fr": "Partage les graines Korogu trouvées par chaque joueur."
+ },
+ "Shares activated towers and the map they reveal.": {
+  "es": "Comparte las torres activadas y el mapa que revelan.",
+  "fr": "Partage les tours activées et la carte qu'elles révèlent."
+ },
+ "Shares the shrines either player has completed.": {
+  "es": "Comparte los santuarios que complete cualquiera de los jugadores.",
+  "fr": "Partage les sanctuaires terminés par l'un ou l'autre joueur."
+ },
+ "Shares the map locations either player has discovered.": {
+  "es": "Comparte los lugares del mapa que descubra cualquiera de los jugadores.",
+  "fr": "Partage les lieux de la carte découverts par l'un ou l'autre joueur."
+ },
+ "Shares Divine Beast progress between the players.": {
+  "es": "Comparte el progreso de las Bestias Divinas entre los jugadores.",
+  "fr": "Partage la progression des Créatures divines entre les joueurs."
+ },
+ "For playing the whole game together. Defeated enemies, Korok seeds, towers, shrines and map locations are shared; quests and Divine Beasts stay separate for each player.": {
+  "es": "Para jugar el juego entero en equipo. Se comparten los enemigos derrotados, las semillas Kolog, las torres, los santuarios y los lugares del mapa; las misiones y las Bestias Divinas son separadas para cada jugador.",
+  "fr": "Pour jouer au jeu entier ensemble. Les ennemis vaincus, les graines Korogu, les tours, les sanctuaires et les lieux de la carte sont partagés ; les quêtes et les Créatures divines restent séparées pour chaque joueur."
+ },
+ "A chase game: the speedrunner races through the game while the hunters try to stop them. What one player clears, activates or discovers counts for both.": {
+  "es": "Un juego de persecución: el speedrunner avanza a toda velocidad mientras los cazadores intentan detenerlo. Lo que uno despeja, activa o descubre cuenta para ambos.",
+  "fr": "Un jeu de poursuite : le speedrunner fonce à travers le jeu pendant que les chasseurs tentent de l'arrêter. Ce qu'un joueur termine, active ou découvre compte pour les deux."
+ },
+ "Built for speedruns: what one player defeats, activates or discovers counts for both, except quests, Korok seeds and Divine Beasts.": {
+  "es": "Pensado para speedruns: lo que uno derrota, activa o descubre cuenta para ambos, salvo las misiones, las semillas Kolog y las Bestias Divinas.",
+  "fr": "Conçu pour les speedruns : ce qu'un joueur bat, active ou découvre compte pour les deux, sauf les quêtes, les graines Korogu et les Créatures divines."
+ },
+ "Only defeated enemies are shared. Everything else stays separate for each player, which suits hide and seek in the same world.": {
+  "es": "Solo se comparten los enemigos derrotados. Todo lo demás es separado para cada jugador, lo que va bien para el escondite en el mismo mundo.",
+  "fr": "Seuls les ennemis vaincus sont partagés. Tout le reste reste séparé pour chaque joueur, ce qui convient à un cache-cache dans le même monde."
+ },
+ "A game mode where the players are swapped around the world at intervals. Nothing else is shared.": {
+  "es": "Un modo de juego en el que los jugadores se intercambian de posición por el mundo cada cierto tiempo. No se comparte nada más.",
+  "fr": "Un mode de jeu où les joueurs sont échangés de position dans le monde à intervalles réguliers. Rien d'autre n'est partagé."
+ },
+ "Your own mix: choose below what the players share.": {
+  "es": "Tu propia mezcla: elige abajo lo que comparten los jugadores.",
+  "fr": "Votre propre mélange : choisissez ci-dessous ce que les joueurs partagent."
+ },
+ "Normal co-op: only the rules above decide what the players share.": {
+  "es": "Cooperativo normal: solo las reglas de arriba deciden lo que comparten los jugadores.",
+  "fr": "Coopératif normal : seules les règles ci-dessus décident de ce que les joueurs partagent."
+ },
+ "Adds a chase: one player speedruns while the others hunt them. Best with the Hunter Vs Speedrunner preset.": {
+  "es": "Añade una persecución: un jugador hace speedrun mientras los demás lo cazan. Mejor con el preset Hunter Vs Speedrunner.",
+  "fr": "Ajoute une poursuite : un joueur fait un speedrun pendant que les autres le chassent. Idéal avec le preset Hunter Vs Speedrunner."
+ },
+ "Adds Death Swap: the players are swapped around the world at intervals. Best with the Death Swap preset.": {
+  "es": "Añade Death Swap: los jugadores se intercambian de posición por el mundo cada cierto tiempo. Mejor con el preset Death Swap.",
+  "fr": "Ajoute Death Swap : les joueurs sont échangés de position dans le monde à intervalles réguliers. Idéal avec le preset Death Swap."
+ },
+ "SESSION: Start session opens the server and the game. When the game reaches its main menu, press Continue in its window (about a minute). This device plays one local player. If you change the name, the online settings or the world rules while a session runs, Start becomes Restart session. The launcher language applies at once.": {
+  "es": "SESIÓN: Iniciar sesión abre el servidor y el juego. Cuando el juego llegue a su menú principal, pulsa Continuar en su ventana (tarda aproximadamente un minuto). Este dispositivo juega con un jugador local. Si con la sesión en marcha cambias el nombre, los ajustes en línea o las reglas del mundo, Iniciar se convierte en Reiniciar sesión. El idioma del launcher se aplica al instante.",
+  "fr": "SESSION : Démarrer la session ouvre le serveur et le jeu. Quand le jeu arrive à son menu principal, appuyez sur Continuer dans sa fenêtre (environ une minute). Cet appareil joue avec un joueur local. Si vous changez le nom, les réglages en ligne ou les règles du monde pendant que la session tourne, Démarrer devient Redémarrer la session. La langue du launcher s'applique tout de suite."
+ },
+ "ONLINE: Choose how this device takes part. Play on this device keeps the server private. Host a server opens it to friends: set the port, password and description, then copy the invite. Join a server connects this device to a friend's server with their invite. Changes apply at the next session start.": {
+  "es": "EN LÍNEA: Elige cómo participa este dispositivo. Jugar en este dispositivo mantiene el servidor privado. Alojar un servidor lo abre a tus amigos: indica el puerto, la contraseña y la descripción, y copia la invitación. Unirse a un servidor conecta este dispositivo al servidor de un amigo con su invitación. Los cambios se aplican al iniciar la próxima sesión.",
+  "fr": "EN LIGNE : Choisissez comment cet appareil participe. Jouer sur cet appareil garde le serveur privé. Héberger un serveur l'ouvre à vos amis : réglez le port, le mot de passe et la description, puis copiez l'invitation. Rejoindre un serveur connecte cet appareil au serveur d'un ami avec son invitation. Les changements s'appliquent au démarrage de la prochaine session."
+ },
+ "WORLD: World rules choose what everyone on the server shares (enemies, quests, koroks, towers, shrines, locations, Divine Beasts) and apply when the server starts. When you join a friend's server their rules apply and these are locked. Use recommended rules selects Game Completion.": {
+  "es": "MUNDO: Las reglas del mundo eligen lo que comparten todos en el servidor (enemigos, misiones, koroks, torres, santuarios, lugares, Bestias Divinas) y se aplican al iniciar el servidor. Si te unes al servidor de un amigo, valen sus reglas y estas quedan bloqueadas. Usar reglas recomendadas elige Game Completion.",
+  "fr": "MONDE : Les règles du monde choisissent ce que tous les joueurs du serveur partagent (ennemis, quêtes, korogus, tours, sanctuaires, lieux, créatures divines) et s'appliquent au démarrage du serveur. Si vous rejoignez le serveur d'un ami, ses règles s'appliquent et celles-ci sont verrouillées. Utiliser les règles recommandées choisit Game Completion."
+ },
+ "LANGUAGE: The launcher language changes at once.": {
+  "es": "IDIOMA: El idioma del launcher cambia al instante.",
+  "fr": "LANGUE : La langue du launcher change tout de suite."
+ },
+ "MOVING AROUND: The D-pad, the arrow keys or Tab move the focus. Confirm or Enter presses; back or Esc goes back and closes this help. LB and RB (or Ctrl+Tab) change page. Esc on the first page closes the launcher.": {
+  "es": "DESPLAZARSE: La cruceta, las flechas o Tab mueven el foco. Confirmar o Intro pulsa; atrás o Esc vuelve y cierra esta ayuda. LB y RB (o Ctrl+Tab) cambian de página. Esc en la primera página cierra el launcher.",
+  "fr": "SE DÉPLACER : La croix directionnelle, les flèches ou Tab déplacent le focus. Confirmer ou Entrée appuie ; retour ou Échap revient en arrière et ferme cette aide. LB et RB (ou Ctrl+Tab) changent de page. Échap sur la première page ferme le launcher."
+ },
+ "Friends can join from anywhere if the port is forwarded on your router.": {
+  "es": "Los amigos pueden entrar desde cualquier sitio si el puerto está redirigido en tu router.",
+  "fr": "Les amis peuvent rejoindre de n'importe où si le port est redirigé sur votre routeur."
+ },
+ "Not shared: {0}": {
+  "es": "No compartido: {0}",
+  "fr": "Non partagé : {0}"
+ },
+ "This is a {0} address. Friends on the same {0} network can join from anywhere.": {
+  "es": "Esta es una dirección de {0}. Los amigos en la misma red de {0} pueden entrar desde cualquier sitio.",
+  "fr": "Ceci est une adresse {0}. Les amis sur le même réseau {0} peuvent rejoindre de n'importe où."
+ },
+ "This is a home network address, so only people on the same network can join. For anyone else, install a VPN such as Tailscale on both devices, or forward the port on your router and use your public address.": {
+  "es": "Esta es una dirección de red local, así que solo entran las personas de la misma red. Para el resto, instala una VPN como Tailscale en ambos dispositivos, o redirige el puerto en tu router y usa tu dirección pública.",
+  "fr": "Ceci est une adresse de réseau local : seules les personnes du même réseau peuvent rejoindre. Pour les autres, installez un VPN comme Tailscale sur les deux appareils, ou redirigez le port sur votre routeur et utilisez votre adresse publique."
+ },
+ "No network address was found. Connect this device to a network, or type an address.": {
+  "es": "No se encontró ninguna dirección de red. Conecta este dispositivo a una red, o escribe una dirección.",
+  "fr": "Aucune adresse réseau n'a été trouvée. Connectez cet appareil à un réseau, ou saisissez une adresse."
+ },
+ "The start script failed.": {
+  "es": "El script de inicio falló.",
+  "fr": "Le script de démarrage a échoué."
+ },
+ "Start failed: {0}": {
+  "es": "No se pudo iniciar: {0}",
+  "fr": "Échec du démarrage : {0}"
+ },
+ "{0} joined.": {
+  "es": "{0} entró.",
+  "fr": "{0} a rejoint la partie."
+ },
+ "{0} left.": {
+  "es": "{0} salió.",
+  "fr": "{0} est parti."
+ },
+ "{0} could not join: wrong password.": {
+  "es": "{0} no pudo entrar: contraseña incorrecta.",
+  "fr": "{0} n'a pas pu entrer : mot de passe incorrect."
+ },
+ "{0} could not join (error {1}).": {
+  "es": "{0} no pudo entrar (error {1}).",
+  "fr": "{0} n'a pas pu entrer (erreur {1})."
+ },
+ "SESSION": {
+  "es": "SESIÓN",
+  "fr": "SESSION"
+ },
+ "Port": {
+  "es": "Puerto",
+  "fr": "Port"
+ },
+ "Password": {
+  "es": "Contraseña",
+  "fr": "Mot de passe"
+ },
+ "Server description": {
+  "es": "Descripción del servidor",
+  "fr": "Description du serveur"
+ },
+ "Invite or address": {
+  "es": "Invitación o dirección",
+  "fr": "Invitation ou adresse"
+ },
+ "INVITE FRIENDS": {
+  "es": "INVITAR AMIGOS",
+  "fr": "INVITER DES AMIS"
+ },
+ "Address in the invite": {
+  "es": "Dirección de la invitación",
+  "fr": "Adresse de l'invitation"
+ },
+ "JOINING A SERVER": {
+  "es": "UNIRSE A UN SERVIDOR",
+  "fr": "REJOINDRE UN SERVEUR"
+ },
+ "WORLD RULES": {
+  "es": "REGLAS DEL MUNDO",
+  "fr": "RÈGLES DU MONDE"
+ },
+ "Shared: {0}": {
+  "es": "Compartido: {0}",
+  "fr": "Partagé : {0}"
+ },
+ "The server address is not valid. Enter an invite link or host:port on the Online page.": {
+  "es": "La dirección del servidor no es válida. Escribe un enlace de invitación o host:puerto en la página En línea.",
+  "fr": "L'adresse du serveur n'est pas valide. Saisissez un lien d'invitation ou hôte:port sur la page En ligne."
+ },
+ "Server stopped": {
+  "es": "Servidor detenido",
+  "fr": "Serveur arrêté"
+ },
+ "Help": {
+  "es": "Ayuda",
+  "fr": "Aide"
+ },
+ "Previous page (LB or Ctrl+Shift+Tab)": {
+  "es": "Página anterior (LB o Ctrl+Mayús+Tab)",
+  "fr": "Page précédente (LB ou Ctrl+Maj+Tab)"
+ },
+ "Next page (RB or Ctrl+Tab)": {
+  "es": "Página siguiente (RB o Ctrl+Tab)",
+  "fr": "Page suivante (RB ou Ctrl+Tab)"
+ },
+ "START SESSION": {
+  "es": "INICIAR SESIÓN",
+  "fr": "DÉMARRER LA SESSION"
+ },
+ "Stop session": {
+  "es": "Detener sesión",
+  "fr": "Arrêter la session"
+ },
+ "Exit": {
+  "es": "Salir",
+  "fr": "Quitter"
+ },
+ "Cemu A: wait for the main menu, then press Continue within about a minute.": {
+  "es": "Cemu A: espera al menú principal y pulsa Continuar en aproximadamente un minuto.",
+  "fr": "Cemu A : attendez le menu principal, puis appuyez sur Continuer dans la minute environ."
+ },
+ "Copy invite": {
+  "es": "Copiar invitación",
+  "fr": "Copier l'invitation"
+ },
+ "Copies the invite. Your friends paste it in the Join a server mode of their launcher.": {
+  "es": "Copia la invitación. Tus amigos la pegan en el modo Unirse a un servidor de su launcher.",
+  "fr": "Copie l'invitation. Vos amis la collent dans le mode Rejoindre un serveur de leur launcher."
+ },
+ "Play on this device keeps the server private. Host a server lets friends join over the network. Join a server connects to a friend's server.": {
+  "es": "Jugar en este dispositivo mantiene el servidor privado. Alojar un servidor deja que tus amigos entren por la red. Unirse a un servidor te conecta al de un amigo.",
+  "fr": "Jouer sur cet appareil garde le serveur privé. Héberger un serveur permet à vos amis de vous rejoindre par le réseau. Rejoindre un serveur vous connecte à celui d'un ami."
+ },
+ "The TCP port the server listens on, from 1024 to 65535. It goes in the invite. The default is 5050.": {
+  "es": "El puerto TCP en el que escucha el servidor, de 1024 a 65535. Va en la invitación. Por defecto es 5050.",
+  "fr": "Le port TCP sur lequel le serveur écoute, de 1024 à 65535. Il figure dans l'invitation. Par défaut : 5050."
+ },
+ "Optional. Friends need it to join. Leave it empty for an open server.": {
+  "es": "Opcional. Tus amigos la necesitan para entrar. Déjala vacía para un servidor abierto.",
+  "fr": "Facultatif. Vos amis en ont besoin pour entrer. Laissez vide pour un serveur ouvert."
+ },
+ "A semicolon (;) is removed from the password.": {
+  "es": "Se quita el punto y coma (;) de la contraseña.",
+  "fr": "Le point-virgule (;) est retiré du mot de passe."
+ },
+ "The text friends see about this server.": {
+  "es": "El texto que ven tus amigos sobre este servidor.",
+  "fr": "Le texte que vos amis voient pour ce serveur."
+ },
+ "Paste the invite your friend sent you, or type their address and port.": {
+  "es": "Pega la invitación que te envió tu amigo, o escribe su dirección y puerto.",
+  "fr": "Collez l'invitation envoyée par votre ami, ou saisissez son adresse et son port."
+ },
+ "The server password, if the invite does not carry it.": {
+  "es": "La contraseña del servidor, si la invitación no la incluye.",
+  "fr": "Le mot de passe du serveur, si l'invitation ne le contient pas."
+ },
+ "The Tailscale or home network address of this device. Use your public address if you forward the port on your router. Empty it to detect the address again.": {
+  "es": "La dirección de este dispositivo en Tailscale o en tu red local. Usa tu dirección pública si redirigiste el puerto en el router. Vacíala para detectarla de nuevo.",
+  "fr": "L'adresse de cet appareil sur Tailscale ou sur votre réseau local. Utilisez votre adresse publique si vous avez redirigé le port sur le routeur. Videz le champ pour la détecter à nouveau."
+ },
+ "You joined a friend's server: the host sets the world rules, so these are locked.": {
+  "es": "Te uniste al servidor de un amigo: el anfitrión fija las reglas del mundo, así que estas están bloqueadas.",
+  "fr": "Vous avez rejoint le serveur d'un ami : l'hôte fixe les règles du monde, elles sont donc verrouillées."
+ },
+ "A ready-made set of sync rules. You can still change each rule below.": {
+  "es": "Un conjunto de reglas de sincronización ya preparado. Aún puedes cambiar cada regla abajo.",
+  "fr": "Un ensemble de règles de synchro prêt à l'emploi. Vous pouvez encore modifier chaque règle ci-dessous."
+ },
+ "An optional game mode on top of the rules: Hunter vs Speedrunner or Death Swap.": {
+  "es": "Un modo de juego opcional sobre las reglas: Hunter vs Speedrunner o Death Swap.",
+  "fr": "Un mode de jeu optionnel en plus des règles : Hunter vs Speedrunner ou Death Swap."
+ },
+ "Use recommended rules": {
+  "es": "Usar reglas recomendadas",
+  "fr": "Utiliser les règles recommandées"
+ },
+ "Selects the Game Completion preset with no special mode, the set that shares the most for playing the whole game together. It does not depend on this device's hardware.": {
+  "es": "Elige el preset Game Completion sin modo especial, el que más comparte para jugar el juego entero en equipo. No depende del hardware de este dispositivo.",
+  "fr": "Choisit le preset Game Completion sans mode spécial, celui qui partage le plus pour jouer au jeu entier ensemble. Il ne dépend pas du matériel de cet appareil."
+ },
+ "Online mode": {
+  "es": "Modo en línea",
+  "fr": "Mode en ligne"
+ },
+ "Preset": {
+  "es": "Preajuste",
+  "fr": "Préréglage"
+ },
+ "Special mode": {
+  "es": "Modo especial",
+  "fr": "Mode spécial"
+ },
+ "Stopping...": {
+  "es": "Deteniendo...",
+  "fr": "Arrêt..."
+ },
+ "Some changes only apply after a restart. Press Restart session to apply them.": {
+  "es": "Algunos cambios solo se aplican tras reiniciar. Pulsa Reiniciar sesión para aplicarlos.",
+  "fr": "Certains changements ne s'appliquent qu'après un redémarrage. Appuyez sur Redémarrer la session pour les appliquer."
+ },
+ "Session running.": {
+  "es": "Sesión en marcha.",
+  "fr": "Session en cours."
+ },
+ "Starting...": {
+  "es": "Iniciando...",
+  "fr": "Démarrage..."
+ },
+ "{0} is missing": {
+  "es": "Falta {0}",
+  "fr": "{0} est absent"
+ },
+ "Ready.": {
+  "es": "Listo.",
+  "fr": "Prêt."
+ },
+ "Nothing": {
+  "es": "Nada",
+  "fr": "Rien"
+ },
+ "Stopped": {
+  "es": "Detenido",
+  "fr": "Arrêté"
+ },
+ "Session log": {
+  "es": "Registro de la sesión",
+  "fr": "Journal de session"
+ },
+ "Server console": {
+  "es": "Consola del servidor",
+  "fr": "Console du serveur"
+ },
+ "Running": {
+  "es": "En marcha",
+  "fr": "En cours"
+ },
+ "Joined the server": {
+  "es": "Unido al servidor",
+  "fr": "Connecté au serveur"
+ },
+ "A session is running. The server and the game keep running if you close the launcher.": {
+  "es": "Hay una sesión en marcha. El servidor y el juego siguen funcionando si cierras el launcher.",
+  "fr": "Une session est en cours. Le serveur et le jeu continuent de tourner si vous fermez le launcher."
+ },
+ "Dedicated server": {
+  "es": "Servidor dedicado",
+  "fr": "Serveur dédié"
+ },
+ "Player 1 (Cemu A)": {
+  "es": "Jugador 1 (Cemu A)",
+  "fr": "Joueur 1 (Cemu A)"
+ },
+ "Player 1 name": {
+  "es": "Nombre del jugador 1",
+  "fr": "Nom du joueur 1"
+ },
+ "How this device takes part. Applied when the next session starts.": {
+  "es": "Cómo participa este dispositivo. Se aplica al iniciar la próxima sesión.",
+  "fr": "Comment cet appareil participe. S'applique au démarrage de la prochaine session."
+ },
+ "Example: hyrule://100.64.0.5:5050 or 192.168.1.20:5050": {
+  "es": "Ejemplo: hyrule://100.64.0.5:5050 o 192.168.1.20:5050",
+  "fr": "Exemple : hyrule://100.64.0.5:5050 ou 192.168.1.20:5050"
+ },
+ "Invite": {
+  "es": "Invitación",
+  "fr": "Invitation"
+ },
+ "Ask the host for their invite and paste it here. You play on this device with one player. The host chooses the world rules and runs the server.": {
+  "es": "Pide su invitación al anfitrión y pégala aquí. Juegas en este dispositivo con un jugador. El anfitrión elige las reglas del mundo y ejecuta el servidor.",
+  "fr": "Demandez son invitation à l'hôte et collez-la ici. Vous jouez sur cet appareil avec un joueur. L'hôte choisit les règles du monde et lance le serveur."
+ },
+ "What everyone on the server shares. Applied when the next session starts.": {
+  "es": "Lo que comparten todos en el servidor. Se aplica al iniciar la próxima sesión.",
+  "fr": "Ce que partagent tous les joueurs du serveur. S'applique au démarrage de la prochaine session."
+ },
+ "The launcher text changes right away.": {
+  "es": "El texto del launcher cambia al instante.",
+  "fr": "Le texte du launcher change immédiatement."
+ },
+ "Starting": {
+  "es": "Iniciando",
+  "fr": "Démarrage"
+ },
+ "Waiting for Continue": {
+  "es": "Esperando Continuar",
+  "fr": "En attente de Continuer"
+ },
+ "Server running": {
+  "es": "Servidor activo",
+  "fr": "Serveur actif"
+ },
+ "RESTART SESSION": {
+  "es": "REINICIAR SESIÓN",
+  "fr": "REDÉMARRER LA SESSION"
+ },
+ "Server open at {0}:{1}.": {
+  "es": "Servidor abierto en {0}:{1}.",
+  "fr": "Serveur ouvert à {0}:{1}."
+ },
+ "Friends will join at {0}:{1} once the session starts.": {
+  "es": "Los amigos entrarán en {0}:{1} cuando empiece la sesión.",
+  "fr": "Les amis rejoindront à {0}:{1} dès que la session démarre."
+ },
+ "Playing on the server at {0}:{1}.": {
+  "es": "Jugando en el servidor de {0}:{1}.",
+  "fr": "Vous jouez sur le serveur {0}:{1}."
+ },
+ "Enter an invite on the Online page.": {
+  "es": "Escribe una invitación en la página En línea.",
+  "fr": "Saisissez une invitation sur la page En ligne."
+ },
+ "Cancel": {
+  "es": "Cancelar",
+  "fr": "Annuler"
+ },
+ "Custom": {
+  "es": "Personalizado",
+  "fr": "Personnalisé"
+ },
+ "Waiting": {
+  "es": "Esperando",
+  "fr": "En attente"
+ },
+ "In the world: {0}": {
+  "es": "En el mundo: {0}",
+  "fr": "Dans le monde : {0}"
+ },
+ "Nobody has joined yet.": {
+  "es": "Todavía no ha entrado nadie.",
+  "fr": "Personne n'a encore rejoint."
+ }
+}

@@ -42,6 +42,12 @@ if ($LASTEXITCODE -ne 0) { throw 'Network hint test compilation failed.' }
 & (Join-Path $output 'NetworkHintTests.exe')
 if ($LASTEXITCODE -ne 0) { throw 'Network hint tests failed.' }
 
+# Keeps steamos\parity.json and the SteamOS launcher in step with the Windows launcher; a failure says what to update.
+& (Join-Path $framework 'csc.exe') /nologo /target:exe /platform:x64 "/out:$(Join-Path $output 'ParityTests.exe')" /reference:System.Xml.Linq.dll /reference:System.Web.Extensions.dll (Join-Path $root 'tests\ParityTests.cs') (Join-Path $root 'src\Launcher\Lang.cs') (Join-Path $root 'src\Launcher\ServerRules.cs') (Join-Path $root 'src\Launcher\Characters.cs')
+if ($LASTEXITCODE -ne 0) { throw 'Parity test compilation failed.' }
+& (Join-Path $output 'ParityTests.exe') $root
+if ($LASTEXITCODE -ne 0) { throw 'Windows and SteamOS launchers are out of step (see the parity test output above and "Keeping the Windows and SteamOS launchers in sync" in CONTRIBUTING.md).' }
+
 & (Join-Path $PSScriptRoot 'Test-Layout.ps1')
 
 # The model check needs the clean install (project Python and the extracted Milk Bar launcher); without it only the unit tests run.

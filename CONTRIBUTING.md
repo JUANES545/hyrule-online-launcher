@@ -24,8 +24,20 @@ This project uses Gitflow. Automation enforces it, so a pull request that breaks
 ## Checks
 
 - **Gitflow guard** rejects pull requests that do not follow the table above.
-- **CI** builds, tests and packages on Windows.
-- **Release** also refuses to publish if `main` was changed by anything other than a `release/*` or `hotfix/*` pull request.
+- **CI** builds, tests and packages on Windows, and checks the SteamOS launcher on Linux (script tests, launcher tests, and the window under a virtual display against a stub script).
+- **Release** also refuses to publish if `main` was changed by anything other than a `release/*` or `hotfix/*` pull request. It runs the SteamOS tests and the parity test first, and checks that `VERSION`, the tag, `steamos/parity.json` and the SteamOS tarball agree.
+
+## Keeping the Windows and SteamOS launchers in sync
+
+`steamos/parity.json` records the Windows facts the SteamOS launcher mirrors: Online and World texts (English, Spanish, French), rule presets and codes, limits (port, password, description, name), the invite format, tab order and the command line the window uses. `tests\ParityTests.cs` reads the real Windows code and compares it with that file, then compares the file with `steamos/`. It runs in `scripts\Test.ps1`.
+
+When it fails, the message names what changed and which file to update:
+
+1. Run `.artifacts\tests\ParityTests.exe . --facts` to print the current Windows values and every Online or World text.
+2. Change `steamos/` (and `steamos/strings.json` for texts) to match, or decide the change does not apply to SteamOS.
+3. Update `steamos/parity.json` to say so: add a new text to `mirrored` or to `notApplicable` with a reason, and set `version` to the release version before publishing.
+
+`tests/steamos_gui_check.py` opens the SteamOS window against `tests/fixtures/steamos/hyrule-online-stub.sh` and checks every page, keyboard reachability, the limits and a clean close. Run it with `xvfb-run -a python3 tests/steamos_gui_check.py` on Linux.
 
 ## Packages
 

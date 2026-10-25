@@ -31,13 +31,25 @@ if [ -f "$HERE/launcher.py" ]; then
   check "launcher.py starts with a python3 shebang" grep -q "^#!/usr/bin/env python3" "$HERE/launcher.py"
   [ -f "$HERE/launcher_test.py" ] && check "launcher.py logic tests" "$PY" "$HERE/launcher_test.py"
 else echo "launcher.py not found, skipped"; fi
+STUB=$HERE/../tests/fixtures/steamos/hyrule-online-stub.sh
 if command -v shellcheck >/dev/null 2>&1; then
-  for f in "$HERE"/*.sh; do
+  for f in "$HERE"/*.sh "$STUB"; do
+    [ -f "$f" ] || continue
     if out=$(shellcheck -x -S warning "$f" 2>&1); then ok; else bad "shellcheck ${f##*/}"; printf '%s\n' "$out"; fi
   done
 else echo "shellcheck not installed, skipped"; fi
 no_cr() { local f; for f; do [ "$(tr -cd '\r' < "$f" | wc -c)" = 0 ] || return 1; done; }
 check "no CRLF in scripts" no_cr "$HERE"/*.sh "$HERE"/*.py
+[ ! -f "$STUB" ] || check "no CRLF in the GUI check stub and script" no_cr "$STUB" "$HERE/../tests/steamos_gui_check.py"
+
+echo "== parity manifest =="
+# tests\ParityTests.cs (Windows) compares parity.json with the Windows code; here only the file itself is checked.
+if [ -f "$HERE/parity.json" ]; then
+  check "parity.json is valid JSON with its sections" "$PY" -c 'import json,sys; m=json.load(open(sys.argv[1],encoding="utf-8")); [m[k] for k in ("version","tabs","facts","presets","cli","mirrored","notApplicable")]' "$HERE/parity.json"
+  if [ -f "$HERE/../VERSION" ]; then
+    check "parity.json is at the VERSION release" "$PY" -c 'import json,sys; sys.exit(json.load(open(sys.argv[1],encoding="utf-8"))["version"] != open(sys.argv[2]).readline().strip())' "$HERE/parity.json" "$HERE/../VERSION"
+  fi
+else bad "steamos/parity.json is missing"; fi
 
 echo "== lib.sh =="
 export HYRULE_NO_GUI=1

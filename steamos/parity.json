@@ -1,0 +1,330 @@
+{
+  "about": "The Windows launcher facts the SteamOS launcher mirrors. tests\\ParityTests.cs compares this file with the Windows sources and with steamos\\. Print the current Windows values with: ParityTests.exe . --facts",
+  "version": "0.1.0",
+  "tabs": {
+    "windows": [
+      "PLAY",
+      "ONLINE",
+      "GRAPHICS",
+      "WORLD",
+      "LANGUAGE",
+      "DETAILS"
+    ],
+    "steamos": [
+      "Play",
+      "Online",
+      "World",
+      "Language",
+      "Details"
+    ],
+    "map": {
+      "Play": "PLAY",
+      "Online": "ONLINE",
+      "World": "WORLD",
+      "Language": "LANGUAGE",
+      "Details": "DETAILS"
+    }
+  },
+  "facts": {
+    "port.default": "5050",
+    "port.host.range": "1024-65535",
+    "port.join.range": "1-65535",
+    "password.host.max": "40",
+    "password.host.forbidden": ";",
+    "password.xaml.host.max": "40",
+    "password.xaml.join.max": "40",
+    "description.max": "80",
+    "description.default": "Explore Hyrule with Friends!",
+    "address.host.max": "100",
+    "address.join.max": "200",
+    "port.xaml.max": "5",
+    "text.control.characters": "removed",
+    "name.max": "16",
+    "name.allowed": " -.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz",
+    "invite.sample.open": "hyrule://h.example:5050",
+    "invite.sample.password": "hyrule://100.64.0.5:6000?pw=p%20w%3B%26%C3%A9",
+    "invite.parse hyrule://100.64.0.5:5050?pw=a%20b%26c": "100.64.0.5|5050|a b&c",
+    "invite.parse 192.168.1.20:6000": "192.168.1.20|6000|",
+    "invite.parse my-host.example": "my-host.example|5050|",
+    "invite.parse HYRULE://h:1/": "h|1|",
+    "invite.parse h:1023": "h|1023|",
+    "invite.parse h:0": "invalid",
+    "invite.parse h:65536": "invalid",
+    "invite.parse -a": "invalid",
+    "invite.parse a b": "invalid",
+    "invite.parse h:5050?x=1&pw=p": "h|5050|p",
+    "host.valid \"a\"": "True",
+    "host.valid \"a-b.c\"": "True",
+    "host.valid \"a.\"": "False",
+    "host.valid \"-a\"": "False",
+    "host.valid \"a b\"": "False",
+    "host.valid \"\"": "False",
+    "rules.order": "Enemies,Quests,Koroks,Towers,Shrines,Locations,Divine Beasts",
+    "rules.specials": "No special mode,Hunter vs Speedrunner,Death Swap",
+    "rules.recommended": "Game Completion",
+    "tabs": "PLAY,ONLINE,GRAPHICS,WORLD,LANGUAGE,DETAILS"
+  },
+  "presets": [
+    "Game Completion 10111100",
+    "Hunter Vs Speedrunner 10011101",
+    "Any% Speedrun 10011100",
+    "Hide n' seek 10000000",
+    "Death Swap 00000002"
+  ],
+  "cli": {
+    "flags": [
+      "--local",
+      "--host",
+      "--rules",
+      "--desc",
+      "--name",
+      "--stop",
+      "--status",
+      "--check",
+      "--presets",
+      "--version"
+    ],
+    "usedByLauncher": [
+      "--local",
+      "--host",
+      "--rules",
+      "--desc",
+      "--stop",
+      "--status",
+      "--presets"
+    ],
+    "statusKeys": [
+      "version",
+      "mode",
+      "server",
+      "client",
+      "joined",
+      "port",
+      "host",
+      "invite",
+      "invite_vpn"
+    ]
+  },
+  "mirrored": [
+    {
+      "en": "Copy invite",
+      "es": "Copiar invitación",
+      "fr": "Copier l'invitation"
+    },
+    {
+      "en": "WORLD RULES",
+      "es": "REGLAS DEL MUNDO",
+      "fr": "RÈGLES DU MONDE"
+    },
+    {
+      "en": "Special mode",
+      "es": "Modo especial",
+      "fr": "Mode spécial"
+    },
+    {
+      "en": "Enemies",
+      "es": "Enemigos",
+      "fr": "Ennemis"
+    },
+    {
+      "en": "Quests",
+      "es": "Misiones",
+      "fr": "Quêtes"
+    },
+    {
+      "en": "Koroks",
+      "es": "Kologs",
+      "fr": "Korogus"
+    },
+    {
+      "en": "Towers",
+      "es": "Torres",
+      "fr": "Tours"
+    },
+    {
+      "en": "Shrines",
+      "es": "Santuarios",
+      "fr": "Sanctuaires"
+    },
+    {
+      "en": "Locations",
+      "es": "Lugares",
+      "fr": "Lieux"
+    },
+    {
+      "en": "Divine Beasts",
+      "es": "Bestias Divinas",
+      "fr": "Créatures divines"
+    },
+    {
+      "en": "Port",
+      "es": "Puerto",
+      "fr": "Port"
+    },
+    {
+      "en": "Password",
+      "es": "Contraseña",
+      "fr": "Mot de passe"
+    },
+    {
+      "en": "Server description",
+      "es": "Descripción del servidor",
+      "fr": "Description du serveur"
+    },
+    {
+      "en": "Invite or address",
+      "es": "Invitación o dirección",
+      "fr": "Invitation ou adresse"
+    },
+    {
+      "en": "Example: hyrule://100.64.0.5:5050 or 192.168.1.20:5050",
+      "es": "Ejemplo: hyrule://100.64.0.5:5050 o 192.168.1.20:5050",
+      "fr": "Exemple : hyrule://100.64.0.5:5050 ou 192.168.1.20:5050"
+    },
+    {
+      "en": "INVITE FRIENDS",
+      "es": "INVITAR AMIGOS",
+      "fr": "INVITER DES AMIS"
+    },
+    {
+      "en": "Invite",
+      "es": "Invitación",
+      "fr": "Invitation"
+    },
+    {
+      "en": "JOINING A SERVER",
+      "es": "UNIRSE A UN SERVIDOR",
+      "fr": "REJOINDRE UN SERVEUR"
+    },
+    {
+      "en": "Check the invite, the password, that the host has a session running, and that its firewall allows the port.",
+      "es": "Revisa la invitación, la contraseña, que el anfitrión tenga una sesión abierta y que su cortafuegos permita el puerto.",
+      "fr": "Vérifiez l'invitation, le mot de passe, que l'hôte a une session ouverte et que son pare-feu autorise le port."
+    },
+    {
+      "en": "Enter an invite on the Online page.",
+      "es": "Escribe una invitación en la página En línea.",
+      "fr": "Saisissez une invitation sur la page En ligne."
+    },
+    {
+      "en": "Play on this PC",
+      "es": "Jugar en este PC",
+      "fr": "Jouer sur ce PC",
+      "steamos": {
+        "en": "Play on this device",
+        "es": "Jugar en este dispositivo",
+        "fr": "Jouer sur cet appareil"
+      }
+    },
+    {
+      "en": "Host a server",
+      "es": "Alojar un servidor",
+      "fr": "Héberger un serveur"
+    },
+    {
+      "en": "Join a server",
+      "es": "Unirse a un servidor",
+      "fr": "Rejoindre un serveur"
+    }
+  ],
+  "notApplicable": [
+    {
+      "why": "Tab and page labels are compared through tabs.map instead.",
+      "texts": [
+        "ONLINE",
+        "PLAY",
+        "GRAPHICS",
+        "WORLD",
+        "LANGUAGE",
+        "DETAILS"
+      ]
+    },
+    {
+      "why": "Windows only: Windows Firewall, the live controls and the session messages that need the Windows-only server pipe, WPF status text, two-player features.",
+      "texts": [
+        "What the two players share. Applied when the next session starts.",
+        "A ready-made set of sync rules. You can still change each rule below.",
+        "Keeps enemies in sync: what one player defeats is defeated for both.",
+        "LIVE CONTROLS",
+        "Available while the server is running.",
+        "Time of day (24 hour, HH:MM)",
+        "Time of day",
+        "Set time",
+        "Weather",
+        "Set weather",
+        "Name tags",
+        "Pause sync",
+        "Stops the shared rules from syncing for now, so the players can explore apart.",
+        "Resume sync",
+        "Starts syncing the shared rules again.",
+        "Player 1 → player 2",
+        "Teleports player 1 next to player 2",
+        "Player 2 → player 1",
+        "Teleports player 2 next to player 1",
+        "The Tailscale or home network address of this PC. Use your public address if you forward the port on your router. Empty it to detect the address again.",
+        "Allow through firewall",
+        "Adds a Windows Firewall rule for the server port. Windows asks for administrator permission.",
+        "Ask the host for their invite and paste it here. You play on this PC with one or two players. The host chooses the world rules and runs the server.",
+        "This is a {0} address. Friends on the same {0} network can join from anywhere.",
+        "This is a home network address, so only people on the same network can join. For anyone else, install a VPN such as Tailscale on both PCs, or forward the port on your router and use your public address.",
+        "Start failed: {0}",
+        "The server stopped while starting (exit code {0}).",
+        "Use Stop session to close anything that was started, then try again.",
+        "The server stopped.",
+        "{0} could not join: wrong password.",
+        "{0} could not join (error {1}).",
+        "{0} joined.",
+        "{0} left.",
+        "Server open at {0}:{1}.",
+        "Friends will join at {0}:{1} once the session starts.",
+        "In the world: {0}",
+        "Nobody has joined yet.",
+        "Playing on the server at {0}:{1}.",
+        "One or two players on this PC join a friend's server. The friend sets the rules.",
+        "Windows Firewall already allows port {0}.",
+        "Windows Firewall may block port {0}. Allow it so friends can connect."
+      ]
+    },
+    {
+      "why": "Not in the SteamOS launcher yet. When one is added, move it to mirrored and add it to steamos\\strings.json.",
+      "texts": [
+        "Copies the invite. Your friends paste it in the Join a server mode of their launcher.",
+        "You joined a friend's server: the host sets the world rules, so these are locked.",
+        "Preset",
+        "Rules preset",
+        "An optional game mode on top of the rules: Hunter vs Speedrunner or Death Swap.",
+        "Shares quest progress between the players.",
+        "Shares the Korok seeds found by each player.",
+        "Shares activated towers and the map they reveal.",
+        "Shares the shrines either player has completed.",
+        "Shares the map locations either player has discovered.",
+        "Shares Divine Beast progress between the players.",
+        "Use recommended rules",
+        "Selects the Game Completion preset with no special mode, the set that shares the most for playing the whole game together. It does not depend on this PC's hardware.",
+        "The time to set in the game, written as 24 hour HH:MM.",
+        "Changes the time of day for every player.",
+        "The weather to apply with the button next to it.",
+        "Changes the weather for every player.",
+        "Shows or hides the names above the other players' heads.",
+        "How this PC takes part. Applied when the next session starts.",
+        "Online mode",
+        "Play on this PC keeps the server private. Host a server lets friends join over the network. Join a server connects to a friend's server.",
+        "The TCP port the server listens on, from 1024 to 65535. It goes in the invite. The default is 5050.",
+        "Server port",
+        "Optional. Friends need it to join. Leave it empty for an open server.",
+        "Server password",
+        "The text friends see about this server.",
+        "Paste the invite your friend sent you, or type their address and port.",
+        "The server password, if the invite does not carry it.",
+        "Server password to join",
+        "Address in the invite",
+        "The invite was copied.",
+        "No network address was found. Connect this PC to a network, or type an address.",
+        "Friends can join from anywhere if the port is forwarded on your router.",
+        "That address is not valid, so the previous one was kept. Use letters, digits, dots and dashes only.",
+        "Friends who run this launcher can join this PC. The world rules are the ones on the World page.",
+        "The server only accepts players from this PC."
+      ]
+    }
+  ]
+}

@@ -1,48 +1,126 @@
 #!/usr/bin/env python3
-"""Graphical launcher for Hyrule Online on SteamOS (tkinter only). It never talks to a game server:
-everything goes through hyrule-online.sh (see Cli); join.conf (written only by that script) is read to prefill the forms."""
+"""Graphical launcher for Hyrule Online on SteamOS (tkinter only), laid out like the Windows launcher (src/Launcher).
+It never talks to a game server: everything goes through hyrule-online.sh (see Cli); join.conf (written only by that script)
+is read to prefill the forms and launcher.conf keeps the launcher's own choices (language, last page, last mode).
+Texts are the English ones of Lang.cs; strings.json carries the Spanish and French rows, keyed by the English text (see tr)."""
+import json
 import os
 import re
 import subprocess
+import sys
 import threading
-from urllib.parse import unquote
+import unicodedata
+from urllib.parse import quote, unquote
 
 try:
     import tkinter as tk
+    import tkinter.font as tkfont
 except ImportError:  # the logic below stays importable (tests) without Tk
-    tk = None
+    tk = tkfont = None
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 LOCAL, HOST, JOIN = "Local", "Host", "Join"
-MODES = [(LOCAL, "Play on this device"), (HOST, "Host a server"), (JOIN, "Join a server")]  # labels as in hyrule-online.sh
-TABS = ["Play", "Online", "Help"]
+TABS = ["Play", "Online", "World", "Language", "Details"]  # the Windows order without Graphics (nothing to set on the Ally)
+LANGUAGES = [("en", "English"), ("es", "Español"), ("fr", "Français")]
+NEUTRAL = ("Hyrule Online", "THE LEGEND OF ZELDA", "BREATH OF THE WILD", "LB", "RB", "Hunter vs Speedrunner", "Death Swap")  # read the same everywhere
 DEFAULT_PORT, DEFAULT_DESC = 5050, "Explore Hyrule with Friends!"
-CHECKLIST = "Check the invite, the password, that the host has a session running, and that its firewall allows the port."
-# World rules as in hyrule-online.sh / ServerRules.cs: 7 flags (1 = shared) then the special mode digit.
+# The limits of ServerRules.cs and OnlineUi.cs; the script enforces the same ones.
+LIMITS = {"port_low": 1024, "port_high": 65535, "host_password": 40, "description": 80, "host_address": 100,
+          "join_address": 200, "join_password": 40, "name": 16}
 RULE_NAMES = ["Enemies", "Quests", "Koroks", "Towers", "Shrines", "Locations", "Divine Beasts"]
 SPECIALS = ["No special mode", "Hunter vs Speedrunner", "Death Swap"]
 PRESETS = {"Game Completion": "10111100", "Hunter Vs Speedrunner": "10011101", "Any% Speedrun": "10011100",  # only if `--presets` fails
            "Hide n' seek": "10000000", "Death Swap": "00000002"}
+RECOMMENDED = ("Game Completion", "10111100")
 NAME_RE = re.compile(r"[A-Za-z0-9_-]{1,16}")
-ONE_PLAYER = ("This device plays one local player: there is no second player, split screen or swap here. "
-              "Play on this device keeps the server private: it listens on 127.0.0.1 only, so nobody else can join it.")
-HELP = [
-    ("SESSION", "Start session opens the server and the game, then joins. When the game reaches its main menu, press "
-                "Continue in its window (about a minute). Stop closes the server and the game."),
-    ("PLAYERS", "This device plays one local player."),
-    ("ONLINE", "Play on this device keeps the server private. Host a server opens it to friends: set the port, password "
-               "and description, copy the invite and allow the port in the firewall. Join a server connects to a friend's "
-               "server with their invite; the friend sets the rules and runs the server."),
-    ("WORLD RULES", "They choose what everyone on the server shares and apply when the server starts. Pick a preset, or "
-                    "switch single rules and the special mode."),
-    ("CONTROLS", "Arrows or D-pad move, Enter or A confirms, Escape or B goes back. Ctrl+Tab, Page Up and Page Down "
-                 "change page. Changes apply when the next session starts."),
-]
 
-BG, PANEL, FIELD, LINE, FG, MUTED = "#0B1015", "#152027", "#1B252B", "#2C3A3F", "#EAF2F2", "#9EB2BD"
+
+def _k(english):
+    """Marks an English text that the GUI looks up with tr() later; tests scan for it."""
+    return english
+
+
+TAB_LABELS = {"Play": _k("PLAY"), "Online": _k("ONLINE"), "World": _k("WORLD"), "Language": _k("LANGUAGE"), "Details": _k("DETAILS")}
+MODE_WORDS = {LOCAL: _k("Play on this device"), HOST: _k("Host a server"), JOIN: _k("Join a server")}  # as in hyrule-online.sh
+MODES = [(LOCAL, "Play on this device"), (HOST, "Host a server"), (JOIN, "Join a server")]
+MODE_INFO = {LOCAL: _k("The server only accepts players from this device."),
+             HOST: _k("Friends who run this launcher can join this device. The world rules are the ones on the World page."),
+             JOIN: _k("One player on this device joins a friend's server. The friend sets the rules.")}
+DEFAULT_HINT = _k("Hover an option, or move the focus to it, to see what it does.")
+CHECKLIST = _k("Check the invite, the password, that the host has a session running, and that its firewall allows the port.")
+RULE_TIPS = [_k("Keeps enemies in sync: what one player defeats is defeated for both."), _k("Shares quest progress between the players."),
+             _k("Shares the Korok seeds found by each player."), _k("Shares activated towers and the map they reveal."),
+             _k("Shares the shrines either player has completed."), _k("Shares the map locations either player has discovered."),
+             _k("Shares Divine Beast progress between the players.")]
+PRESET_BLURBS = {
+    "Game Completion": _k("For playing the whole game together. Defeated enemies, Korok seeds, towers, shrines and map locations are shared; quests and Divine Beasts stay separate for each player."),
+    "Hunter Vs Speedrunner": _k("A chase game: the speedrunner races through the game while the hunters try to stop them. What one player clears, activates or discovers counts for both."),
+    "Any% Speedrun": _k("Built for speedruns: what one player defeats, activates or discovers counts for both, except quests, Korok seeds and Divine Beasts."),
+    "Hide n' seek": _k("Only defeated enemies are shared. Everything else stays separate for each player, which suits hide and seek in the same world."),
+    "Death Swap": _k("A game mode where the players are swapped around the world at intervals. Nothing else is shared."),
+    "Custom": _k("Your own mix: choose below what the players share.")}
+SPECIAL_BLURBS = [_k("Normal co-op: only the rules above decide what the players share."),
+                  _k("Adds a chase: one player speedruns while the others hunt them. Best with the Hunter Vs Speedrunner preset."),
+                  _k("Adds Death Swap: the players are swapped around the world at intervals. Best with the Death Swap preset.")]
+HELP_SECTIONS = [
+    _k("SESSION: Start session opens the server and the game. When the game reaches its main menu, press Continue in its window (about a minute). "
+       "This device plays one local player. If you change the name, the online settings or the world rules while a session runs, Start becomes "
+       "Restart session. The launcher language applies at once."),
+    _k("ONLINE: Choose how this device takes part. Play on this device keeps the server private. Host a server opens it to friends: set the port, "
+       "password and description, then copy the invite. Join a server connects this device to a friend's server with their invite. Changes apply "
+       "at the next session start."),
+    _k("WORLD: World rules choose what everyone on the server shares (enemies, quests, koroks, towers, shrines, locations, Divine Beasts) and apply "
+       "when the server starts. When you join a friend's server their rules apply and these are locked. Use recommended rules selects Game Completion."),
+    _k("LANGUAGE: The launcher language changes at once."),
+    _k("MOVING AROUND: The D-pad, the arrow keys or Tab move the focus. Confirm or Enter presses; back or Esc goes back and closes this help. "
+       "LB and RB (or Ctrl+Tab) change page. Esc on the first page closes the launcher.")]
+
+# Windows launcher palette (Launcher.xaml)
+BG, PANEL, FIELD, LINE, FG, MUTED = "#0B1015", "#152027", "#1B252B", "#2E3F44", "#EAF2F2", "#8FA7B1"
 GOLD, SECTION, GREEN, HOVER, AMBER, TEAL, OFF = "#E1CFA1", "#CBBF9F", "#3C554B", "#354549", "#E0BE75", "#63E0BD", "#4B5A60"
-FAMILY = "DejaVu Sans"
-FONT = (FAMILY, 16)
+STATUS_FG, LOGBG, LOGFG = "#AEE2D2", "#0F171C", "#A5BAC5"
+
+
+# ---- texts ----
+
+def load_strings(path=os.path.join(HERE, "strings.json")):
+    """{english: {"es": ..., "fr": ...}}; an unreadable file means English everywhere."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+STRINGS = load_strings()
+LANG = "en"
+
+
+def set_language(code):
+    global LANG
+    LANG = code if code in dict(LANGUAGES) else "en"
+
+
+def tr(english, *args):
+    """Lang.T: the text of the current language (English when the row or the cell is missing), formatted with args."""
+    row = STRINGS.get(english)
+    text = (row.get(LANG) if LANG != "en" and isinstance(row, dict) else None) or english
+    return text.format(*args) if args else text
+
+
+def system_language(env=None):
+    env = os.environ if env is None else env
+    for name in ("LC_ALL", "LC_MESSAGES", "LANGUAGE", "LANG"):
+        value = (env.get(name) or "").split(":")[0].strip()
+        if value and value not in ("C", "POSIX"):
+            return value[:2].lower() if value[:2].lower() in dict(LANGUAGES) else "en"
+    return "en"
+
+
+def choose_language(saved, env=None):
+    """The saved language wins, then the system one, then English."""
+    return saved if saved in dict(LANGUAGES) else system_language(env)
 
 
 # ---- pure logic (tested in launcher_test.py) ----
@@ -60,10 +138,47 @@ def valid_port(text, low=1):
     return re.fullmatch(r"[0-9]{1,5}", text) is not None and low <= int(text) <= 65535
 
 
+def clean_text(text, limit):
+    """ServerRules.CleanText: control characters out, trimmed, cut at limit."""
+    return "".join(c for c in text if unicodedata.category(c) != "Cc").strip()[:limit]
+
+
+def host_password(text):
+    """ServerRules.HostPassword: a semicolon cannot be in it (it separates the server's settings)."""
+    return clean_text(text.replace(";", ""), LIMITS["host_password"])
+
+
+def clean_port(text):
+    t = text.strip()
+    return int(t) if re.fullmatch(r"[0-9]{1,5}", t) and LIMITS["port_low"] <= int(t) <= LIMITS["port_high"] else DEFAULT_PORT
+
+
+def clean_name(text):
+    return "".join(c for c in text if re.fullmatch(r"[A-Za-z0-9_-]", c))[:LIMITS["name"]] or "Link"
+
+
+def live_limit(key, text):
+    """What a field may hold while it is being typed (the entry's own limit); a semicolon never stays in a host password."""
+    text = "".join(c for c in text if unicodedata.category(c) != "Cc")
+    if key == "hostpass":
+        return text.replace(";", "")[:LIMITS["host_password"]]
+    if key == "port":
+        return "".join(c for c in text if c in "0123456789")[:5]
+    if key == "name":
+        return "".join(c for c in text if re.fullmatch(r"[A-Za-z0-9_-]", c))[:LIMITS["name"]]
+    cap = {"desc": "description", "addr": "host_address", "invite": "join_address", "joinpass": "join_password"}.get(key)
+    return text[:LIMITS[cap]] if cap else text
+
+
+def invite_url(host, port, password):
+    """hyrule://host:port, with ?pw= and the escaped password when there is one."""
+    return f"hyrule://{host}:{port}" + (f"?pw={quote(password, safe='')}" if password else "")
+
+
 def parse_invite(text):
     """Same rules as ServerConnection.TryParse: hyrule://host:port?pw=..., host:port or host. Returns (host, port, password) or None."""
     t = text.strip()
-    if len(t) > 200:
+    if len(t) > LIMITS["join_address"]:
         return None
     if t.lower().startswith("hyrule://"):
         t = t[9:]
@@ -85,8 +200,9 @@ def parse_status(text):
     return pairs if "server" in pairs and "client" in pairs else None
 
 
-def clean(text, limit):
-    return "".join(c for c in text if c.isprintable()).strip()[:limit]
+def parse_check(text):
+    """`--check` output: `ok: X`, `missing: X`, `skipped: ...`, `info: ...` -> the missing items."""
+    return [m.group(1).strip() for m in (re.match(r"missing:\s*(.+)", line.strip()) for line in text.splitlines()) if m]
 
 
 def parse_presets(text):
@@ -103,26 +219,126 @@ def valid_bits(bits):
     return re.fullmatch(r"[01]{7}[012]", bits) is not None
 
 
+def shared_rules(bits):
+    """(shared names, not shared names) of the seven rules."""
+    return ([n for n, b in zip(RULE_NAMES, bits) if b == "1"], [n for n, b in zip(RULE_NAMES, bits) if b != "1"])
+
+
+def shares_text(bits):
+    on, off = shared_rules(bits)
+    return tr("Shared: {0}", ", ".join(tr(n) for n in on) if on else tr("Nothing")) + "\n" + \
+        tr("Not shared: {0}", ", ".join(tr(n) for n in off) if off else tr("Nothing"))
+
+
+def ipv4(text):
+    m = re.fullmatch(r"(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})", text.strip())
+    return tuple(int(g) for g in m.groups()) if m else None
+
+
+def classify(host):
+    """NetworkHint.Classify: none, vpn, home, public or name."""
+    ip = ipv4(host)
+    if ip is None:
+        h = host.strip().lower()
+        return "none" if not h else "vpn" if h.endswith(".ts.net") else "name" if re.search(r"[a-z]", h) else "none"
+    a, b = ip[0], ip[1]
+    if a == 127 or (a == 169 and b == 254):
+        return "none"
+    if (a == 100 and 64 <= b <= 127) or a in (25, 26):
+        return "vpn"
+    if a == 10 or (a == 192 and b == 168) or (a == 172 and 16 <= b <= 31):
+        return "home"
+    return "public"
+
+
+def vpn_name(host):
+    ip = ipv4(host)
+    return "Tailscale" if host.lower().endswith(".ts.net") or (ip and ip[0] == 100) else "Hamachi" if ip and ip[0] == 25 else "Radmin VPN"
+
+
+def parse_addresses(text):
+    """`ip -4 -o addr` output -> the IPv4 addresses."""
+    return re.findall(r"inet (\d+\.\d+\.\d+\.\d+)", text)
+
+
+def best_address(addresses):
+    """A VPN address first, then a home network one."""
+    for kind in ("vpn", "home"):
+        for a in addresses:
+            if classify(a) == kind:
+                return a
+    return ""
+
+
+def address_hint(host):
+    kind = classify(host)
+    if kind == "vpn":
+        return tr("This is a {0} address. Friends on the same {0} network can join from anywhere.", vpn_name(host))
+    if kind == "home":
+        return tr("This is a home network address, so only people on the same network can join. For anyone else, install a VPN such as Tailscale on both devices, or forward the port on your router and use your public address.")
+    if kind == "none":
+        return tr("No network address was found. Connect this device to a network, or type an address.")
+    return tr("Friends can join from anywhere if the port is forwarded on your router.")
+
+
 def build_args(mode, f, bits=PRESETS["Game Completion"]):
-    """Mode and form values -> (CLI arguments, None) or (None, error text). Limits are the ones hyrule-online.sh enforces."""
+    """Mode and form values -> (CLI arguments, None) or (None, error text). Like the Windows launcher, values are cleaned instead of
+    refused (port, password, description, name); only an unusable invite stops the start."""
+    name = clean_name(f["name"])
     if mode in (LOCAL, HOST):
-        if len(f["desc"].strip()) > 80:
-            return None, "The description can have up to 80 characters."
-        rules = ["--rules", bits, "--desc", clean(f["desc"], 80) or DEFAULT_DESC]
+        rules = ["--rules", bits, "--desc", clean_text(f["desc"], LIMITS["description"]) or DEFAULT_DESC, "--name", name]
         if mode == LOCAL:
             return ["--local", *rules], None
-        pw = f["hostpass"].strip()
-        if not valid_port(f["port"], 1024):
-            return None, "The port must be a number from 1024 to 65535."
-        if len(pw) > 40 or ";" in pw:
-            return None, "The password can have up to 40 characters and cannot contain a semicolon (;)."
-        return ["--host", str(int(f["port"])), pw, *rules], None
+        return ["--host", str(clean_port(f["port"])), host_password(f["hostpass"]), *rules], None
     parsed = parse_invite(f["invite"])
     if not parsed:
-        return None, "That is not a valid invite or address. Use hyrule://host:port?pw=PASSWORD or host:port."
-    if not NAME_RE.fullmatch(f["name"]):
-        return None, "Use 1 to 16 letters, numbers, _ or -."
-    return [parsed[0], str(parsed[1]), f["joinpass"].strip() or parsed[2], f["name"]], None
+        return None, tr("The server address is not valid. Enter an invite link or host:port on the Online page.")
+    return [parsed[0], str(parsed[1]), clean_text(f["joinpass"], LIMITS["join_password"]) or parsed[2], name], None
+
+
+def failure_text(lines, joining):
+    """The status line after a failed start: the last useful line of the script, plus the checklist when joining."""
+    useful = [mask(line) for line in lines if not re.search(r"\.\.\. \d+s|^Hyrule Online ", line)]
+    text = useful[-1] if useful else tr("The start script failed.")
+    return tr("Start failed: {0}", text) + (" " + tr(CHECKLIST) if joining else "")
+
+
+def parse_server_line(line):
+    """ServerEvents.cs: a line of the server console -> ("joined", name, slot), ("left", name), ("refused", name, code) or None."""
+    start = r"^\s*(?:\[\d{1,2}:\d{2}:\d{2}\]\s*)?Player (?P<name>.+?)"
+    m = re.match(start + r" joined the server\. Assigned to player (?P<slot>\d+)\.?\s*$", line)
+    if m:
+        return ("joined", m.group("name"), int(m.group("slot")))
+    m = re.match(start + r" disconnected\.?(?:\s+-\s+Details:.*)?\s*$", line)
+    if m:
+        return ("left", m.group("name"))
+    m = re.match(start + r" tried to connect but failed with error (?P<code>\d+)\.?\s*$", line)
+    return ("refused", m.group("name"), int(m.group("code"))) if m else None
+
+
+def event_text(event):
+    if event[0] == "joined":
+        return tr("{0} joined.", event[1])
+    if event[0] == "left":
+        return tr("{0} left.", event[1])
+    return tr("{0} could not join: wrong password.", event[1]) if event[2] == 3 else tr("{0} could not join (error {1}).", event[1], event[2])
+
+
+class Roster:
+    """Who is in the world, from the server console."""
+
+    def __init__(self):
+        self.rows, self.order = [], 0
+
+    def apply(self, event):
+        if event[0] == "joined":
+            self.order += 1
+            self.rows = [r for r in self.rows if r[1] != event[2] and r[0] != event[1]] + [(event[1], event[2], self.order)]
+        elif event[0] == "left":
+            self.rows = [r for r in self.rows if r[0] != event[1]]
+
+    def names(self):
+        return [r[0] for r in sorted(self.rows, key=lambda r: (r[1], r[2]))]
 
 
 def load_conf(path):
@@ -140,6 +356,38 @@ def load_conf(path):
     return out
 
 
+def save_conf(path, values):
+    """The launcher's own choices; a failure only means they are not remembered."""
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8", newline="\n") as f:
+            f.write("".join(f"{k}={v}\n" for k, v in values.items() if "\n" not in str(v)))
+        os.chmod(tmp, 0o600)
+        os.replace(tmp, path)
+    except OSError:
+        pass
+
+
+def default_conf_path(env=None):
+    env = os.environ if env is None else env
+    if env.get("HYRULE_LAUNCHER_CONF"):
+        return env["HYRULE_LAUNCHER_CONF"]
+    return os.path.join(env.get("XDG_CONFIG_HOME") or os.path.join(os.path.expanduser("~"), ".config"), "hyrule-online", "launcher.conf")
+
+
+def initial_state(own, join, presets):
+    """Starting values: the launcher's own choices (page, mode), then what hyrule-online.sh last saved in join.conf."""
+    modes = {"local": LOCAL, "host": HOST, "host a server": HOST, "join": JOIN, "join a server": JOIN}
+    mode = modes.get(own.get("mode", "").lower()) or modes.get(join.get("mode", "").lower(), LOCAL)
+    host = join.get("host", "")
+    return {"tab": own.get("tab") if own.get("tab") in TABS else TABS[0], "mode": mode,
+            "bits": join["rules"] if valid_bits(join.get("rules", "")) else next(iter(presets.values())),
+            "values": {"port": join.get("hostport") or str(DEFAULT_PORT), "hostpass": host_password(join.get("hostpass", "")),
+                       "desc": join.get("desc") or DEFAULT_DESC, "addr": "", "invite": f"{host}:{join.get('port') or DEFAULT_PORT}" if host else "",
+                       "joinpass": join.get("password", ""), "name": clean_name(join.get("name", ""))}}
+
+
 def read_version(dirs=(HERE, os.path.dirname(HERE))):
     for d in dirs:
         try:
@@ -154,16 +402,99 @@ def mask(line):
     return re.sub(r"pw=\S*", "pw=…", line)
 
 
+def ui_scale(width, height):
+    """The layout is drawn for 1280x800; other screens scale it (never below what stays readable)."""
+    return max(0.7, min(1.6, width / 1280, height / 800))
+
+
+# ---- keyboard / D-pad navigation: Navigation.cs Spatial, on (x, y, width, height) boxes ----
+
+def _gap(start, length, other_start, other_length):
+    return max(0, max(other_start - (start + length), start - (other_start + other_length)))
+
+
+def _away(point, start, length):
+    return start - point if point < start else point - (start + length) if point > start + length else 0
+
+
+def spatial_pick(frm, items, direction, sideways=False):
+    """Index of the box a step in direction (0 up, 1 down, 2 left, 3 right) reaches, or -1. A box lined up with the current one wins."""
+    if direction not in (0, 1, 2, 3):
+        return -1
+    vertical = direction < 2
+    best, fallback, best_score, fallback_score = -1, -1, float("inf"), float("inf")
+    fx, fy = frm[0] + frm[2] / 2, frm[1] + frm[3] / 2
+    for i, it in enumerate(items):
+        ix, iy = it[0] + it[2] / 2, it[1] + it[3] / 2
+        if direction == 0:
+            if iy >= fy - 1:
+                continue
+            along = max(0, frm[1] - (it[1] + it[3])) + (fy - iy) * .1
+        elif direction == 1:
+            if iy <= fy + 1:
+                continue
+            along = max(0, it[1] - (frm[1] + frm[3])) + (iy - fy) * .1
+        elif direction == 2:
+            if ix >= fx - 1:
+                continue
+            along = max(0, frm[0] - (it[0] + it[2])) + (fx - ix) * .1
+        else:
+            if ix <= fx + 1:
+                continue
+            along = max(0, it[0] - (frm[0] + frm[2])) + (ix - fx) * .1
+        if vertical:
+            across, offset, miss = _gap(frm[0], frm[2], it[0], it[2]), abs(ix - fx), _away(fx, it[0], it[2])
+        else:
+            across, offset, miss = _gap(frm[1], frm[3], it[1], it[3]), abs(iy - fy), _away(fy, it[1], it[3])
+        if across <= 0:
+            score = along + miss * .5 + offset * .1
+            if score < best_score:
+                best, best_score = i, score
+        elif vertical or sideways:
+            score = along + across * 1.5 + offset * .3
+            if score < fallback_score:
+                fallback, fallback_score = i, score
+    return best if best >= 0 else fallback
+
+
+def spatial_next(frm, items, chrome, from_chrome, direction):
+    """One step. Left and right from a content control may cross to another row; the chrome (tabs, Help, footer) never does."""
+    pick = spatial_pick(frm, items, direction)
+    if pick < 0 and direction >= 2 and not from_chrome:
+        content = [i for i in range(len(items)) if not chrome[i]]
+        side = spatial_pick(frm, [items[i] for i in content], direction, True)
+        if side >= 0:
+            pick = content[side]
+    return pick
+
+
+def unreachable(items, chrome):
+    """[(start, [unreachable])]: from every control, the others that no chain of steps in the four directions reaches (LayoutTests.CheckNavigation)."""
+    bad = []
+    for start in range(len(items)):
+        seen, todo = {start}, [start]
+        while todo:
+            cur = todo.pop()
+            for d in range(4):
+                nxt = spatial_next(items[cur], items, chrome, chrome[cur], d)
+                if nxt >= 0 and nxt not in seen:
+                    seen.add(nxt)
+                    todo.append(nxt)
+        if len(seen) < len(items):
+            bad.append((start, [i for i in range(len(items)) if i not in seen]))
+    return bad
+
+
 # ---- the one place that knows the hyrule-online.sh contract ----
 
 class Cli:
     """Contract (see "CLI used by the GUI" in README.md; adjust here only). Always HYRULE_NO_GUI=1 and stdin from /dev/null.
-    `--local|--host [PORT [PASSWORD]] [--no-play] [--rules R] [--desc T]` and `HOST PORT [PASSWORD] [NAME]` block until the game
-    closes (exit 1 = failed with the reason on stderr, 143 = stopped); `--stop`; `--presets` (`DIGITS Name` lines);
-    `--status` (one line of key=value pairs: version mode server client joined port [host] [invite] [invite_vpn])."""
+    `--local|--host [PORT [PASSWORD]] [--no-play] [--rules R] [--desc T] [--name N]` and `HOST PORT [PASSWORD] [NAME]` block until the game
+    closes (exit 1 = failed with the reason on stderr, 143 = stopped); `--stop`; `--presets` (`DIGITS Name` lines); `--check` (`ok:`/`missing:`
+    lines); `--status` (one line of key=value pairs: version mode server client joined port [host] [invite] [invite_vpn])."""
 
     def __init__(self, script=os.path.join(HERE, "hyrule-online.sh")):
-        self.script, self.proc, self.lines, self.stat = script, None, [], None
+        self.script, self.proc, self.lines, self.stat, self.missing, self.addresses = script, None, [], None, [], []
         self.busy = self.quiet = self.refreshing = False
 
     def available(self):
@@ -172,6 +503,9 @@ class Cli:
     def presets(self):
         found = parse_presets(self.run("--presets", timeout=10)[1])
         return found or dict(PRESETS)
+
+    def check(self):
+        self.missing = parse_check(self.run("--check", timeout=30)[1])
 
     def run(self, *args, timeout=60):
         try:
@@ -220,266 +554,561 @@ class Cli:
         self.refreshing = True
         try:
             self.stat = parse_status(self.run("--status", timeout=10)[1])
+            try:
+                out = subprocess.run(["ip", "-4", "-o", "addr"], capture_output=True, text=True, timeout=5, stdin=subprocess.DEVNULL).stdout
+                self.addresses = parse_addresses(out)
+            except (OSError, subprocess.SubprocessError):
+                self.addresses = []
         finally:
             self.refreshing = False
 
 
-# ---- widgets ----
+class ServerLog:
+    """Follows logs/server.log (rewritten at each server start): the console lines and who is in the world."""
 
-def look(p, **kw):
-    o = dict(bg=FIELD, fg=FG, activebackground=HOVER, activeforeground=FG, relief="flat", bd=0, font=FONT,
-             highlightthickness=4, highlightbackground=p["bg"], highlightcolor=GOLD, padx=18, pady=12, cursor="hand2")
-    o.update(kw)
-    return o
+    def __init__(self, path=os.path.join(HERE, "logs", "server.log")):
+        self.path = path
+        self.reset()
+
+    def reset(self):
+        self.pos, self.partial, self.lines, self.events, self.roster = 0, "", [], [], Roster()
+
+    def poll(self):
+        try:
+            size = os.path.getsize(self.path)
+            if size < self.pos:
+                self.reset()
+            if size == self.pos:
+                return False
+            with open(self.path, "rb") as f:
+                f.seek(self.pos)
+                data = f.read()
+        except OSError:
+            return False
+        self.pos += len(data)
+        *done, self.partial = (self.partial + data.decode("utf-8", "replace")).split("\n")
+        for line in done:
+            self.feed(line.rstrip("\r"))
+        return True
+
+    def feed(self, line):
+        self.lines = (self.lines + [mask(line)])[-200:]
+        event = parse_server_line(line)
+        if event:
+            self.roster.apply(event)
+            self.events = (self.events + [event])[-6:]
 
 
-def label(p, text, **kw):
-    o = dict(bg=p["bg"], fg=FG, font=FONT, justify="left", anchor="w")
-    o.update(kw)
-    return tk.Label(p, text=text, **o)
-
-
-def button(p, text, cmd, **kw):
-    return tk.Button(p, text=text, command=cmd, **look(p, **kw))
-
-
-def radio(p, text, var, value, cmd):
-    return tk.Radiobutton(p, text=text, variable=var, value=value, command=cmd, indicatoron=False, selectcolor=GREEN, **look(p))
-
-
-def entry(p, var):
-    return tk.Entry(p, textvariable=var, bg=FIELD, fg=FG, insertbackground=GOLD, relief="flat", bd=0, font=FONT,
-                    highlightthickness=4, highlightbackground=p["bg"], highlightcolor=GOLD)
-
-
-def panel(p, title):
-    f = tk.Frame(p, bg=PANEL, highlightthickness=1, highlightbackground=LINE, padx=20, pady=12)
-    label(f, title, fg=SECTION).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 6))
-    return f
-
+# ---- window ----
 
 class App:
-    def __init__(self, root, cli=None, conf=os.path.join(HERE, "join.conf")):
-        self.root, self.cli, self.conf, self.overlay, self.note = root, cli or Cli(), conf, None, ""
-        self.wraps, self.shown, self.started_mode, self.up = [], None, LOCAL, False
+    def __init__(self, root, cli=None, conf=None, join_conf=os.path.join(HERE, "join.conf"), size=None, server_log=None):
+        self.root, self.cli, self.conf_path = root, cli or Cli(), conf or default_conf_path()
+        self.log = server_log or ServerLog()
+        self.own = load_conf(self.conf_path)
+        set_language(choose_language(self.own.get("language")))
         self.presets = self.cli.presets()
-        self.load()
+        st = initial_state(self.own, load_conf(join_conf), self.presets)
+        self.size = size or (root.winfo_screenwidth(), root.winfo_screenheight())
+        self.scale = ui_scale(*self.size)
+        self.bits, self.dialog, self.note, self.up, self.started, self.started_mode = st["bits"], None, None, False, None, LOCAL
+        self.tab, self.mode = tk.StringVar(root, st["tab"]), tk.StringVar(root, st["mode"])
+        self.lang = tk.StringVar(root, LANG)
+        self.v = {k: tk.StringVar(root, x) for k, x in st["values"].items()}
+        self.last_addr, self.addr_msg, self.copied_until, self.semicolon_until, self.shown = "", False, 0, 0, None
+        for key, var in self.v.items():
+            var.trace_add("write", lambda *a, k=key: self.typed(k))
+        self.fonts()
         self.build()
-        self.show_tab()
-        self.show_mode()
-        self.refresh_rules()
         self.bind_keys()
         root.protocol("WM_DELETE_WINDOW", self.quit)
         root.bind("<Configure>", self.resize)
-        root.after_idle(lambda: self.wrap(root.winfo_width()))
-        if not self.cli.available():
-            self.note = "hyrule-online.sh was not found next to the launcher."
+        root.bind("<Destroy>", lambda e: e.widget is root and self.stop_timers())
+        threading.Thread(target=self.cli.check, daemon=True).start() if self.cli.available() else None
         self.tick()
 
-    # state read from join.conf (written only by hyrule-online.sh)
-    def load(self):
-        c = load_conf(self.conf)
-        modes = {"host": HOST, "host a server": HOST, "join": JOIN, "join a server": JOIN}
-        self.mode = tk.StringVar(self.root, modes.get(c.get("mode", "").lower(), LOCAL))
-        self.bits = c["rules"] if valid_bits(c.get("rules", "")) else next(iter(self.presets.values()))
-        host = c.get("host", "")
-        values = {"port": c.get("hostport") or str(DEFAULT_PORT), "hostpass": c.get("hostpass", ""), "desc": c.get("desc") or DEFAULT_DESC,
-                  "invite": f"{host}:{c.get('port') or DEFAULT_PORT}" if host else "", "joinpass": c.get("password", ""), "name": c.get("name") or "Link"}
-        self.v = {k: tk.StringVar(self.root, x) for k, x in values.items()}
+    @property
+    def overlay(self):
+        return self.dialog
 
-    def form(self):
-        return {k: v.get() for k, v in self.v.items()}
+    # ---- look ----
+    def fonts(self):
+        have = set(tkfont.families(self.root)) if tkfont else set()
+        sans = next((f for f in ("Segoe UI", "Noto Sans", "DejaVu Sans", "Liberation Sans") if f in have), "TkDefaultFont")
+        serif = next((f for f in ("Georgia", "Noto Serif", "DejaVu Serif", "Liberation Serif") if f in have), sans)
+        mono = next((f for f in ("Consolas", "DejaVu Sans Mono", "Liberation Mono") if f in have), "TkFixedFont")
+        sizes = {"body": 18, "small": 14, "section": 16, "tab": 18, "logo": 30, "title": 14, "start": 20}
+        self.font = {k: ((serif if k in ("logo", "title") else sans), -max(10, round(v * self.scale)), "bold" if k in ("section", "start") else "normal")
+                     for k, v in sizes.items()}
+        self.font["mono"] = (mono, -max(10, round(14 * self.scale)))
 
-    # layout
-    def wrapped(self, lab, frac=1.0):
-        self.wraps.append((lab, frac))
+    def px(self, n):
+        return max(1, round(n * self.scale))
+
+    def label(self, p, text="", fg=FG, font="body", wrap=0, **kw):
+        o = dict(bg=p["bg"], anchor="w")
+        o.update(kw)
+        lab = tk.Label(p, text=text, fg=fg, font=self.font[font], justify="left", **o)
+        if wrap:
+            self.wraps.append((lab, wrap))
         return lab
+
+    def button(self, p, text, cmd, tip=None, kind="Button", **kw):
+        o = dict(bg=FIELD, fg=FG, activebackground=HOVER, activeforeground=FG, disabledforeground=OFF, relief="flat", bd=0, font=self.font["body"],
+                 highlightthickness=3, highlightbackground=p["bg"], highlightcolor=GOLD, padx=self.px(18), pady=self.px(7), cursor="hand2")
+        o.update(kw)
+        w = (tk.Button if kind == "Button" else tk.Radiobutton if kind == "Radiobutton" else tk.Checkbutton)(p, text=text, command=cmd, **o)
+        return self.tip(w, tip)
+
+    def entry(self, p, var, tip=None, **kw):
+        o = dict(textvariable=var, bg=FIELD, fg=FG, insertbackground=GOLD, relief="flat", bd=0, font=self.font["body"], disabledbackground=PANEL,
+                 readonlybackground=FIELD, highlightthickness=3, highlightbackground=p["bg"], highlightcolor=GOLD)
+        o.update(kw)
+        e = tk.Entry(p, **o)
+        e.bind("<Left>", lambda ev: None if e.index("insert") > 0 else self.nav(2) or "break")
+        e.bind("<Right>", lambda ev: None if e.index("insert") < len(e.get()) else self.nav(3) or "break")
+        return self.tip(e, tip)
+
+    def tip(self, w, key):
+        if key:
+            w.bind("<Enter>", lambda e: self.show_tip(key), add="+")
+            w.bind("<FocusIn>", lambda e: self.show_tip(key), add="+")
+            w.bind("<Leave>", lambda e: self.show_tip(None), add="+")
+            w.bind("<FocusOut>", lambda e: self.show_tip(None), add="+")
+        return w
+
+    def show_tip(self, key):
+        self.hint.config(text=tr(key or DEFAULT_HINT))
+
+    def panel(self, p, title, **kw):
+        f = tk.Frame(p, bg=PANEL, highlightthickness=1, highlightbackground=LINE, padx=self.px(18), pady=self.px(8), **kw)
+        self.label(f, tr(title), fg=SECTION, font="section").grid(row=0, column=0, columnspan=4, sticky="w", pady=(0, self.px(4)))
+        return f
+
+    def combo(self, p, key, get, cmd):
+        """A button that shows the current choice and opens the choice list (Windows has a combo box)."""
+        return self.button(p, "", cmd, key, anchor="w")
+
+    def field(self, p, row, text, var, tip, **kw):
+        self.label(p, tr(text), fg=MUTED).grid(row=row, column=0, sticky="w", padx=(0, self.px(14)))
+        e = self.entry(p, var, tip, **kw)
+        e.grid(row=row, column=1, sticky="ew", pady=self.px(3), ipady=self.px(5))
+        return e
+
+    # ---- layout ----
+    def build(self):
+        r = self.root
+        for w in r.winfo_children():
+            w.destroy()
+        self.wraps, self.tips_on = [], True
+        r.configure(bg=BG)
+        pad = self.px(16)
+        head = tk.Frame(r, bg=BG)
+        head.pack(fill="x", padx=pad, pady=(self.px(8), 0))
+        head.columnconfigure(1, weight=1)
+        corner = tk.Frame(head, bg=BG)
+        corner.grid(row=0, column=0, sticky="w")
+        self.dot = self.label(corner, "●", fg=OFF)
+        self.dot.pack(side="left")
+        self.corner = self.label(corner, tr("Server stopped"), fg=LOGFG, font="small")
+        self.corner.pack(side="left", padx=(self.px(6), 0))
+        self.label(head, "THE LEGEND OF ZELDA", fg="#CFBF9C", font="title", anchor="center").grid(row=0, column=1)
+        self.help_btn = self.button(head, tr("Help"), self.toggle_help, padx=self.px(16), pady=self.px(4))
+        self.help_btn.grid(row=0, column=2, sticky="e")
+        self.label(head, "BREATH OF THE WILD", fg="#E2D5B2", font="logo", anchor="center").grid(row=1, column=0, columnspan=3)
+        bar = tk.Frame(r, bg=BG)
+        bar.pack(fill="x", padx=pad, pady=(self.px(4), self.px(6)))
+        lb = self.tip(self.label(bar, "LB", fg=MUTED, font="small"), _k("Previous page (LB or Ctrl+Shift+Tab)"))
+        lb.pack(side="left")
+        rb = self.tip(self.label(bar, "RB", fg=MUTED, font="small"), _k("Next page (RB or Ctrl+Tab)"))
+        rb.pack(side="right")
+        tabs = tk.Frame(bar, bg=BG)
+        tabs.pack()
+        self.tab_btns = {n: self.button(tabs, tr(TAB_LABELS[n]), self.show_tab, kind="Radiobutton", variable=self.tab, value=n, indicatoron=False,
+                                        selectcolor=GREEN, font=self.font["tab"], padx=self.px(22)) for n in TABS}
+        for b in self.tab_btns.values():
+            b.pack(side="left", padx=self.px(4))
+        foot = tk.Frame(r, bg=BG)
+        foot.pack(side="bottom", pady=(self.px(4), self.px(8)))
+        self.start_btn = self.button(foot, tr("START SESSION"), self.start, bg=GREEN, font=self.font["start"], highlightbackground=BG, padx=self.px(36))
+        self.stop_btn = self.button(foot, tr("Stop session"), self.stop, padx=self.px(24))
+        self.exit_btn = self.button(foot, tr("Exit"), self.quit, padx=self.px(24))
+        for b in (self.start_btn, self.stop_btn, self.exit_btn):
+            b.pack(side="left", padx=self.px(6))
+        self.status = self.label(r, "", fg=STATUS_FG, wrap=1, bg="#212E2D")
+        self.status.pack(side="bottom", fill="x", padx=pad, ipady=self.px(3))
+        self.hint = self.label(r, tr(DEFAULT_HINT), fg=MUTED, font="small", wrap=1)
+        self.hint.pack(side="bottom", fill="x", padx=pad)
+        self.host = tk.Frame(r, bg=BG)
+        self.host.pack(fill="both", expand=True, padx=pad, pady=(0, self.px(4)))
+        self.pages = {n: tk.Frame(self.host, bg=BG) for n in TABS}
+        for name in TABS:
+            getattr(self, "build_" + name.lower())(self.pages[name])
+        self.helpbox = tk.Frame(self.host, bg=PANEL, highlightthickness=1, highlightbackground=LINE)
+        self.build_help(self.helpbox)
+        self.help_open = False
+        self.zones = [head, bar, self.host, foot]
+        self.chrome = {self.help_btn, *self.tab_btns.values(), self.start_btn, self.stop_btn, self.exit_btn}
+        self.shown = None
+        self.show_tab()
+        self.show_mode()
+        self.wrap(r.winfo_width())
 
     def resize(self, event):
         if event.widget is self.root:
             self.wrap(event.width)
 
     def wrap(self, width):
+        width = width if width > 1 else self.size[0]
         for lab, frac in self.wraps:
-            lab.config(wraplength=max(240, int(width * frac) - 110))
-
-    def build(self):
-        r = self.root
-        r.configure(bg=BG)
-        top = tk.Frame(r, bg=BG)
-        top.pack(fill="x", padx=16, pady=(8, 0))
-        label(top, "HYRULE ONLINE", fg=GOLD, font=(FAMILY, 22, "bold")).pack(side="left")
-        label(top, "Version " + read_version(), fg=MUTED).pack(side="left", padx=18)
-        self.stop_btn = button(top, "Stop", self.stop, padx=30)
-        self.stop_btn.pack(side="right")
-        bar = tk.Frame(r, bg=BG)
-        bar.pack(pady=6)
-        self.tab = tk.StringVar(r, TABS[0])
-        self.tab_btns = {n: radio(bar, n.upper(), self.tab, n, self.show_tab) for n in TABS}
-        for b in self.tab_btns.values():
-            b.pack(side="left", padx=4)
-        foot = tk.Frame(r, bg=BG)
-        foot.pack(side="bottom", fill="x", padx=16, pady=(4, 10))
-        self.status = label(foot, "", fg="#AEE2D2")
-        self.status.pack(side="left", fill="x", expand=True)
-        self.start_btn = button(foot, "START SESSION", self.start, bg=GREEN, font=(FAMILY, 20, "bold"), padx=36, pady=12)
-        self.start_btn.pack(side="right")
-        self.pages = {n: tk.Frame(r, bg=BG) for n in TABS}
-        self.build_play(self.pages["Play"])
-        self.build_online(self.pages["Online"])
-        text = label(self.pages["Help"], "", fg=FG, anchor="nw")
-        text.config(text="\n\n".join(f"{h}: {t}" for h, t in HELP))
-        text.pack(fill="both", expand=True, anchor="nw")
-        self.wrapped(text)
+            if lab.winfo_exists():
+                lab.config(wraplength=max(self.px(240), int(width * frac) - self.px(70)))
 
     def build_play(self, page):
-        card = panel(page, "SESSION")
-        card.pack(fill="x", pady=(4, 8))
-        card.columnconfigure(2, weight=1)
+        page.columnconfigure(0, weight=1)
+        card = self.panel(page, "SESSION")
+        card.grid(row=0, column=0, sticky="ew", pady=(self.px(4), self.px(8)))
+        card.columnconfigure(3, weight=1)
         self.dots = {}
-        for i, (key, name) in enumerate((("server", "Dedicated server"), ("client", "Player 1 (Cemu)")), 1):
-            dot = label(card, "●", fg=OFF)
+        for i, (key, name) in enumerate((("server", _k("Dedicated server")), ("client", _k("Player 1 (Cemu A)"))), 1):
+            dot = self.label(card, "●", fg=OFF)
             dot.grid(row=i, column=0, sticky="w")
-            label(card, name).grid(row=i, column=1, sticky="w", padx=(8, 24))
-            word = label(card, "Stopped", fg=MUTED)
+            self.label(card, tr(name)).grid(row=i, column=1, sticky="w", padx=(self.px(8), self.px(24)))
+            word = self.label(card, tr("Stopped"), fg=MUTED)
             word.grid(row=i, column=2, sticky="w")
             self.dots[key] = (dot, word)
-        self.modeline = self.wrapped(label(card, ""))
-        self.modeline.grid(row=3, column=0, columnspan=3, sticky="w", pady=(8, 0))
-        self.wrapped(label(card, ONE_PLAYER, fg=AMBER)).grid(row=4, column=0, columnspan=3, sticky="w", pady=(8, 0))
-        logs = panel(page, "RECENT LOG")
-        logs.pack(fill="both", expand=True)
-        self.log = label(logs, "", fg=MUTED, anchor="nw")
-        self.log.grid(row=1, column=0, sticky="nw")
+        right = tk.Frame(card, bg=PANEL)
+        right.grid(row=1, column=3, rowspan=2, sticky="e")
+        self.label(right, tr("Player 1 name"), fg=MUTED).pack(side="left", padx=(0, self.px(12)))
+        self.entry(right, self.v["name"], _k("Player 1 name"), width=14).pack(side="left", ipady=self.px(5))
+        self.prompt = self.label(card, tr("Cemu A: wait for the main menu, then press Continue within about a minute."), fg=AMBER, wrap=1)
+        self.prompt.grid(row=3, column=0, columnspan=4, sticky="w", pady=(self.px(8), 0))
+        box = self.panel(page, "ONLINE")
+        box.grid(row=1, column=0, sticky="ew")
+        box.columnconfigure(0, weight=1)
+        self.modeline = self.label(box, "", wrap=1)
+        self.modeline.grid(row=1, column=0, sticky="w")
+        self.world = self.label(box, "", fg=MUTED, wrap=1)
+        self.world.grid(row=2, column=0, sticky="w")
+        self.event = self.label(box, "", fg=MUTED, wrap=1)
+        self.event.grid(row=3, column=0, sticky="w")
+        self.copy_play = self.button(box, tr("Copy invite"), self.copy_invite, _k("Copies the invite. Your friends paste it in the Join a server mode of their launcher."))
+        self.copy_play.grid(row=1, column=1, rowspan=3, sticky="e")
 
     def build_online(self, page):
         page.columnconfigure((0, 1), weight=1, uniform="c")
-        modes = tk.Frame(page, bg=BG)
-        modes.grid(row=0, column=0, columnspan=2, pady=(4, 4))
-        for m, text in MODES:
-            radio(modes, text, self.mode, m, self.pick_mode).pack(side="left", padx=4)
-        self.info = self.wrapped(label(page, "", fg=MUTED))
-        self.info.grid(row=1, column=0, columnspan=2, sticky="w", pady=(0, 6))
-        self.hostf, self.joinf = panel(page, "HOST A SERVER"), panel(page, "JOIN A SERVER")
+        left = self.panel(page, "ONLINE")
+        left.grid(row=0, column=0, sticky="nsew", padx=(0, self.px(8)), pady=(self.px(4), 0))
+        left.columnconfigure(1, weight=1)
+        self.label(left, tr("How this device takes part. Applied when the next session starts."), fg=MUTED, wrap=.5).grid(row=1, column=0, columnspan=2, sticky="w")
+        self.label(left, tr("Online mode"), fg=MUTED).grid(row=2, column=0, sticky="w", padx=(0, self.px(14)))
+        self.mode_btn = self.combo(left, _k("Play on this device keeps the server private. Host a server lets friends join over the network. Join a server connects to a friend's server."), None, self.pick_mode)
+        self.mode_btn.grid(row=2, column=1, sticky="ew", pady=self.px(4))
+        self.info = self.label(left, "", fg=MUTED, wrap=.5)
+        self.info.grid(row=3, column=0, columnspan=2, sticky="w", pady=(0, self.px(4)))
+        self.hostf, self.joinf = tk.Frame(left, bg=PANEL), tk.Frame(left, bg=PANEL)
         for f in (self.hostf, self.joinf):
             f.columnconfigure(1, weight=1)
-        for row, (text, key) in enumerate((("Port", "port"), ("Password", "hostpass"), ("Server description", "desc")), 1):
-            label(self.hostf, text, fg=MUTED).grid(row=row, column=0, sticky="w", padx=(0, 14))
-            entry(self.hostf, self.v[key]).grid(row=row, column=1, sticky="ew", pady=3, ipady=10)
-        label(self.joinf, "Invite or address", fg=MUTED).grid(row=1, column=0, sticky="w", padx=(0, 14))
-        entry(self.joinf, self.v["invite"]).grid(row=1, column=1, sticky="ew", pady=3, ipady=10)
-        self.wrapped(label(self.joinf, "Example: hyrule://100.64.0.5:5050 or 192.168.1.20:5050", fg=MUTED), 0.4).grid(row=2, column=1, sticky="w")
-        for row, (text, key) in enumerate((("Password", "joinpass"), ("Name", "name")), 3):
-            label(self.joinf, text, fg=MUTED).grid(row=row, column=0, sticky="w", padx=(0, 14))
-            entry(self.joinf, self.v[key]).grid(row=row, column=1, sticky="ew", pady=3, ipady=10)
-        self.joinhelp = panel(page, "JOINING A SERVER")
-        self.wrapped(label(self.joinhelp, "Ask the host for their invite and paste it here. You play on this device with one player. "
-                           "The host chooses the world rules and runs the server."), 0.5).grid(row=1, column=0, sticky="w")
-        self.share = panel(page, "INVITE FRIENDS")
-        self.invite_rows = tk.Frame(self.share, bg=PANEL)
-        self.invite_rows.grid(row=1, column=0, sticky="ew")
-        self.share.columnconfigure(0, weight=1)
-        self.wrapped(label(self.share, "Friends outside your network need a VPN such as Tailscale on both devices, or a forwarded router port.",
-                           fg=MUTED), 0.5).grid(row=2, column=0, sticky="w", pady=(8, 0))
-        rules = self.rules = panel(page, "WORLD RULES")
-        rules.columnconfigure((0, 1, 2), weight=1, uniform="r")
-        self.preset_btn = button(rules, "", self.pick_preset)
-        self.preset_btn.grid(row=1, column=0, columnspan=3, sticky="ew", pady=3)
-        self.special_btn = button(rules, "", self.pick_special)
-        self.special_btn.grid(row=2, column=0, columnspan=3, sticky="ew", pady=3)
+        self.field(self.hostf, 0, "Port", self.v["port"], _k("The TCP port the server listens on, from 1024 to 65535. It goes in the invite. The default is 5050."))
+        self.field(self.hostf, 1, "Password", self.v["hostpass"], _k("Optional. Friends need it to join. Leave it empty for an open server."))
+        self.semicolon = self.label(self.hostf, tr("A semicolon (;) is removed from the password."), fg=MUTED, font="small", wrap=.5)
+        self.semicolon.grid(row=2, column=1, sticky="w")
+        self.field(self.hostf, 3, "Server description", self.v["desc"], _k("The text friends see about this server."))
+        self.field(self.joinf, 0, "Invite or address", self.v["invite"], _k("Paste the invite your friend sent you, or type their address and port."))
+        self.label(self.joinf, tr("Example: hyrule://100.64.0.5:5050 or 192.168.1.20:5050"), fg=MUTED, font="small", wrap=.5).grid(row=1, column=1, sticky="w")
+        self.field(self.joinf, 2, "Password", self.v["joinpass"], _k("The server password, if the invite does not carry it."), show="")
+        self.share = self.panel(page, "INVITE FRIENDS")
+        self.share.columnconfigure(1, weight=1)
+        self.addr_entry = self.field(self.share, 1, "Address in the invite", self.v["addr"], _k("The Tailscale or home network address of this device. Use your public address if you forward the port on your router. Empty it to detect the address again."))
+        self.addr_entry.bind("<FocusOut>", lambda e: self.commit_addr(), add="+")
+        self.label(self.share, tr("Invite"), fg=MUTED).grid(row=2, column=0, sticky="w", padx=(0, self.px(14)))
+        self.invite_box = self.entry(self.share, tk.StringVar(self.root), None, state="readonly", takefocus=0)
+        self.invite_box.grid(row=2, column=1, sticky="ew", pady=self.px(3), ipady=self.px(5))
+        self.copy_btn = self.button(self.share, tr("Copy invite"), self.copy_invite, _k("Copies the invite. Your friends paste it in the Join a server mode of their launcher."))
+        self.copy_btn.grid(row=3, column=0, columnspan=2, sticky="ew", pady=self.px(4))
+        self.nethint = self.label(self.share, "", fg=MUTED, font="small", wrap=.5)
+        self.nethint.grid(row=4, column=0, columnspan=2, sticky="w")
+        self.joinhelp = self.panel(page, "JOINING A SERVER")
+        self.label(self.joinhelp, tr("Ask the host for their invite and paste it here. You play on this device with one player. The host chooses the world rules and runs the server."), wrap=.5).grid(row=1, column=0, sticky="w")
+
+    def build_world(self, page):
+        page.columnconfigure(0, weight=1)
+        card = self.panel(page, "WORLD RULES")
+        card.grid(row=0, column=0, sticky="nsew", pady=(self.px(4), 0))
+        card.columnconfigure((1, 2, 3), weight=1, uniform="r")
+        self.label(card, tr("What everyone on the server shares. Applied when the next session starts."), fg=MUTED, wrap=1).grid(row=1, column=0, columnspan=4, sticky="w")
+        self.locked = self.label(card, tr("You joined a friend's server: the host sets the world rules, so these are locked."), fg=AMBER, wrap=1)
+        self.locked.grid(row=2, column=0, columnspan=4, sticky="w")
+        self.label(card, tr("Preset"), fg=MUTED).grid(row=3, column=0, sticky="w", padx=(0, self.px(14)))
+        self.preset_btn = self.combo(card, _k("A ready-made set of sync rules. You can still change each rule below."), None, self.pick_preset)
+        self.preset_btn.grid(row=3, column=1, columnspan=3, sticky="ew", pady=self.px(3))
+        self.preset_info = self.label(card, "", fg=MUTED, font="small", wrap=.82)
+        self.preset_info.grid(row=4, column=1, columnspan=3, sticky="w")
+        self.label(card, tr("Special mode"), fg=MUTED).grid(row=5, column=0, sticky="w", padx=(0, self.px(14)))
+        self.special_btn = self.combo(card, _k("An optional game mode on top of the rules: Hunter vs Speedrunner or Death Swap."), None, self.pick_special)
+        self.special_btn.grid(row=5, column=1, columnspan=3, sticky="ew", pady=self.px(3))
+        self.special_info = self.label(card, "", fg=MUTED, font="small", wrap=.82)
+        self.special_info.grid(row=6, column=1, columnspan=3, sticky="w")
+        self.shares = self.label(card, "", font="small", wrap=1)
+        self.shares.grid(row=7, column=0, columnspan=4, sticky="w", pady=(self.px(4), self.px(4)))
         self.checks = []
+        grid = tk.Frame(card, bg=PANEL)
+        grid.grid(row=8, column=0, columnspan=4, sticky="ew")
+        grid.columnconfigure((0, 1, 2), weight=1, uniform="r")
+        grid.columnconfigure(3, weight=2)
         for i, name in enumerate(RULE_NAMES):
             var = tk.BooleanVar(self.root)
-            c = tk.Checkbutton(rules, text=name, variable=var, command=self.rules_changed, indicatoron=False, selectcolor=GREEN, **look(rules))
-            c.grid(row=3 + i // 3, column=i % 3, sticky="ew", padx=2, pady=3)
+            c = self.button(grid, "", self.rules_changed, RULE_TIPS[i], kind="Checkbutton", variable=var, indicatoron=False, selectcolor=GREEN)
+            c.grid(row=i // 4, column=i % 4, sticky="ew", padx=self.px(2), pady=self.px(2))
             self.checks.append((c, var))
+        self.recommended = self.button(grid, tr("Use recommended rules"), self.use_recommended,
+                                       _k("Selects the Game Completion preset with no special mode, the set that shares the most for playing the whole game together. It does not depend on this device's hardware."))
+        self.recommended.grid(row=1, column=3, sticky="ew", padx=self.px(2), pady=self.px(2))
 
+    def build_language(self, page):
+        card = self.panel(page, "LANGUAGE")
+        card.pack(fill="x", pady=(self.px(4), 0))
+        self.label(card, tr("The launcher text changes right away."), fg=MUTED, wrap=1).grid(row=1, column=0, sticky="w")
+        self.lang_btns = {}
+        for i, (code, name) in enumerate(LANGUAGES, 2):
+            b = self.button(card, name, lambda c=code: self.pick_language(c), kind="Radiobutton", variable=self.lang, value=code, indicatoron=False,
+                            selectcolor=GREEN, anchor="w")
+            b.grid(row=i, column=0, sticky="ew", pady=self.px(3))
+            self.lang_btns[code] = b
+        card.columnconfigure(0, weight=1)
+
+    def build_details(self, page):
+        page.columnconfigure((0, 1), weight=1, uniform="d")
+        page.rowconfigure(0, weight=1)
+        self.texts = {}
+        for col, title in enumerate((_k("Session log"), _k("Server console"))):
+            card = self.panel(page, title)
+            card.grid(row=0, column=col, sticky="nsew", padx=(0, self.px(8)) if col == 0 else (0, 0), pady=(self.px(4), 0))
+            card.rowconfigure(1, weight=1)
+            card.columnconfigure(0, weight=1)
+            box = tk.Text(card, bg=LOGBG, fg=LOGFG, font=self.font["mono"], relief="flat", wrap="word", height=6, width=10, highlightthickness=3,
+                          highlightbackground=PANEL, highlightcolor=GOLD, state="disabled", cursor="arrow", insertwidth=0)
+            self.scroll_keys(box)
+            box.grid(row=1, column=0, sticky="nsew")
+            self.texts[col] = [box, None]
+
+    def build_help(self, frame):
+        box = tk.Text(frame, bg=PANEL, fg=FG, font=self.font["body"], relief="flat", wrap="word", highlightthickness=3, highlightbackground=PANEL,
+                      highlightcolor=GOLD, padx=self.px(18), pady=self.px(12), cursor="arrow", insertwidth=0, spacing3=self.px(10))
+        box.tag_configure("head", foreground=GOLD, font=self.font["section"])
+        for section in HELP_SECTIONS:
+            title, _, text = tr(section).partition(":")
+            box.insert("end", title.strip() + ": ", "head")
+            box.insert("end", text.strip() + "\n\n")
+        box.config(state="disabled")
+        self.scroll_keys(box)
+        box.pack(fill="both", expand=True)
+        self.help_text = box
+
+    def scroll_keys(self, box):
+        def scroll(direction):
+            lo, hi = box.yview()
+            if (direction == 0 and lo <= 0) or (direction == 1 and hi >= 1):
+                return self.nav(direction) or "break"
+            box.yview_scroll(-1 if direction == 0 else 1, "units")
+            return "break"
+        box.bind("<Up>", lambda e: scroll(0))
+        box.bind("<Down>", lambda e: scroll(1))
+        box.bind("<Button-1>", lambda e: box.focus_set())
+
+    # ---- pages and modes ----
     def show_tab(self):
+        name = self.tab.get() if self.tab.get() in TABS else TABS[0]
+        self.close_help()
         for f in self.pages.values():
             f.pack_forget()
-        self.pages[self.tab.get()].pack(fill="both", expand=True, padx=16, pady=(0, 4))
+        self.pages[name].pack(fill="both", expand=True)
+        self.remember("tab", name)
 
     def show_mode(self):
         m = self.mode.get()
-        for f in (self.hostf, self.joinf, self.joinhelp, self.share, self.rules):
+        for f in (self.hostf, self.joinf, self.share, self.joinhelp):
             f.grid_remove()
-        gap = {"padx": (0, 8), "sticky": "nsew"}
-        right = {"padx": (8, 0), "sticky": "nsew"}
-        if m == LOCAL:
-            self.rules.grid(row=2, column=0, columnspan=2, sticky="nsew")
-        elif m == HOST:
-            self.hostf.grid(row=2, column=0, **gap)
-            self.share.grid(row=3, column=0, pady=(8, 0), **gap)
-            self.rules.grid(row=2, column=1, rowspan=2, **right)
-        else:
-            self.joinf.grid(row=2, column=0, **gap)
-            self.joinhelp.grid(row=2, column=1, **right)
-        self.info.config(text={LOCAL: "The server only accepts players from this device.",
-                               HOST: "Friends who run this launcher can join this device. The world rules are the ones on the right.",
-                               JOIN: "This device joins a friend's server. The friend sets the rules."}[m])
+        gap = {"sticky": "nsew", "padx": (self.px(8), 0), "pady": (self.px(4), 0)}
+        if m == HOST:
+            self.hostf.grid(row=4, column=0, columnspan=2, sticky="ew")
+            self.share.grid(row=0, column=1, **gap)
+        elif m == JOIN:
+            self.joinf.grid(row=4, column=0, columnspan=2, sticky="ew")
+            self.joinhelp.grid(row=0, column=1, **gap)
+        self.info.config(text=tr(MODE_INFO[m]))
+        self.mode_btn.config(text=tr(MODE_WORDS[m]) + "   ▾")
+        self.remember("mode", m)
+        self.refresh_rules()
+        self.refresh_invite()
+
+    def show_page(self, name):
+        self.tab.set(name)
+        self.show_tab()
+
+    def toggle_help(self):
+        self.close_help() if self.help_open else self.open_help()
+
+    def open_help(self):
+        self.help_open = True
+        self.helpbox.place(x=0, y=0, relwidth=1, relheight=1)
+        self.helpbox.lift()
+        self.help_text.focus_set()
+
+    def close_help(self):
+        if getattr(self, "help_open", False):
+            self.help_open = False
+            self.helpbox.place_forget()
+            self.help_btn.focus_set()
+
+    def remember(self, key, value):
+        if self.own.get(key) != value:
+            self.own[key] = value
+            save_conf(self.conf_path, self.own)
+
+    def pick_language(self, code):
+        set_language(code)
+        self.remember("language", code)
+        self.lang.set(code)
+        self.build()
+        self.lang_btns[code].focus_set()
+
+    # ---- online ----
+    def typed(self, key):
+        var = self.v[key]
+        text = live_limit(key, var.get())
+        if text != var.get():
+            if key == "hostpass":
+                self.semicolon_until = 1
+                self.semicolon.config(fg=AMBER)
+                self.root.after(3000, lambda: self.semicolon.winfo_exists() and self.semicolon.config(fg=MUTED))
+            var.set(text)
+            return
+        if key in ("port", "hostpass", "addr"):
+            self.refresh_invite()
+
+    def address(self):
+        return self.v["addr"].get().strip()
+
+    def commit_addr(self):
+        """Leaving the address field: empty detects it again, an invalid one goes back to the previous one."""
+        text = self.address()
+        if not text:
+            self.v["addr"].set(best_address(self.cli.addresses))
+        elif not valid_host(text):
+            self.v["addr"].set(self.last_addr)
+            self.addr_msg = True
+        self.last_addr = self.address()
+
+    def invite_text(self):
+        host = self.address() or best_address(self.cli.addresses)
+        return invite_url(host, clean_port(self.v["port"].get()), host_password(self.v["hostpass"].get())) if valid_host(host) else ""
+
+    def refresh_invite(self):
+        text = self.invite_text()
+        self.invite_box.config(state="normal")
+        self.invite_box.delete(0, "end")
+        self.invite_box.insert(0, text)
+        self.invite_box.config(state="readonly")
+        self.copy_btn.config(state="normal" if text else "disabled")
+        self.nethint.config(text=address_hint(self.address() or best_address(self.cli.addresses)))
+
+    def copy_invite(self):
+        text = self.invite_text()
+        if text:
+            self.root.clipboard_clear()
+            self.root.clipboard_append(text)
+            self.copied_until = 1
+            self.note = ("The invite was copied.", ())
+            self.root.after(3000, self.clear_copied)
+
+    def clear_copied(self):
+        if self.note and self.note[0] == "The invite was copied.":
+            self.note = None
 
     def pick_mode(self):
+        keys = [LOCAL, HOST, JOIN]
+        self.ask(tr("Online mode"), tr("Play on this device keeps the server private. Host a server lets friends join over the network. Join a server connects to a friend's server."),
+                 [tr(MODE_WORDS[m]) for m in keys] + [tr("Cancel")], lambda i: self.set_mode(keys[i]) if i < len(keys) else None, keys.index(self.mode.get()))
+
+    def set_mode(self, m):
+        self.mode.set(m)
         self.show_mode()
 
-    # world rules
+    # ---- world rules ----
     def refresh_rules(self):
+        locked = self.mode.get() == JOIN
+        state = "disabled" if locked else "normal"
         for i, (c, var) in enumerate(self.checks):
             var.set(self.bits[i] == "1")
-            c.config(text=("☑  " if var.get() else "☐  ") + RULE_NAMES[i])
-        self.preset_btn.config(text="Rules: " + rules_name(self.bits, self.presets))
-        self.special_btn.config(text="Special mode: " + SPECIALS[int(self.bits[7])])
+            c.config(text=("✓  " if var.get() else "✕  ") + tr(RULE_NAMES[i]), state=state)
+        name = rules_name(self.bits, self.presets)
+        self.preset_btn.config(text=(tr("Custom") if name == "Custom" else name) + "   ▾", state=state)
+        self.special_btn.config(text=tr(SPECIALS[int(self.bits[7])]) + "   ▾", state=state)
+        self.recommended.config(state=state)
+        self.preset_info.config(text=tr(PRESET_BLURBS.get(name, PRESET_BLURBS["Custom"])))
+        self.special_info.config(text=tr(SPECIAL_BLURBS[int(self.bits[7])]))
+        self.shares.config(text=shares_text(self.bits))
+        (self.locked.grid if locked else self.locked.grid_remove)()
 
     def rules_changed(self):
         self.bits = "".join("1" if var.get() else "0" for _, var in self.checks) + self.bits[7]
         self.refresh_rules()
 
     def pick_preset(self):
-        i = self.ask("World rules", "Choose what everyone on the server shares.", *self.presets, "Back")
-        if i < len(self.presets):
-            self.bits = list(self.presets.values())[i]
-            self.refresh_rules()
+        names = list(self.presets) + ["Custom"]
+
+        def done(i):
+            if i < len(self.presets):
+                self.bits = list(self.presets.values())[i]
+                self.refresh_rules()
+        self.ask(tr("Preset"), tr("A ready-made set of sync rules. You can still change each rule below."), [tr(n) if n == "Custom" else n for n in names] + [tr("Cancel")], done,
+                 names.index(rules_name(self.bits, self.presets)))
 
     def pick_special(self):
-        i = self.ask("Special mode", "An optional game mode on top of the rules.", *SPECIALS, "Back")
-        if i < len(SPECIALS):
-            self.bits = self.bits[:7] + str(i)
-            self.refresh_rules()
+        def done(i):
+            if i < len(SPECIALS):
+                self.bits = self.bits[:7] + str(i)
+                self.refresh_rules()
+        self.ask(tr("Special mode"), tr("An optional game mode on top of the rules: Hunter vs Speedrunner or Death Swap."), [tr(s) for s in SPECIALS] + [tr("Cancel")], done, int(self.bits[7]))
 
-    # session
-    def invites(self):
-        s = self.cli.stat or {}
-        if s.get("server") != "up":
-            return []
-        lan, vpn = s.get("invite", ""), s.get("invite_vpn", "")
-        out = [("Invite" if lan == vpn else "Invite (same network)", lan)] if lan else []
-        return out + ([("Invite (Tailscale or other VPN)", vpn)] if vpn and vpn != lan else [])
+    def use_recommended(self):
+        self.bits = self.presets.get(RECOMMENDED[0], RECOMMENDED[1])[:7] + "0"
+        self.refresh_rules()
+
+    # ---- session ----
+    def form(self):
+        return {k: v.get() for k, v in self.v.items()}
+
+    def snapshot(self):
+        return (self.mode.get(), self.bits, *(self.v[k].get() for k in ("port", "hostpass", "desc", "name", "invite", "joinpass")))
 
     def start(self):
         args, error = build_args(self.mode.get(), self.form(), self.bits)
         if error:
-            return self.ask("Hyrule Online", error, "OK")
-        if not self.cli.available():
-            return self.ask("Hyrule Online", "hyrule-online.sh was not found next to the launcher.", "OK")
-        restart = self.cli.alive() or self.up
-        if restart and self.ask("Hyrule Online", "A Hyrule Online session is already running. Stop it and start a new one?",
-                                "Stop it and start again", "Cancel") != 0:
+            self.note = ("The server address is not valid. Enter an invite link or host:port on the Online page.", ())
+            self.show_page("Online")
+            self.root.after(50, lambda: self.focus_widget(self.joinf, "Entry"))
             return
-        self.note, self.started_mode = "", self.mode.get()
+        if not self.cli.available():
+            self.note = ("hyrule-online.sh was not found next to the launcher.", ())
+            return
+        restart = self.cli.alive() or self.up
+        self.note, self.started_mode, self.started = None, self.mode.get(), self.snapshot()
         self.cli.start(args, restart)
 
+    def focus_widget(self, frame, cls):
+        for w in frame.winfo_children():
+            if w.winfo_class() == cls:
+                return w.focus_set()
+
     def stop(self):
-        self.note = ""
+        self.note = None
         self.cli.stop()
 
-    def failed(self):
-        c = self.cli
-        lines = [mask(l) for l in c.lines if not re.search(r"\.\.\. \d+s|^Hyrule Online ", l)][-6:]
-        text = "\n".join(lines) or "The script stopped without a message."
-        joining = self.started_mode == JOIN
-        if joining and CHECKLIST not in text:
-            text += "\n\n" + CHECKLIST
-        self.note = "Start failed: " + (lines[-1] if lines else "the script stopped.")
-        self.ask("Wrong password" if "wrong password" in text.lower() else "Could not join" if joining else "Start failed", text, "OK")
+    def stop_timers(self):
+        for job in self.root.tk.call("after", "info"):
+            self.root.after_cancel(job)
 
     def tick(self):
         self.root.after(1500, self.tick)
@@ -489,97 +1118,129 @@ class App:
 
     def render(self):
         c, s = self.cli, self.cli.stat or {}
-        failed = False
+        self.log.poll()
         if c.proc is not None and not c.alive():
-            failed, c.proc = c.proc.returncode not in (0, 143, -15) and not c.quiet, None  # 143: stopped
+            ended, c.proc = c.proc.returncode not in (0, 143, -15) and not c.quiet, None  # 143: stopped
+            if ended:
+                self.note = ("{0}", (failure_text(c.lines, self.started_mode == JOIN),))
         alive = c.alive()
         srv, cli = s.get("server") == "up", s.get("client") == "up"
         self.up = srv or cli
+        joined = s.get("joined") == "yes"
+        words = {"server": tr("Running") if srv else tr("Starting") if alive else tr("Stopped"),
+                 "client": tr("Joined the server") if cli and joined else tr("Waiting for Continue") if cli else tr("Waiting") if alive and srv else tr("Starting") if alive else tr("Stopped")}
         for key, on in (("server", srv), ("client", cli)):
             dot, word = self.dots[key]
             dot.config(fg=TEAL if on else OFF)
-            word.config(text="Running" if on else "Stopped")
-        text = ("Stopping..." if c.busy else "Playing." if s.get("joined") == "yes" else "Connecting, about a minute..." if cli else
-                "Server running." if srv else mask(c.lines[-1]) if alive and c.lines else "Starting..." if alive else self.note or "Ready.")
-        self.status.config(text=text)
-        self.start_btn.config(text="RESTART SESSION" if self.up else "START SESSION", state="disabled" if c.busy or (alive and not self.up) else "normal")
+            word.config(text=words[key])
+        self.dot.config(fg=TEAL if srv else OFF)
+        self.corner.config(text=tr("Server running") if srv else tr("Server stopped"))
+        (self.prompt.grid if cli and not joined else self.prompt.grid_remove)()
+        self.start_btn.config(text=tr("RESTART SESSION") if self.up else tr("START SESSION"), state="disabled" if c.busy or (alive and not self.up) else "normal")
+        self.status.config(text=self.status_text(c, alive, joined))
+        self.render_online(srv)
+        self.render_details()
+
+    def status_text(self, c, alive, joined):
+        if c.busy:
+            return tr("Stopping...")
+        if self.addr_msg:
+            self.addr_msg = False
+            self.note = ("That address is not valid, so the previous one was kept. Use letters, digits, dots and dashes only.", ())
+        if self.note and not (self.note[0] == "{0}" and alive):
+            return tr(self.note[0], *self.note[1])
+        if self.up and self.started is not None and self.snapshot() != self.started:
+            return tr("Some changes only apply after a restart. Press Restart session to apply them.")
+        if self.up:
+            return tr("Session running.")
+        if alive:
+            return tr("Starting...")
+        return tr("{0} is missing", c.missing[0]) if c.missing else tr("Ready.")
+
+    def render_online(self, srv):
         m, f = self.mode.get(), self.form()
-        invites, parsed = self.invites(), parse_invite(f["invite"])
-        host = parse_invite(invites[0][1]) if invites else None
-        self.modeline.config(text={
-            LOCAL: "The server only accepts players from this device.",
-            HOST: f"Server open at {host[0]}:{host[1]}." if host else f"Friends will join on port {f['port']} once the session starts.",
-            JOIN: f"Playing on the server at {parsed[0]}:{parsed[1]}." if parsed else "Enter an invite on the Online page."}[m])
-        self.log.config(text="\n".join(mask(l)[:90] for l in c.lines[-6:]) or "Nothing yet.")
-        self.show_invites(invites)
-        if failed:
-            self.failed()
+        invite = parse_invite(self.invite_text())
+        parsed = parse_invite(f["invite"])
+        if m == LOCAL:
+            line = tr("The server only accepts players from this device.")
+        elif m == HOST:
+            line = tr("Server open at {0}:{1}.", invite[0], invite[1]) if srv and invite else \
+                tr("Friends will join at {0}:{1} once the session starts.", invite[0] if invite else "…", clean_port(f["port"]))
+        else:
+            line = tr("Playing on the server at {0}:{1}.", parsed[0], parsed[1]) if parsed else tr("Enter an invite on the Online page.")
+        self.modeline.config(text=line)
+        names = self.log.roster.names() if srv and m != JOIN else []
+        self.world.config(text=(tr("In the world: {0}", ", ".join(names)) if names else tr("Nobody has joined yet.")) if srv and m == HOST else "")
+        self.event.config(text=event_text(self.log.events[-1]) if srv and m == HOST and self.log.events else "")
+        host_mode = m == HOST and bool(self.invite_text())
+        (self.copy_play.grid if host_mode else self.copy_play.grid_remove)()
+        if self.shown != self.cli.addresses:  # a new address list refreshes the detected address
+            self.shown = list(self.cli.addresses)
+            if not self.address() and self.root.focus_get() is not self.addr_entry:
+                self.commit_addr()
+            self.refresh_invite()
 
-    def show_invites(self, invites):
-        if invites == self.shown:
-            return
-        self.shown = invites
-        for w in self.invite_rows.winfo_children():
-            w.destroy()
-        self.invite_rows.columnconfigure(0, weight=1)
-        if not invites:
-            self.wrapped(label(self.invite_rows, "The invite appears here once the server is running.", fg=MUTED), 0.5).grid(row=0, column=0, sticky="w")
-        for i, (name, url) in enumerate(invites):
-            self.wrapped(label(self.invite_rows, f"{name}\n{url}"), 0.4).grid(row=i, column=0, sticky="w", pady=4)
-            b = button(self.invite_rows, "Copy invite", lambda u=url, n=i: self.copy(u, n))
-            b.grid(row=i, column=1, padx=(10, 0), pady=4)
-        self.invite_rows.update_idletasks()
-
-    def copy(self, url, i):
-        self.root.clipboard_clear()
-        self.root.clipboard_append(url)
-        b = self.invite_rows.grid_slaves(row=i, column=1)[0]
-        b.config(text="Copied")
-        self.root.after(2000, lambda: b.winfo_exists() and b.config(text="Copy invite"))
+    def render_details(self):
+        for col, text in ((0, "\n".join(mask(line) for line in self.cli.lines[-200:])), (1, "\n".join(self.log.lines))):
+            box, shown = self.texts[col]
+            if shown != text:
+                at_end = box.yview()[1] >= 0.99
+                box.config(state="normal")
+                box.delete("1.0", "end")
+                box.insert("end", text)
+                box.config(state="disabled")
+                if at_end:
+                    box.see("end")
+                self.texts[col][1] = text
 
     def quit(self):
         if self.cli.alive() or self.up:
-            i = self.ask("Hyrule Online", "A session is running. The server and the game keep running if you close the launcher.",
-                         "Close and leave it running", "Stop it and exit", "Keep the launcher open")
-            if i == 2:
-                return
-            if i == 1:
-                self.cli.run("--stop", timeout=40)
-        self.root.destroy()
+            def done(i):
+                if i == 1:
+                    self.cli.run("--stop", timeout=40)
+                if i in (0, 1):
+                    self.root.destroy()
+            self.ask(tr("Hyrule Online"), tr("A session is running. The server and the game keep running if you close the launcher."),
+                     [tr("Exit"), tr("Stop session"), tr("Cancel")], done, 2)
+        else:
+            self.root.destroy()
 
-    # dialogs live inside the window: a second window may not get focus under gamescope
-    def ask(self, title, text, *labels):
-        """Modal box. Escape picks the last button. Returns the index of the button used."""
+    # ---- dialogs live inside the window: a second window may not get focus under gamescope ----
+    def ask(self, title, text, labels, cb, current=0):
+        """Modal list of choices; Escape picks the last one. cb(index) runs after the list closed."""
+        self.close_dialog(None)
         ov = tk.Frame(self.root, bg=BG)
         ov.place(x=0, y=0, relwidth=1, relheight=1)
-        box = tk.Frame(ov, bg=PANEL, highlightthickness=2, highlightbackground=GOLD, padx=28, pady=20)
-        box.place(relx=0.5, rely=0.5, anchor="center")
-        label(box, title, fg=GOLD, font=(FAMILY, 20, "bold")).pack(anchor="w")
+        box = tk.Frame(ov, bg=PANEL, highlightthickness=2, highlightbackground=GOLD, padx=self.px(28), pady=self.px(18))
+        box.place(relx=.5, rely=.5, anchor="center")
+        self.label(box, title, fg=GOLD, font="section").pack(anchor="w")
         if text:
-            label(box, text, wraplength=620).pack(anchor="w", pady=(8, 8))
-        result = tk.IntVar(self.root, -1)
-        first = None
-        for i, t in enumerate(labels):
-            b = button(box, t, lambda i=i: result.set(i))
-            b.pack(fill="x", pady=3)
-            first = first or b
-        before, previous = self.root.focus_get(), self.overlay
-        self.overlay = (ov, result, len(labels) - 1)
-        first.focus_set()
-        ov.grab_set()
-        ov.wait_variable(result)
-        ov.grab_release()
-        ov.destroy()
-        self.overlay = previous
-        if before is not None and before.winfo_exists():
-            before.focus_set()
-        return result.get()
+            self.label(box, text, wrap=0, wraplength=self.px(620), fg=MUTED, font="small").pack(anchor="w", pady=(self.px(4), self.px(8)))
+        buttons = [self.button(box, t, lambda i=i: self.close_dialog(i)) for i, t in enumerate(labels)]
+        for b in buttons:
+            b.pack(fill="x", pady=self.px(2))
+        self.dialog = (ov, cb, len(labels) - 1, self.root.focus_get())
+        buttons[min(max(current, 0), len(buttons) - 1)].focus_set()
 
-    # keyboard and D-pad (Steam Input sends keys)
+    def close_dialog(self, index):
+        if not self.dialog:
+            return
+        ov, cb, last, before = self.dialog
+        self.dialog = None
+        ov.destroy()
+        try:
+            if before is not None and before.winfo_exists():
+                before.focus_set()
+        except tk.TclError:
+            pass
+        if index is not None:
+            cb(last if index == "escape" else index)
+
+    # ---- keyboard and D-pad (Steam Input sends keys) ----
     def bind_keys(self):
         b = self.root.bind_all
-        for k in ("Up", "Down", "Left", "Right"):
-            b(f"<{k}>", lambda e, k=k: self.nav(k))
+        for name, d in (("Up", 0), ("Down", 1), ("Left", 2), ("Right", 3)):
+            b(f"<{name}>", lambda e, d=d: self.nav(d))
         b("<Tab>", lambda e: self.nav("Tab"))
         for seq in ("<Shift-Tab>", "<ISO_Left_Tab>"):
             try:
@@ -590,50 +1251,51 @@ class App:
             b(seq, self.activate)
         b("<Escape>", lambda e: self.escape())
         b("<Control-Tab>", lambda e: self.cycle(1))
+        b("<Control-Shift-Tab>", lambda e: self.cycle(-1))
         b("<Next>", lambda e: self.cycle(1))
         b("<Prior>", lambda e: self.cycle(-1))
-        self.root.after(300, self.root.focus_force)
 
     def focusables(self):
         out = []
 
         def walk(w):
             for c in w.winfo_children():
-                if c.winfo_class() in ("Button", "Radiobutton", "Checkbutton", "Entry") and c.winfo_viewable() and str(c.cget("state")) != "disabled":
+                kind = c.winfo_class()
+                if kind in ("Button", "Radiobutton", "Checkbutton", "Entry", "Text") and c.winfo_viewable() and str(c.cget("state")) != "disabled" \
+                        and str(c.cget("takefocus")) != "0":
                     out.append(c)
                 walk(c)
-        walk(self.overlay[0] if self.overlay else self.root)
+        if self.dialog:
+            walk(self.dialog[0])
+        else:
+            for zone in self.zones:
+                walk(zone)
+            if self.help_open:
+                out = [c for c in out if c in self.chrome or c is self.help_text]
         return out
 
+    def boxes(self, items):
+        return [(w.winfo_rootx(), w.winfo_rooty(), w.winfo_width(), w.winfo_height()) for w in items]
+
     def nav(self, key):
+        items = self.focusables()
         w = self.root.focus_get()
-        if isinstance(w, tk.Entry) and key in ("Left", "Right"):
-            return None
-        if w is self.stop_btn and key == "Down" and not self.overlay:
-            self.tab_btns[self.tab.get()].focus_set()
+        if not items:
             return "break"
-        c = self.focusables()
-        if not c:
-            return "break"
-        if w not in c:
-            c[0].focus_set()
+        if w not in items:
+            items[0].focus_set()
         elif key in ("Tab", "BackTab"):
-            c[(c.index(w) + (1 if key == "Tab" else -1)) % len(c)].focus_set()
+            items[(items.index(w) + (1 if key == "Tab" else -1)) % len(items)].focus_set()
         else:
-            def mid(x):
-                return x.winfo_rootx() + x.winfo_width() / 2, x.winfo_rooty() + x.winfo_height() / 2
-            x0, y0 = mid(w)
-            best = None
-            for o in c:
-                dx, dy = mid(o)[0] - x0, mid(o)[1] - y0
-                main, side = {"Up": (-dy, abs(dx)), "Down": (dy, abs(dx)), "Left": (-dx, abs(dy)), "Right": (dx, abs(dy))}[key]
-                if o is not w and main > 8 and (best is None or main + 2 * side < best[0]):
-                    best = (main + 2 * side, o)
-            if best:
-                best[1].focus_set()
+            d = {"Up": 0, "Down": 1, "Left": 2, "Right": 3}.get(key, key)
+            boxes = self.boxes(items)
+            i = items.index(w)
+            pick = spatial_next(boxes[i], boxes, [x in self.chrome for x in items], w in self.chrome, d)
+            if pick >= 0:
+                items[pick].focus_set()
         return "break"
 
-    def activate(self, event):
+    def activate(self, event=None):
         w = self.root.focus_get()
         if isinstance(w, tk.Entry):
             self.nav("Tab")
@@ -642,31 +1304,47 @@ class App:
         return "break"
 
     def cycle(self, step):
-        if not self.overlay:
-            self.tab.set(TABS[(TABS.index(self.tab.get()) + step) % len(TABS)])
-            self.show_tab()
+        if not self.dialog:
+            self.show_page(TABS[(TABS.index(self.tab.get()) + step) % len(TABS)])
+        return "break"
 
     def escape(self):
-        if self.overlay:
-            self.overlay[1].set(self.overlay[2])
+        if self.dialog:
+            self.close_dialog("escape")
+        elif self.help_open:
+            self.close_help()
         elif self.tab.get() != TABS[0]:
-            self.tab.set(TABS[0])
-            self.show_tab()
+            self.show_page(TABS[0])
         else:
             self.quit()
+        return "break"
 
 
 def main():
     root = tk.Tk()
     root.title("Hyrule Online")
+    sw, sh = root.winfo_screenwidth(), root.winfo_screenheight()
     if os.environ.get("XDG_CURRENT_DESKTOP") == "gamescope" or os.environ.get("HYRULE_FULLSCREEN") == "1":
         root.attributes("-fullscreen", True)
+        size = (sw, sh)
     else:
-        root.geometry(f"{min(1280, root.winfo_screenwidth())}x{min(800, root.winfo_screenheight() - 80)}")
-        root.minsize(800, 560)
-    App(root)
+        size = (min(1280, sw), min(800, sh - 80))
+        root.geometry(f"{size[0]}x{size[1]}")
+    app = App(root, size=size)
+
+    def take_focus():
+        root.lift()
+        root.focus_force()
+        try:
+            root.grab_set()
+        except tk.TclError:  # not viewable yet
+            pass
+        app.tab_btns[app.tab.get()].focus_set()
+    root.after(200, take_focus)
+    root.after(800, take_focus)
     root.mainloop()
 
 
 if __name__ == "__main__":
     main()
+    sys.exit(0)
