@@ -604,6 +604,21 @@ class MenuShortcut(unittest.TestCase):
         self.assertIsNone(me.capture)
 
 
+class FakeBeacon:
+    made = []
+
+    def __init__(self, tcp_port):
+        self.tcp_port, self.running = tcp_port, False
+        FakeBeacon.made.append(self)
+
+    def start(self):
+        self.running = True
+        return True
+
+    def stop(self):
+        self.running = False
+
+
 class Window(unittest.TestCase):
     SIZES = ((1280, 800), (1024, 600), (1920, 1080))
 
@@ -640,7 +655,8 @@ class Window(unittest.TestCase):
         root.focus_force()
         root.update()
         app.search_fn = lambda last, cancel: ([], 0)  # the tests never scan a real network
-        app.check_fn = lambda host, port: 0
+        app.check_fn = lambda host: None
+        app.beacon_cls = FakeBeacon  # never bind the real UDP port
         return root, app
 
     def settle(self, app, until):
@@ -745,13 +761,15 @@ class Window(unittest.TestCase):
         app.try_connect()
         self.assertIn("not valid", app.find_text.cget("text"))
         app.v["invite"].set("10.0.0.2:5050")
-        app.check_fn = lambda host, port: 42
+        asked = []
+        app.check_fn = lambda host: asked.append(host) or 42
         app.try_connect()
         self.assertEqual(str(app.test_btn.cget("state")), "disabled")
         self.settle(app, lambda: not app.testing)
+        self.assertEqual(asked, ["10.0.0.2"])  # only the host: the beacon names the game port
         self.assertEqual(str(app.test_btn.cget("state")), "normal")
         self.assertEqual(app.find_text.cget("text"), "Reachable in 42 ms.")
-        app.check_fn = lambda host, port: 0
+        app.check_fn = lambda host: None
         app.try_connect()
         self.settle(app, lambda: not app.testing)
         self.assertTrue(app.find_text.cget("text").startswith("Cannot reach 10.0.0.2:5050."))
@@ -761,6 +779,95 @@ class Window(unittest.TestCase):
         root, app = self.make(1280, 800)
         app.stop_timers()
         self.assertTrue(app.cancel.is_set())
+        root.destroy()
+
+    def focused_skins(self, widget):
+        n = 1 if widget.winfo_class() != "Frame" and getattr(getattr(widget, "skin", None), "focus", False) else 0  # a skin frame shares the skin of its control
+        return n + sum(self.focused_skins(c) for c in widget.winfo_children())
+
+    def test_the_pad_reaches_search_test_and_the_found_rows(self):
+        """The D-pad (pad_event, the path of the controller) must walk Search, Test and the found servers, not only Tab. The two buttons sit side by side
+        and the rows are in the right column: Down from the invite lands on Search, Right goes to Test and then to the first row, Down from the
+        buttons lands on Password, and Up/Left reverse it."""
+        for width, height in self.SIZES:
+            for rows in (False, True):
+                root, app = self.make(width, height)
+                app.set_mode(L.JOIN)
+                app.show_page("Online")
+                self.settle(app, lambda: not app.searching)  # the automatic search ends first and would clear the rows
+                if rows:                    self.show_rows(app, [L.finder.Found("100.64.0.5", 5050, "vpn", 12), L.finder.Found("192.168.1.20", 5050, "lan", 3)])
+                invite, password = [w for w in app.focusables() if w.winfo_class() == "Entry"][:2]
+                where = (width, height, rows)
+
+                def press(key, want):
+                    app.pad_event(key)
+                    root.update()
+                    self.assertIs(root.focus_get(), want, (where, key, root.focus_get()))
+                    self.assertEqual(self.focused_skins(root), 1, (where, key))  # one selection visible at a time
+
+                invite.focus_set()
+                root.update()
+                press("down", app.search_btn)
+                press("right", app.test_btn)
+                if rows:
+                    first, second = [w for w in app.focusables() if str(w).startswith(str(app.foundbox) + ".")]
+                    app.pad_event("right")  # the row level with the buttons
+                    root.update()
+                    landed = root.focus_get()
+                    self.assertIn(landed, (first, second), (where, "right", landed))
+                    self.assertEqual(self.focused_skins(root), 1, where)
+                    other, back = (second, "up") if landed is first else (first, "down")
+                    press("down" if landed is first else "up", other)
+                    press(back, landed)
+                    app.pad_event("left")  # the rows are level with the invite field, which wins when going back
+                    root.update()
+                    self.assertIn(root.focus_get(), (invite, app.test_btn), where)
+                    app.test_btn.focus_set()
+                    root.update()
+                press("left", app.search_btn)
+                press("down", password)
+                press("up", app.search_btn)
+                press("up", invite)
+                root.destroy()
+
+    def test_a_search_in_progress_keeps_the_pad_on_the_search_button(self):
+        root, app = self.make(1280, 800)
+        app.set_mode(L.JOIN)
+        app.show_page("Online")
+        app.search_btn.focus_set()
+        root.update()
+        app.searching = True
+        app.render_find()
+        root.update()
+        self.assertIs(root.focus_get(), app.test_btn)  # the disabled button is out of reach: its neighbour takes the cursor, not the top-left control
+        app.pad_event("left")
+        root.update()
+        self.assertIs(root.focus_get(), app.test_btn)
+        app.searching = False
+        app.render_find()
+        root.destroy()
+
+    def test_the_beacon_runs_only_while_this_launcher_hosts_a_server(self):
+        root, app = self.make(1280, 800)
+        FakeBeacon.made.clear()
+        hosting = {"mode": "host", "server": "up", "client": "down", "port": "6000"}
+        app.cli.stat = {"mode": "join", "server": "down", "client": "up", "port": "5050"}
+        app.render()
+        self.assertEqual(FakeBeacon.made, [])  # joining or playing alone: nothing to announce
+        app.cli.stat = hosting
+        app.render()
+        app.render()
+        self.assertEqual([(b.tcp_port, b.running) for b in FakeBeacon.made], [(6000, True)])
+        app.cli.stat = dict(hosting, port="7000")
+        app.render()
+        self.assertEqual([(b.tcp_port, b.running) for b in FakeBeacon.made], [(6000, False), (7000, True)])
+        app.cli.stat = {"mode": "idle", "server": "down", "client": "down", "port": ""}
+        app.render()
+        self.assertFalse(FakeBeacon.made[-1].running)
+        app.cli.stat = hosting
+        app.render()
+        app.stop_timers()  # closing the launcher
+        self.assertFalse(FakeBeacon.made[-1].running)
         root.destroy()
 
     def pages(self, app):

@@ -373,6 +373,33 @@ class Shortcut(unittest.TestCase):
     def test_rumble_never_raises(self):
         self.assertFalse(Fake(path="/nonexistent/event99").rumble(180))
 
+    @unittest.skipUnless(os.name == "posix", "needs a POSIX file")
+    def test_rumble_stops_and_erases_its_own_pulse_only(self):
+        import tempfile
+        calls = []
+
+        class Fcntl:
+            @staticmethod
+            def ioctl(fd, request, arg, mutate=False):
+                calls.append((request, arg))
+                return 0
+        real, G.fcntl = G.fcntl, Fcntl
+        with tempfile.NamedTemporaryFile() as f:
+            d = Fake(path=f.name)
+            try:
+                d.ff, d.effect = os.open(f.name, os.O_RDWR), 7
+                d._stop(3)  # a newer pulse replaced that one: nothing to do
+                self.assertEqual(calls, [])
+                d._stop(7)
+            finally:
+                G.fcntl = real
+                d.close()
+            f.seek(0)
+            written = f.read()
+        self.assertEqual(struct.unpack_from("HHi", written, 16), (G.EV_FF, 7, 0))
+        self.assertEqual(calls, [(G._ioc(0x81, 4, write=True), 7)])
+        self.assertEqual(d.effect, -1)
+
 
 @unittest.skipUnless(os.name == "posix", "needs a POSIX pipe")
 class RealRead(unittest.TestCase):

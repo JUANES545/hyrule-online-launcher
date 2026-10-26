@@ -275,9 +275,20 @@ namespace HyruleOnline {
    if (!manifest.ContainsKey("finder")) { Fail(ManifestFile + " has no \"finder\" vectors. Add the shared server finder vectors (classify, local, tailscale, order, autofill, cap)."); return; }
    var finder = Obj(manifest["finder"]);
    var constants = Obj(finder["constants"]);
-   var actualConstants = new Dictionary<string, int> { { "port", ServerFinder.Port }, { "probeMs", ServerFinder.ProbeMs }, { "probes", ServerFinder.Probes }, { "maxHosts", ServerFinder.MaxHosts }, { "testMs", ServerFinder.TestMs }, { "rows", ServerFinder.MaxRows } };
+   var actualConstants = new Dictionary<string, int> { { "port", ServerFinder.Port }, { "beaconPort", ServerFinder.BeaconPort }, { "probeMs", ServerFinder.ProbeMs }, { "probes", ServerFinder.Probes }, { "maxHosts", ServerFinder.MaxHosts }, { "testMs", ServerFinder.TestMs }, { "rows", ServerFinder.MaxRows } };
    foreach (var pair in actualConstants) if (!constants.ContainsKey(pair.Key) || Convert.ToInt32(constants[pair.Key]) != pair.Value) Fail(ManifestFile + " finder.constants." + pair.Key + " must be " + pair.Value + " like ServerFinder.cs.");
    if (ServerFinder.Port != ServerConnection.DefaultPort) Fail("ServerFinder.Port is " + ServerFinder.Port + " but ServerConnection.DefaultPort is " + ServerConnection.DefaultPort + ".");
+
+   var beacon = Obj(finder["beacon"]);
+   if (Str(beacon["request"]) != ServerFinder.Request || Str(beacon["replyPrefix"]) != ServerFinder.ReplyPrefix) Fail(ManifestFile + " finder.beacon request and replyPrefix must be " + Quote(ServerFinder.Request) + " and " + Quote(ServerFinder.ReplyPrefix) + " like ServerFinder.cs.");
+   foreach (var item in ((IEnumerable)beacon["requests"]).Cast<object>().Select(Obj))
+    if (ServerFinder.IsRequest(Encoding.ASCII.GetBytes(Str(item["text"]))) != (bool)item["valid"]) Fail("ServerFinder.IsRequest(" + Quote(Str(item["text"])) + ") must be " + item["valid"] + " (finder.beacon.requests).");
+   foreach (var item in ((IEnumerable)beacon["replies"]).Cast<object>().Select(Obj)) {
+    int replyPort;
+    bool valid = ServerFinder.TryReply(Encoding.ASCII.GetBytes(Str(item["text"])), out replyPort);
+    int want = Convert.ToInt32(item["port"]);
+    if (valid != (want > 0) || valid && replyPort != want) Fail("ServerFinder.TryReply(" + Quote(Str(item["text"])) + ") must " + (want > 0 ? "give port " + want : "be rejected") + " (finder.beacon.replies).");
+   }
 
    foreach (var pair in Obj(finder["classify"])) if (ServerFinder.Classify(pair.Key) != Str(pair.Value)) Fail("ServerFinder.Classify(" + pair.Key + ") is " + ServerFinder.Classify(pair.Key) + " but " + ManifestFile + " says " + Str(pair.Value) + ".");
 

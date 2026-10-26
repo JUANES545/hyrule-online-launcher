@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
+using System.Text;
 using System.Threading;
 using System.Web.Script.Serialization;
 
@@ -15,10 +17,11 @@ namespace HyruleOnline {
   public string Address { get { return Host + ":" + Port; } }
  }
 
- // Finds Hyrule Online servers: Tailscale peers first, then the local network. A probe opens a TCP connection and closes it; it sends nothing.
+ // Finds Hyrule Online servers: Tailscale peers first, then the local network. Nothing here may open a TCP connection to the game port: the dedicated
+ // server dies on any connection without a valid handshake. A host answers a UDP beacon on BeaconPort instead, sent by a launcher while its server runs.
  static class ServerFinder {
-  public const int Port = 5050, ProbeMs = 400, Probes = 64, MaxHosts = 1024, TestMs = 1500, MaxRows = 6;
-  public const string Vpn = "vpn", Lan = "lan";
+  public const int Port = 5050, BeaconPort = 5051, ProbeMs = 400, Probes = 64, MaxHosts = 1024, TestMs = 1500, MaxRows = 6;
+  public const string Vpn = "vpn", Lan = "lan", Request = "HYRULE?", ReplyPrefix = "HYRULE1 ";
 
   static bool TryIp(string text, out uint ip) {
    ip = 0;
@@ -111,35 +114,54 @@ namespace HyruleOnline {
   // A search may replace the address box only when it is empty or still holds what the last search put there.
   public static bool Fills(string field, string finderValue) { return string.IsNullOrEmpty(field) || field == finderValue; }
 
-  // Milliseconds to connect, at least 1, or -1 when nothing answered in time.
-  public static int Connect(string host, int port, int timeoutMs) {
-   var watch = Stopwatch.StartNew();
-   try {
-    using (var client = new TcpClient()) {
-     var result = client.BeginConnect(host, port, null, null);
-     try {
-      if (!result.AsyncWaitHandle.WaitOne(timeoutMs) || !client.Connected) return -1;
-      client.EndConnect(result);
-      return Math.Max(1, (int)Math.Round(watch.Elapsed.TotalMilliseconds));
-     }
-     finally { result.AsyncWaitHandle.Close(); }
-    }
-   }
-   catch (Exception) { return -1; }
+  public static bool IsRequest(byte[] data) { return data != null && Encoding.ASCII.GetString(data) == Request; }
+
+  public static byte[] Reply(int tcpPort) { return Encoding.ASCII.GetBytes(ReplyPrefix + tcpPort); }
+
+  // "HYRULE1 " and a decimal port from 1 to 65535, nothing else.
+  public static bool TryReply(byte[] data, out int port) {
+   port = 0;
+   if (data == null || data.Length <= ReplyPrefix.Length || data.Length > ReplyPrefix.Length + 5) return false;
+   string text = Encoding.ASCII.GetString(data);
+   if (!text.StartsWith(ReplyPrefix, StringComparison.Ordinal)) return false;
+   string digits = text.Substring(ReplyPrefix.Length);
+   return digits.All(c => c >= '0' && c <= '9') && int.TryParse(digits, out port) && port >= 1 && port <= 65535;
   }
 
-  // Probes with up to Probes connections at a time; cancelling stops new probes and the ones in flight end within ProbeMs.
-  public static List<FoundServer> Probe(List<FoundServer> candidates, CancellationToken cancel) {
+  // Sends the beacon request to the host and waits for a valid reply: the milliseconds it took (at least 1) and the game port the host announced, or -1.
+  public static int Ping(string host, int timeoutMs, out int port, int beaconPort = BeaconPort) {
+   port = 0;
+   var watch = Stopwatch.StartNew();
+   try {
+    using (var client = new UdpClient(AddressFamily.InterNetwork)) {
+     client.Connect(host, beaconPort);
+     byte[] request = Encoding.ASCII.GetBytes(Request);
+     client.Send(request, request.Length);
+     while (true) {
+      int left = timeoutMs - (int)watch.ElapsedMilliseconds;
+      if (left <= 0) return -1;
+      client.Client.ReceiveTimeout = left;
+      IPEndPoint from = null;
+      if (TryReply(client.Receive(ref from), out port)) return Math.Max(1, (int)Math.Round(watch.Elapsed.TotalMilliseconds));
+     }
+    }
+   }
+   catch (Exception) { port = 0; return -1; }
+  }
+
+  // Pings each distinct host with up to Probes at a time; cancelling stops new pings and the ones in flight end within ProbeMs.
+  public static List<FoundServer> Probe(List<FoundServer> candidates, CancellationToken cancel, int beaconPort = BeaconPort) {
    var found = new List<FoundServer>();
    var workers = new List<Thread>();
+   candidates = candidates.GroupBy(c => c.Host).Select(g => g.First()).ToList();
    int next = -1;
    for (int i = 0; i < Math.Min(Probes, candidates.Count); i++) {
     var worker = new Thread(() => {
      int at;
      while (!cancel.IsCancellationRequested && (at = Interlocked.Increment(ref next)) < candidates.Count) {
       var candidate = candidates[at];
-      int ms = Connect(candidate.Host, candidate.Port, ProbeMs);
-      if (ms > 0) lock (found) found.Add(new FoundServer { Host = candidate.Host, Port = candidate.Port, Via = candidate.Via, Ms = ms });
+      int port, ms = Ping(candidate.Host, ProbeMs, out port, beaconPort);
+      if (ms > 0) lock (found) found.Add(new FoundServer { Host = candidate.Host, Port = port, Via = candidate.Via, Ms = ms });
      }
     }) { IsBackground = true };
     worker.Start();
@@ -183,6 +205,38 @@ namespace HyruleOnline {
     }
    }
    catch (Exception) { return null; }
+  }
+ }
+
+ // Answers the finder's beacon while this launcher's dedicated server runs. It only ever replies to the exact request, never touches the game's TCP port, and
+ // does nothing when the beacon port is busy or any socket call fails.
+ sealed class BeaconResponder : IDisposable {
+  UdpClient socket;
+  volatile bool stopped;
+
+  public BeaconResponder(int tcpPort, int beaconPort = ServerFinder.BeaconPort) {
+   try {
+    socket = new UdpClient(new IPEndPoint(IPAddress.Any, beaconPort));
+    new Thread(() => Listen(socket, ServerFinder.Reply(tcpPort))) { IsBackground = true }.Start();
+   }
+   catch (Exception) { Dispose(); }
+  }
+
+  void Listen(UdpClient client, byte[] reply) {
+   while (!stopped) {
+    try {
+     IPEndPoint from = null;
+     if (ServerFinder.IsRequest(client.Receive(ref from))) client.Send(reply, reply.Length, from);
+    }
+    catch (SocketException error) { if (error.SocketErrorCode != SocketError.ConnectionReset) return; }
+    catch (Exception) { return; }
+   }
+  }
+
+  public void Dispose() {
+   stopped = true;
+   try { if (socket != null) socket.Close(); } catch (Exception) { }
+   socket = null;
   }
  }
 }

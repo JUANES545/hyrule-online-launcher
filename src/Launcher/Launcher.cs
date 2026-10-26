@@ -1395,7 +1395,7 @@ namespace HyruleOnline {
    Write(playerCount == 1 ? "Starting a one player session." : "Starting the session.");
    if (!Joining) {
     try {
-     serverHost.Start(Path.Combine(root, ".artifacts", "extract", "milkbar", "DedicatedServer"));
+     serverHost.Start(Path.Combine(root, ".artifacts", "extract", "milkbar", "DedicatedServer"), onlineMode == ServerConnection.Host ? port : 0);
     }
     catch (Exception error) {
      Fail("The dedicated server could not start: {0}", error.Message);

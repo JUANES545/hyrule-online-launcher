@@ -18,6 +18,7 @@ namespace HyruleOnline {
   bool Joining { get { return onlineMode == ServerConnection.Join; } }
 
   static string FirewallRule(int port) { return ServerConnection.FirewallName + port; }
+  const string FinderRule = "Hyrule Online Finder";
 
   void WatchOnline() {
    C<ComboBox>("OnlineModeBox").SelectionChanged += (s, e) => {
@@ -80,7 +81,7 @@ namespace HyruleOnline {
    ShowFinder();
   }
 
-  // Test only connects and closes; it never joins or starts anything.
+  // Test only sends the UDP beacon request; it never opens a connection to the game port, joins or starts anything.
   void TestServer() {
    if (testing) return;
    string host, secret;
@@ -94,7 +95,7 @@ namespace HyruleOnline {
    findLine = null;
    ShowFinder();
    System.Threading.ThreadPool.QueueUserWorkItem(state => {
-    int ms = ServerFinder.Connect(host, port, ServerFinder.TestMs);
+    int ignored, ms = ServerFinder.Ping(host, ServerFinder.TestMs, out ignored);
     Window.Dispatcher.BeginInvoke(new Action(() => {
      testing = false;
      findLine = () => ms > 0 ? Tr("Reachable in {0} ms.", ms) : Tr("Cannot reach {0}:{1}. Check the address, that the host has a session running, and its firewall.", host, port);
@@ -344,7 +345,7 @@ namespace HyruleOnline {
 
   void ShowFirewall() {
    if (onlineMode != ServerConnection.Host) return;
-   firewallOpen = RunNetsh("advfirewall firewall show rule name=\"" + FirewallRule(hostPort) + "\"", false);
+   firewallOpen = RunNetsh("advfirewall firewall show rule name=\"" + FirewallRule(hostPort) + "\"", false) && RunNetsh("advfirewall firewall show rule name=\"" + FinderRule + "\"", false);
    C<TextBlock>("FirewallInfo").Text = Tr(firewallOpen ? "Windows Firewall already allows port {0}." : "Windows Firewall may block port {0}. Allow it so friends can connect.", hostPort);
    C<Button>("OpenFirewall").IsEnabled = !firewallOpen;
   }
@@ -370,10 +371,12 @@ namespace HyruleOnline {
    System.Threading.ThreadPool.QueueUserWorkItem(state => {
     var commands = new List<string>();
     foreach (int old in ServerConnection.StaleRulePorts(NetshOutput("advfirewall firewall show rule name=all"), port)) commands.Add("netsh advfirewall firewall delete rule name=\"" + FirewallRule(old) + "\"");
-    commands.Add("netsh advfirewall firewall add rule name=\"" + FirewallRule(port) + "\" dir=in action=allow protocol=TCP localport=" + port);
+    commands.Add("netsh advfirewall firewall delete rule name=\"" + FinderRule + "\"");
+    commands.Add("netsh advfirewall firewall add rule name=\"" + FirewallRule(port) + "\" dir=in action=allow protocol=TCP localport=" + port
+     + " && netsh advfirewall firewall add rule name=\"" + FinderRule + "\" dir=in action=allow protocol=UDP localport=" + ServerFinder.BeaconPort);
     bool added = RunElevated("cmd.exe", "/c " + string.Join(" & ", commands.ToArray()));
     Window.Dispatcher.BeginInvoke(new Action(() => {
-     Write(added ? "Firewall rule added for TCP port " + port + "." : "The firewall rule was not added.");
+     Write(added ? "Firewall rules added for TCP port " + port + " and the server finder (UDP " + ServerFinder.BeaconPort + ")." : "The firewall rule was not added.");
      ShowFirewall();
     }));
    });

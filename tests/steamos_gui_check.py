@@ -176,7 +176,8 @@ def main():
                        size=(1280, 800), server_log=launcher.ServerLog(os.path.join(OUT, "server.log")))
     settle(root, 0.3)
     app.search_fn = lambda last, cancel: ([launcher.finder.Found("100.64.0.5", 5050, "vpn", 12), launcher.finder.Found("192.168.1.20", 5050, "lan", 3)], 1)  # no real network scan
-    app.check_fn = lambda host, port: 7
+    app.check_fn = lambda host: 7
+    app.beacon_cls = lambda port: type("Silent", (), {"tcp_port": port, "start": lambda self: True, "stop": lambda self: None})()  # never bind the real UDP port
 
     for tab in launcher.TABS:
         show(app, tab)
@@ -193,7 +194,7 @@ def main():
     app.try_connect()
     check(wait_for(root, lambda: not app.testing), "Test never finished.")
     remember_texts(root)
-    app.check_fn = lambda host, port: 0
+    app.check_fn = lambda host: None
     app.try_connect()
     check(wait_for(root, lambda: not app.testing), "Test never finished.")
     remember_texts(root)

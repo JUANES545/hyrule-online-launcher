@@ -24,7 +24,8 @@ namespace HyruleOnline {
    return Colors.Replace(text ?? "", "").TrimEnd();
   }
 
-  public void Start(string directory) {
+  // A positive gamePort answers the finder's beacon with that port for as long as the server runs.
+  public void Start(string directory, int gamePort = 0) {
    if (Running) return;
    string exe = Path.Combine(directory, "MBL.DedicatedServer.exe");
    if (!File.Exists(exe)) throw new FileNotFoundException(Lang.T("The dedicated server is missing."), exe);
@@ -36,7 +37,9 @@ namespace HyruleOnline {
    var started = new Process { StartInfo = info, EnableRaisingEvents = true };
    started.OutputDataReceived += (s, e) => Add(e.Data);
    started.ErrorDataReceived += (s, e) => Add(e.Data);
+   BeaconResponder beacon = null;
    started.Exited += (s, e) => {
+    if (beacon != null) beacon.Dispose();
     int code = -1;
     try { code = ((Process)s).ExitCode; } catch (Exception) { }
     var handler = Exited;
@@ -45,6 +48,7 @@ namespace HyruleOnline {
    started.Start();
    started.BeginOutputReadLine(); started.BeginErrorReadLine();
    process = started;
+   if (gamePort > 0) { beacon = new BeaconResponder(gamePort); if (!Running) beacon.Dispose(); }
   }
 
   void Add(string text) {

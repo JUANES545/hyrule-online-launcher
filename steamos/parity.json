@@ -419,7 +419,34 @@
   ],
   "finder": {
     "about": "Shared vectors for the server finder. tests\\ParityTests.cs checks them against src\\Launcher\\ServerFinder.cs; the SteamOS finder must give the same answers.",
-    "constants": { "port": 5050, "probeMs": 400, "probes": 64, "maxHosts": 1024, "testMs": 1500, "rows": 6 },
+    "constants": { "port": 5050, "beaconPort": 5051, "probeMs": 400, "probes": 64, "maxHosts": 1024, "testMs": 1500, "rows": 6 },
+    "beacon": {
+      "about": "UDP only. The finder never opens a TCP connection to the game port (the dedicated server dies on any connection without a valid handshake). A client sends the request as one datagram to host:beaconPort and accepts only a reply that is exactly replyPrefix + a decimal port 1..65535 (ASCII, no spaces or newline around it); the Found server's port is the one in the reply, not the candidate's. Each distinct candidate host is pinged once. The responder runs only in a hosting launcher while its dedicated server runs, binds IPv4 any:beaconPort, answers only the exact request and ignores everything else.",
+      "request": "HYRULE?",
+      "replyPrefix": "HYRULE1 ",
+      "requests": [
+        { "text": "HYRULE?", "valid": true },
+        { "text": "HYRULE?\n", "valid": false },
+        { "text": "hyrule?", "valid": false },
+        { "text": "HYRULE", "valid": false },
+        { "text": "", "valid": false }
+      ],
+      "replies": [
+        { "text": "HYRULE1 5050", "port": 5050 },
+        { "text": "HYRULE1 1", "port": 1 },
+        { "text": "HYRULE1 65535", "port": 65535 },
+        { "text": "HYRULE1 0", "port": 0 },
+        { "text": "HYRULE1 65536", "port": 0 },
+        { "text": "HYRULE1 -5", "port": 0 },
+        { "text": "HYRULE1 ", "port": 0 },
+        { "text": "HYRULE1 50 50", "port": 0 },
+        { "text": "HYRULE1 5050\n", "port": 0 },
+        { "text": "HYRULE1  5050", "port": 0 },
+        { "text": "HYRULE2 5050", "port": 0 },
+        { "text": "HYRULE? 5050", "port": 0 },
+        { "text": "HYRULE1 123456", "port": 0 }
+      ]
+    },
     "classify": {
       "100.65.234.99": "vpn",
       "100.64.0.1": "vpn",

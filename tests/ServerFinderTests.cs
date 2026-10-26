@@ -78,26 +78,66 @@ namespace HyruleOnline {
    Check(cut.Count == ServerFinder.MaxHosts && cut.Take(10).All(f => f.Via == "vpn"), "candidates are cut to " + ServerFinder.MaxHosts + " keeping the VPN ones first (" + cut.Count + ")");
   }
 
+  static byte[] Ascii(string text) { return System.Text.Encoding.ASCII.GetBytes(text); }
+
+  static void Reply(string text, bool valid, int expected) {
+   int port;
+   bool ok = ServerFinder.TryReply(Ascii(text), out port);
+   Check(ok == valid && (!valid || port == expected), "TryReply(\"" + text + "\") is " + ok + "/" + port);
+  }
+
+  static void Beacon() {
+   Check(ServerFinder.BeaconPort == 5051 && ServerFinder.Request == "HYRULE?" && ServerFinder.ReplyPrefix == "HYRULE1 ", "beacon constants");
+   Check(ServerFinder.IsRequest(Ascii("HYRULE?")), "the request is recognised");
+   foreach (string text in new[] { "", "HYRULE", "HYRULE?\n", "hyrule?", "HYRULE? ", "HYRULE?HYRULE?", "GET / HTTP/1.1" }) Check(!ServerFinder.IsRequest(Ascii(text)), "not a request: \"" + text + "\"");
+   Check(!ServerFinder.IsRequest(null), "null is not a request");
+   Check(System.Text.Encoding.ASCII.GetString(ServerFinder.Reply(5050)) == "HYRULE1 5050", "reply for 5050");
+   Reply("HYRULE1 5050", true, 5050);
+   Reply("HYRULE1 1", true, 1);
+   Reply("HYRULE1 65535", true, 65535);
+   foreach (string text in new[] { "HYRULE1 0", "HYRULE1 65536", "HYRULE1 -5", "HYRULE1 ", "HYRULE1", "HYRULE1 50 50", "HYRULE1 5050\n", "HYRULE1  5050", "HYRULE2 5050", "hyrule1 5050", "HYRULE? 5050", "HYRULE1 5e3", "HYRULE1 123456", "" }) Reply(text, false, 0);
+   int none;
+   Check(!ServerFinder.TryReply(null, out none), "a null reply is invalid");
+  }
+
+  static int FreeUdp() {
+   using (var udp = new UdpClient(new IPEndPoint(IPAddress.Loopback, 0))) return ((IPEndPoint)udp.Client.LocalEndPoint).Port;
+  }
+
   static void Probing() {
    var listener = new TcpListener(IPAddress.Loopback, 0);
    listener.Start();
+   int beacon = FreeUdp(), game = ((IPEndPoint)listener.LocalEndpoint).Port, port;
    try {
-    int port = ((IPEndPoint)listener.LocalEndpoint).Port;
-    int ms = ServerFinder.Connect("127.0.0.1", port, ServerFinder.TestMs);
-    Check(ms >= 1, "Connect reaches a listening port (" + ms + ")");
-    var found = ServerFinder.Probe(new List<FoundServer> { new FoundServer { Host = "127.0.0.1", Port = port, Via = "lan" } }, CancellationToken.None);
-    Check(found.Count == 1 && found[0].Port == port && found[0].Ms >= 1, "Probe lists the listening port");
-    var cancelled = new CancellationTokenSource();
-    cancelled.Cancel();
-    Check(ServerFinder.Probe(new List<FoundServer> { new FoundServer { Host = "127.0.0.1", Port = port, Via = "lan" } }, cancelled.Token).Count == 0, "a cancelled search probes nothing");
+    int silent = ServerFinder.Ping("127.0.0.1", ServerFinder.ProbeMs, out port, beacon);
+    Check(silent == -1 && port == 0, "Ping gets no answer while no host is running (" + silent + ")");
+    using (var responder = new BeaconResponder(game, beacon)) {
+     int ms = ServerFinder.Ping("127.0.0.1", ServerFinder.TestMs, out port, beacon);
+     Check(ms >= 1 && port == game, "Ping reaches a responder and gets its game port (" + ms + ", " + port + ")");
+     var candidates = new List<FoundServer> { new FoundServer { Host = "127.0.0.1", Port = 6000, Via = "lan" }, new FoundServer { Host = "127.0.0.1", Port = ServerFinder.Port, Via = "lan" } };
+     var found = ServerFinder.Probe(candidates, CancellationToken.None, beacon);
+     Check(found.Count == 1 && found[0].Port == game && found[0].Via == "lan" && found[0].Ms >= 1, "Probe lists the host once with the port from the reply (" + found.Count + ")");
+     var cancelled = new CancellationTokenSource();
+     cancelled.Cancel();
+     Check(ServerFinder.Probe(candidates, cancelled.Token, beacon).Count == 0, "a cancelled search pings nothing");
+     using (var second = new BeaconResponder(1234, beacon)) Check(ServerFinder.Ping("127.0.0.1", ServerFinder.TestMs, out port, beacon) >= 1 && port == game, "a second responder on a busy port is silent and the first keeps answering");
+     using (var raw = new UdpClient()) {
+      var target = new IPEndPoint(IPAddress.Loopback, beacon);
+      foreach (string junk in new[] { "hello", "HYRULE?x", "" }) raw.Send(Ascii(junk), junk.Length, target);
+      raw.Client.ReceiveTimeout = 300;
+      IPEndPoint from = null;
+      bool answered = true;
+      try { raw.Receive(ref from); } catch (SocketException) { answered = false; }
+      Check(!answered, "the responder ignores anything but the exact request");
+     }
+    }
+    Check(ServerFinder.Ping("127.0.0.1", ServerFinder.ProbeMs, out port, beacon) == -1, "a stopped responder no longer answers");
+    Check(!listener.Pending(), "no TCP connection reached the game port during any Ping or search");
+    Thread.Sleep(100);
+    Check(!listener.Pending(), "still no TCP connection after the responder stopped");
    }
    finally { listener.Stop(); }
-   var closed = new TcpListener(IPAddress.Loopback, 0);
-   closed.Start();
-   int free = ((IPEndPoint)closed.LocalEndpoint).Port;
-   closed.Stop();
-   Check(ServerFinder.Connect("127.0.0.1", free, ServerFinder.ProbeMs) == -1, "Connect fails on a closed port");
-   Check(ServerFinder.Connect("not a host", 5050, ServerFinder.ProbeMs) == -1, "Connect fails on a bad host");
+   Check(ServerFinder.Ping("not a host name", ServerFinder.ProbeMs, out port, beacon) == -1, "Ping fails on a bad host");
    Check(ServerFinder.Interfaces().Any(f => f.Key == "127.0.0.1"), "Interfaces lists the loopback address");
    Check(ServerFinder.TailscaleHosts() != null, "TailscaleHosts never fails");
   }
@@ -110,6 +150,7 @@ namespace HyruleOnline {
    Ordering();
    AutoFill();
    Candidates();
+   Beacon();
    Probing();
    Console.WriteLine((failures == 0 ? "PASS" : "FAIL") + ": server finder, " + (checks - failures) + " of " + checks + " checks passed.");
    return failures == 0 ? 0 : 1;

@@ -14,6 +14,7 @@ import os
 import re
 import struct
 import sys
+import threading
 import time
 
 try:
@@ -196,9 +197,23 @@ class Dev:
             fcntl.ioctl(self.ff, _ioc(0x80, 48, write=True), effect, True)  # EVIOCSFF fills in the id
             self.effect = struct.unpack_from("h", effect, 2)[0]
             os.write(self.ff, struct.pack("llHHi", 0, 0, EV_FF, self.effect, 1))
+            timer = threading.Timer(ms / 1000.0 + 0.03, self._stop, (self.effect,))  # the Steam virtual pad can ignore the effect length, so stop it explicitly
+            timer.daemon = True
+            timer.start()
             return True
         except (OSError, AttributeError, struct.error):
             return False
+
+    def _stop(self, effect):
+        """Stops and erases that pulse unless a newer one replaced it. Never raises."""
+        try:
+            if self.ff is None or self.effect != effect:
+                return
+            os.write(self.ff, struct.pack("llHHi", 0, 0, EV_FF, effect, 0))
+            fcntl.ioctl(self.ff, _ioc(0x81, 4, write=True), effect)
+            self.effect = -1
+        except (OSError, AttributeError, struct.error):
+            pass
 
     def direction(self):
         """'left'/'right'/'up'/'down' currently held (D-pad first, then the stick), or None."""

@@ -577,15 +577,17 @@ def spatial_pick(frm, items, direction, sideways=False):
                 continue
             along = max(0, it[1] - (frm[1] + frm[3])) + (iy - fy) * .1
         elif direction == 2:
-            if ix >= fx - 1:
+            if ix >= fx - 1 or sideways and it[0] + it[2] > frm[0] + 1:  # across rows only boxes wholly at that side: a wide field above or below is not "to the left"
                 continue
             along = max(0, frm[0] - (it[0] + it[2])) + (fx - ix) * .1
         else:
-            if ix <= fx + 1:
+            if ix <= fx + 1 or sideways and it[0] < frm[0] + frm[2] - 1:
                 continue
             along = max(0, it[0] - (frm[0] + frm[2])) + (ix - fx) * .1
         if vertical:
             across, offset, miss = _gap(frm[0], frm[2], it[0], it[2]), abs(ix - fx), _away(fx, it[0], it[2])
+            if across <= 0:  # a wide control spans every box under it: the nearest row wins, and inside the row the one at its left edge, not whichever is under its centre
+                offset, miss = abs(it[0] - frm[0]), 0
         else:
             across, offset, miss = _gap(frm[1], frm[3], it[1], it[3]), abs(iy - fy), _away(fy, it[1], it[3])
         if across <= 0:
@@ -968,6 +970,7 @@ class App:
         self.last_addr, self.addr_msg, self.copied_until, self.semicolon_until, self.shown = "", False, 0, 0, None
         self.found, self.finder_value, self.find_line, self.searching, self.testing = [], "", [], False, False  # the server finder's list, last auto-filled value, result line and busy flags
         self.cancel, self.search_fn, self.check_fn = threading.Event(), finder.search, finder.check
+        self.beacon, self.beacon_cls = None, finder.Beacon
         for key, var in self.v.items():
             var.trace_add("write", lambda *a, k=key: self.typed(k))
         self.fonts()
@@ -1632,7 +1635,7 @@ class App:
         elif not self.testing:
             self.testing = True
             self.render_find()
-            self.background(lambda: self.check_fn(parsed[0], parsed[1]), lambda ms: self.connected(parsed[0], parsed[1], ms))
+            self.background(lambda: self.check_fn(parsed[0]), lambda ms: self.connected(parsed[0], parsed[1], ms))
 
     def connected(self, host, port, ms):
         self.testing = False
@@ -1641,8 +1644,11 @@ class App:
         self.render_find()
 
     def render_find(self):
-        self.search_btn.config(state="disabled" if self.searching else "normal")
-        self.test_btn.config(state="disabled" if self.testing else "normal")
+        for btn, busy, mate in ((self.search_btn, self.searching, self.test_btn), (self.test_btn, self.testing, self.search_btn)):
+            if busy and self.root.focus_get() is btn and str(mate.cget("state")) != "disabled":  # a disabled button leaves the pad's reach: hand the cursor to its neighbour
+                mate.focus_set()
+                self.memory[self.tab.get()] = mate
+            btn.config(state="disabled" if busy else "normal")
         self.find_text.config(text=" ".join(tr(text, *args) for text, args in self.find_line))
         (self.find_text.grid if self.find_line else self.find_text.grid_remove)()
 
@@ -1897,8 +1903,19 @@ class App:
         self.note = None
         self.cli.stop()
 
+    def answer_beacon(self, hosting, port=None):
+        """The beacon that lets other launchers find this server runs only while it hosts one."""
+        port = int(port) if str(port or "").isdigit() and 1 <= int(port) <= 65535 else None
+        if self.beacon and (not hosting or not port or self.beacon.tcp_port != port):
+            self.beacon.stop()
+            self.beacon = None
+        if hosting and port and not self.beacon:
+            beacon = self.beacon_cls(port)
+            self.beacon = beacon if beacon.start() else None
+
     def stop_timers(self):
         self.cancel.set()
+        self.answer_beacon(False)
         for job in self.root.tk.call("after", "info"):
             self.root.after_cancel(job)
 
@@ -1911,6 +1928,7 @@ class App:
     def render(self):
         c, s = self.cli, self.cli.stat or {}
         self.log.poll()
+        self.answer_beacon(s.get("mode") == "host" and s.get("server") == "up", s.get("port"))
         if c.proc is not None and not c.alive():
             ended, c.proc = c.proc.returncode not in (0, 143, -15) and not c.quiet, None  # 143: stopped
             if ended:
