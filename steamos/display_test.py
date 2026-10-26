@@ -3,6 +3,7 @@ import os
 import sys
 import tempfile
 import unittest
+from unittest import mock
 import xml.etree.ElementTree as ET
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -255,7 +256,8 @@ class Apply(unittest.TestCase):
         conf = os.path.join(root, "launcher.conf")
         with open(conf, "w") as f:
             f.write("".join(f"{k}={v}\n" for k, v in own.items()))
-        summary = D.apply(root, conf, screen, vulkan=True)
+        with mock.patch.object(D, "detect_screen", return_value=None):
+            summary = D.apply(root, conf, screen, vulkan=True)
         return root, summary, ET.parse(os.path.join(root, "cemu", "settings.xml")).getroot()
 
     def test_writes_pack_and_settings(self):
