@@ -1497,6 +1497,7 @@ class App:
         if m == HOST:
             self.hostf.grid(row=4, column=0, sticky="ew")
             self.hostcol.grid(row=0, column=1, **gap)
+            self.render_online((self.cli.stat or {}).get("server") == "up")
         elif m == JOIN:
             self.joinf.grid(row=4, column=0, sticky="ew")
             self.joincol.grid(row=0, column=1, **gap)
