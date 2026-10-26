@@ -484,19 +484,28 @@ class TagGame(unittest.TestCase):
 
 class Chord(unittest.TestCase):
     def test_start_and_select_together_return(self):
-        me = type("Me", (), {"chord": {}})()
+        me = type("Me", (), {"chord": {}, "toggled": float("-inf")})()
         self.assertFalse(L.App.chord_done(me, "menu", 10.0))
         self.assertTrue(L.App.chord_done(me, "view", 10.0 + L.CHORD_S))
 
     def test_a_slow_second_press_does_not(self):
-        me = type("Me", (), {"chord": {}})()
+        me = type("Me", (), {"chord": {}, "toggled": float("-inf")})()
         L.App.chord_done(me, "view", 10.0)
         self.assertFalse(L.App.chord_done(me, "menu", 10.0 + L.CHORD_S + .5))
 
     def test_the_same_button_twice_does_not(self):
-        me = type("Me", (), {"chord": {}})()
+        me = type("Me", (), {"chord": {}, "toggled": float("-inf")})()
         L.App.chord_done(me, "menu", 10.0)
         self.assertFalse(L.App.chord_done(me, "menu", 10.2))
+
+    def test_a_repeat_right_after_a_toggle_is_ignored(self):
+        me = type("Me", (), {"chord": {}, "toggled": float("-inf")})()
+        L.App.chord_done(me, "menu", 10.0)
+        self.assertTrue(L.App.chord_done(me, "view", 10.1))
+        L.App.chord_done(me, "menu", 10.5)
+        self.assertFalse(L.App.chord_done(me, "view", 10.6))
+        L.App.chord_done(me, "menu", 12.5)
+        self.assertTrue(L.App.chord_done(me, "view", 12.6))
 
 
 class Window(unittest.TestCase):

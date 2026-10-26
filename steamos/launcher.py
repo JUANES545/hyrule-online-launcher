@@ -34,6 +34,7 @@ TABS = ["Play", "Online", "Graphics", "World", "Language", "Details"]  # the Win
 LANGUAGES = [("en", "English"), ("es", "Español"), ("fr", "Français")]
 GAME_DELAY_MS = 4000  # the Cemu window needs a moment to exist before the launcher steps aside
 TAG_MS = 2000  # how often new Cemu windows get the shortcut's STEAM_GAME while the launcher is hidden
+TOGGLE_COOLDOWN_S = 2.0  # after the chord shows or hides the launcher, ignore it for this long
 CHORD_S = 1.0  # Start and Select within this many seconds bring the launcher back from the game
 NEUTRAL = ("Hyrule Online", "THE LEGEND OF ZELDA", "BREATH OF THE WILD", "LB", "RB", "Hunter vs Speedrunner", "Death Swap")  # read the same everywhere
 DEFAULT_PORT, DEFAULT_DESC = 5050, "Explore Hyrule with Friends!"
@@ -950,7 +951,7 @@ class App:
         self.size = size or (root.winfo_screenwidth(), root.winfo_screenheight())
         self.design_w, self.design_h, self.scale = shell_fit(*self.size)
         self.bits, self.dialog, self.note, self.up, self.started, self.started_mode = st["bits"], None, None, False, None, LOCAL
-        self.hidden, self.game_seen, self.chord = False, None, {}
+        self.hidden, self.game_seen, self.chord, self.toggled = False, None, {}, float("-inf")
         self.pointer, self.hovered, self.memory = True, set(), {}  # pointer: False while the pad drives; memory: the focus kept per page
         root.bind_all("<Motion>", self.pointer_moved, add="+")
         self.gfx, self.hw, self.screen = display.read_prefs(self.own), None, None
@@ -1993,7 +1994,10 @@ class App:
         """True when Start and Select were both pressed within CHORD_S seconds: the way back to the launcher from the game."""
         self.chord[name] = now
         other = self.chord.get("view" if name == "menu" else "menu")
-        return other is not None and now - other <= CHORD_S
+        if other is None or now - other > CHORD_S or now - self.toggled < TOGGLE_COOLDOWN_S:  # repeated presses must not flip the window while gamescope switches
+            return False
+        self.toggled = now
+        return True
 
     # ---- game controller (gamepad.py reads the device; this maps its events onto the keyboard actions above) ----
     def pad_event(self, name):
