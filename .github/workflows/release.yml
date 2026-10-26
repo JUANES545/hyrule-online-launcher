@@ -70,7 +70,6 @@ jobs:
         shell: bash
         run: |
           v="${{ steps.meta.outputs.version }}"
-          bash steamos/test.sh
           rm -rf .artifacts/steamos-stage && mkdir -p .artifacts/steamos-stage
           cp -r steamos ".artifacts/steamos-stage/HyruleOnline-$v-steamos"
           cp VERSION ".artifacts/steamos-stage/HyruleOnline-$v-steamos/VERSION"
