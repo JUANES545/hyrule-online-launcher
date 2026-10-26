@@ -16,7 +16,7 @@
    <Setter Property="Cursor" Value="Hand"/><Setter Property="FontWeight" Value="Normal"/>
    <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
     <Border x:Name="Chrome" CornerRadius="5" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}">
-     <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+     <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center"/>
     </Border><ControlTemplate.Triggers>
      <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="Background" Value="#B0354549"/></Trigger>
      <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="#E1CFA1"/><Setter TargetName="Chrome" Property="Background" Value="#B0354542"/></Trigger>
@@ -48,6 +48,37 @@
     </Popup>
    </Grid>
    <ControlTemplate.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.4"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+  </Style>
+  <Style x:Key="SectionTitle" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+   <Setter Property="TextAlignment" Value="Center"/><Setter Property="FontFamily" Value="{DynamicResource TitleFont}"/><Setter Property="FontStretch" Value="Normal"/><Setter Property="FontWeight" Value="Normal"/><Setter Property="FontSize" Value="15"/><Setter Property="Foreground" Value="#CBBF9F"/><Setter Property="Margin" Value="0,0,0,8"/>
+  </Style>
+  <Style x:Key="FieldLabel" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}"><Setter Property="FontSize" Value="14"/><Setter Property="Foreground" Value="#8FA7B1"/></Style>
+  <Style x:Key="CompactCombo" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}"><Setter Property="FontSize" Value="16"/><Setter Property="Padding" Value="12,6"/></Style>
+  <Style x:Key="FlatSlider" TargetType="Slider">
+   <Setter Property="Height" Value="33"/><Setter Property="Cursor" Value="Hand"/><Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+   <Setter Property="IsSnapToTickEnabled" Value="True"/><Setter Property="TickFrequency" Value="1"/><Setter Property="SmallChange" Value="1"/><Setter Property="LargeChange" Value="1"/><Setter Property="IsMoveToPointEnabled" Value="True"/>
+   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Slider">
+    <ControlTemplate.Resources>
+     <Style x:Key="TrackPart" TargetType="RepeatButton">
+      <Setter Property="Focusable" Value="False"/><Setter Property="IsTabStop" Value="False"/>
+      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="RepeatButton"><Border Height="4" CornerRadius="2" Background="{TemplateBinding Background}"/></ControlTemplate></Setter.Value></Setter>
+     </Style>
+    </ControlTemplate.Resources>
+    <Grid Background="Transparent">
+     <Border Height="4" CornerRadius="2" Background="#293A42"/>
+     <Track x:Name="PART_Track">
+      <Track.DecreaseRepeatButton><RepeatButton Command="Slider.DecreaseLarge" Background="#63E0BD" Style="{StaticResource TrackPart}"/></Track.DecreaseRepeatButton>
+      <Track.IncreaseRepeatButton><RepeatButton Command="Slider.IncreaseLarge" Background="Transparent" Style="{StaticResource TrackPart}"/></Track.IncreaseRepeatButton>
+      <Track.Thumb><Thumb x:Name="Knob" Width="18" Focusable="False" Background="#ECF5F4" BorderBrush="#364E5659">
+       <Thumb.Template><ControlTemplate TargetType="Thumb"><Ellipse Width="18" Height="18" Fill="{TemplateBinding Background}" Stroke="{TemplateBinding BorderBrush}" StrokeThickness="2"/></ControlTemplate></Thumb.Template>
+      </Thumb></Track.Thumb>
+     </Track>
+    </Grid>
+    <ControlTemplate.Triggers>
+     <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Knob" Property="Background" Value="#F3E7C3"/></Trigger>
+     <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Knob" Property="BorderBrush" Value="#E1CFA1"/></Trigger>
+     <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.4"/></Trigger>
+    </ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
   </Style>
   <Style x:Key="AvatarSlot" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
    <Setter Property="Margin" Value="0"/><Setter Property="Padding" Value="8,0"/><Setter Property="Height" Value="40"/><Setter Property="FontSize" Value="16"/>
@@ -101,7 +132,7 @@
     <Border x:Name="Row" CornerRadius="5" Background="#801B252B" BorderBrush="#364E5659" BorderThickness="2" Padding="12,7">
      <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
       <Border Width="20" Height="20" CornerRadius="3" BorderBrush="#A5BAC5" BorderThickness="2" Margin="0,0,10,0" VerticalAlignment="Center"><Path x:Name="Tick" Data="M 3,9 L 7,13 L 15,4" Stroke="#63E0BD" StrokeThickness="2.5" Visibility="Collapsed"/></Border>
-      <ContentPresenter Grid.Column="1" VerticalAlignment="Center"/>
+      <ContentPresenter Grid.Column="1" VerticalAlignment="Center"><ContentPresenter.Resources><Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}"><Setter Property="TextWrapping" Value="Wrap"/></Style></ContentPresenter.Resources></ContentPresenter>
      </Grid></Border>
     <ControlTemplate.Triggers>
      <Trigger Property="IsChecked" Value="True"><Setter TargetName="Tick" Property="Visibility" Value="Visible"/><Setter TargetName="Row" Property="BorderBrush" Value="#6A8F83"/></Trigger>
@@ -125,20 +156,21 @@
  </Window.Resources>  <Grid><Viewbox Stretch="Uniform" Margin="20,16"><Grid x:Name="Shell" Width="1280" Height="1190"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
   <StackPanel Grid.Row="0" Margin="14,4,14,0">
   <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions><StackPanel Orientation="Horizontal" VerticalAlignment="Center"><Ellipse x:Name="CornerDot" Width="9" Height="9" Fill="#4B5A60" Margin="2,0,8,0"/><TextBlock x:Name="CornerServer" Text="Server stopped" Foreground="#A5BAC5" FontSize="13"/></StackPanel><TextBlock Grid.Column="1" Text="THE LEGEND OF ZELDA" TextAlignment="Center" FontFamily="{DynamicResource TitleFont}" FontStretch="Normal" Foreground="#CFBF9C" FontSize="13" VerticalAlignment="Center"/><Button x:Name="Help" Grid.Column="2" Content="Help" HorizontalAlignment="Right" Padding="16,8"/></Grid>
-  <TextBlock Text="BREATH OF THE WILD" TextAlignment="Center" FontFamily="{DynamicResource LogoFont}" FontStretch="Normal" FontSize="40" FontWeight="Normal" Foreground="#E2D5B2" Margin="0,6,0,3"/>
-  <TextBlock Text="ONLINE MULTIPLAYER" TextAlignment="Center" Foreground="#A7B5B5"   FontSize="13" Margin="1,0,0,10"/>
+  <TextBlock Text="BREATH OF THE WILD" TextAlignment="Center" FontFamily="{DynamicResource LogoFont}" FontStretch="Normal" FontSize="34" FontWeight="Normal" Foreground="#E2D5B2" Margin="0,2,0,2"/>
+  <TextBlock Text="ONLINE MULTIPLAYER" TextAlignment="Center" Foreground="#A7B5B5"   FontSize="14" Margin="1,0,0,6"/>
    </StackPanel>
-   <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,12">
+   <WrapPanel x:Name="NavRow" Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,8">
     <Border x:Name="NavPrev" Width="54" Height="30" CornerRadius="16,5,5,5" Background="#801B252B" BorderBrush="#A5BAC5" BorderThickness="2" Margin="0,0,14,0" VerticalAlignment="Center" ToolTip="Previous page (LB or Ctrl+Shift+Tab)" AutomationProperties.Name="Previous page (LB)"><TextBlock Text="LB" FontStyle="Normal" FontWeight="Bold" FontSize="15" Foreground="#CFE3E4" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0"/></Border>
     <Button x:Name="TabPlay" Content="PLAY" Tag="0" Style="{StaticResource TabButton}"/>
-    <Button x:Name="TabGraphics" Content="GRAPHICS" Tag="1" Style="{StaticResource TabButton}"/>
-    <Button x:Name="TabMultiplayer" Content="MULTIPLAYER" Tag="2" Style="{StaticResource TabButton}"/>
-    <Button x:Name="TabLanguage" Content="LANGUAGE" Tag="3" Style="{StaticResource TabButton}"/>
-    <Button x:Name="TabDetails" Content="DETAILS" Tag="4" Style="{StaticResource TabButton}"/>
+    <Button x:Name="TabOnline" Content="ONLINE" Tag="1" Style="{StaticResource TabButton}"/>
+    <Button x:Name="TabGraphics" Content="GRAPHICS" Tag="2" Style="{StaticResource TabButton}"/>
+    <Button x:Name="TabMultiplayer" Content="WORLD" Tag="3" Style="{StaticResource TabButton}"/>
+    <Button x:Name="TabLanguage" Content="LANGUAGE" Tag="4" Style="{StaticResource TabButton}"/>
+    <Button x:Name="TabDetails" Content="DETAILS" Tag="5" Style="{StaticResource TabButton}"/>
     <Border x:Name="NavNext" Width="54" Height="30" CornerRadius="5,16,5,5" Background="#801B252B" BorderBrush="#A5BAC5" BorderThickness="2" Margin="14,0,0,0" VerticalAlignment="Center" ToolTip="Next page (RB or Ctrl+Tab)" AutomationProperties.Name="Next page (RB)"><TextBlock Text="RB" FontStyle="Normal" FontWeight="Bold" FontSize="15" Foreground="#CFE3E4" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0"/></Border>
-   </StackPanel>
+       </WrapPanel>
    <Grid Grid.Row="2" x:Name="Pages" Margin="14,0,14,6">
-    <Grid x:Name="PlayPage">
+    <ScrollViewer x:Name="PlayPage" VerticalScrollBarVisibility="Auto" Focusable="False"><Grid x:Name="PlayBody">
    <Grid.ColumnDefinitions><ColumnDefinition Width="1.1*"/><ColumnDefinition Width="0.9*"/></Grid.ColumnDefinitions>
    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
    <StackPanel x:Name="Players" Margin="0,0,20,0">
@@ -152,19 +184,19 @@
       <StackPanel x:Name="P1Main">
       <TextBlock x:Name="P1Name" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"       Foreground="#A5BAC5" FontSize="14" Margin="0,0,0,6"/>
             <Grid Margin="0,0,0,8"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-       <StackPanel><TextBlock Text="NAME" FontSize="11" Foreground="#78939F" Margin="2,0,0,3"/><TextBox x:Name="P1NameBox" Style="{StaticResource NameBox}" Height="40" AutomationProperties.Name="Player 1 name"/></StackPanel>
-       <StackPanel Grid.Column="2"><TextBlock Text="AVATAR" FontSize="11" Foreground="#78939F" Margin="2,0,0,3"/><Button x:Name="P1AvatarButton" Style="{StaticResource AvatarSlot}" ToolTip="Choose the avatar for player 1" AutomationProperties.Name="Player 1 avatar"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><Image x:Name="P1AvatarImage" Width="30" Height="30" Margin="0,0,8,0" RenderOptions.BitmapScalingMode="HighQuality"/><TextBlock x:Name="P1AvatarName" Grid.Column="1" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Padding="0"/><Path Grid.Column="2" Data="M 0,0 L 5,5 L 10,0" Stroke="#A5BAC5" StrokeThickness="2" VerticalAlignment="Center" Margin="8,0,2,0"/></Grid></Button></StackPanel>
+       <StackPanel><TextBlock Text="NAME" FontSize="13" Foreground="#78939F" Margin="2,0,0,3"/><TextBox x:Name="P1NameBox" Style="{StaticResource NameBox}" Height="40" AutomationProperties.Name="Player 1 name"/></StackPanel>
+       <StackPanel Grid.Column="2"><TextBlock Text="AVATAR" FontSize="13" Foreground="#78939F" Margin="2,0,0,3"/><Button x:Name="P1AvatarButton" Style="{StaticResource AvatarSlot}" ToolTip="Choose the avatar for player 1" AutomationProperties.Name="Player 1 avatar"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><Image x:Name="P1AvatarImage" Width="30" Height="30" Margin="0,0,8,0" RenderOptions.BitmapScalingMode="HighQuality"/><TextBlock x:Name="P1AvatarName" Grid.Column="1" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Padding="0"/><Path Grid.Column="2" Data="M 0,0 L 5,5 L 10,0" Stroke="#A5BAC5" StrokeThickness="2" VerticalAlignment="Center" Margin="8,0,2,0"/></Grid></Button></StackPanel>
       </Grid>
       <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="*"/><ColumnDefinition Width="76"/></Grid.ColumnDefinitions>
        <Canvas Height="60" Width="175" HorizontalAlignment="Left"><Ellipse Width="58" Height="58" Canvas.Left="0" Canvas.Top="0" Fill="#0B141B" Stroke="#304752"/><Ellipse Width="58" Height="58" Canvas.Left="91" Canvas.Top="0" Fill="#0B141B" Stroke="#304752"/><Ellipse x:Name="P1L" Width="18" Height="18" Fill="#63E0BD" Canvas.Left="20" Canvas.Top="20"/><Ellipse x:Name="P1R" Width="18" Height="18" Fill="#E0BE75" Canvas.Left="111" Canvas.Top="20"/></Canvas>
-       <StackPanel Grid.Column="1"><TextBlock Text="LT / RT" FontSize="12" Foreground="#78939F"/><ProgressBar x:Name="P1LT" Maximum="255" Margin="0,8,0,10"/><ProgressBar x:Name="P1RT" Maximum="255"/></StackPanel><Viewbox Grid.Column="2" Width="64" Height="60" HorizontalAlignment="Right" IsHitTestVisible="False"><Canvas x:Name="P1Motion" Width="64" Height="60" AutomationProperties.Name="Player 1 motion sensor"><Ellipse x:Name="P1MotionRing" Width="54" Height="54" Canvas.Left="5" Canvas.Top="3" Stroke="#304752" StrokeThickness="2"/><Image x:Name="P1MotionDevice" Width="34" Height="24" Canvas.Left="15" Canvas.Top="18" Source="{StaticResource MotionDeviceImage}" RenderTransformOrigin="0.5,0.5" AutomationProperties.Name="Player 1 motion sensor" AutomationProperties.ItemStatus="Unavailable"><Image.RenderTransform><RotateTransform/></Image.RenderTransform></Image><Ellipse x:Name="P1MotionDot" Width="8" Height="8" Canvas.Left="28" Canvas.Top="26" Fill="#7EE9C9" Visibility="Collapsed"/><Path x:Name="P1MotionSlash" Data="M 16,44 L 48,16" Stroke="#78939F" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/></Canvas></Viewbox>
+       <StackPanel Grid.Column="1"><TextBlock Text="LT / RT" FontSize="13" Foreground="#78939F"/><ProgressBar x:Name="P1LT" Maximum="255" Margin="0,8,0,10"/><ProgressBar x:Name="P1RT" Maximum="255"/></StackPanel><Viewbox Grid.Column="2" Width="64" Height="60" HorizontalAlignment="Right" IsHitTestVisible="False"><Canvas x:Name="P1Motion" Width="64" Height="60" AutomationProperties.Name="Player 1 motion sensor"><Ellipse x:Name="P1MotionRing" Width="54" Height="54" Canvas.Left="5" Canvas.Top="3" Stroke="#304752" StrokeThickness="2"/><Image x:Name="P1MotionDevice" Width="34" Height="24" Canvas.Left="15" Canvas.Top="18" Source="{StaticResource MotionDeviceImage}" RenderTransformOrigin="0.5,0.5" AutomationProperties.Name="Player 1 motion sensor" AutomationProperties.ItemStatus="Unavailable"><Image.RenderTransform><RotateTransform/></Image.RenderTransform></Image><Ellipse x:Name="P1MotionDot" Width="8" Height="8" Canvas.Left="28" Canvas.Top="26" Fill="#7EE9C9" Visibility="Collapsed"/><Path x:Name="P1MotionSlash" Data="M 16,44 L 48,16" Stroke="#78939F" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/></Canvas></Viewbox>
       </Grid>
       <WrapPanel HorizontalAlignment="Center" Margin="0,4,0,0"><Button x:Name="Assign1" Width="200" Content="Assign controller"/><Button x:Name="Rumble1" Width="200" Content="Test vibration"/></WrapPanel>
       </StackPanel>
       <StackPanel x:Name="P1Picker" Visibility="Collapsed" Margin="0,10,0,0">
        <Grid Margin="0,0,0,8"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Text="Choose your avatar" Foreground="#7EE9C9" FontSize="16"/><TextBlock x:Name="P1PickerName" Grid.Column="1" HorizontalAlignment="Right" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Margin="12,0,0,0" FontSize="16"/></Grid>
        <UniformGrid x:Name="P1AvatarGrid" Columns="7"/>
-       <TextBlock x:Name="PadHint1" TextAlignment="Center" Foreground="#78939F" FontSize="12" Margin="0,8,0,0"/>
+       <TextBlock x:Name="PadHint1" TextAlignment="Center" Foreground="#78939F" FontSize="13" Margin="0,8,0,0"/>
       </StackPanel>
      </StackPanel>
     </Border>
@@ -174,19 +206,19 @@
       <StackPanel x:Name="P2Main">
       <TextBlock x:Name="P2Name" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"       Foreground="#A5BAC5" FontSize="14" Margin="0,0,0,6"/>
             <Grid Margin="0,0,0,8"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-       <StackPanel><TextBlock Text="NAME" FontSize="11" Foreground="#78939F" Margin="2,0,0,3"/><TextBox x:Name="P2NameBox" Style="{StaticResource NameBox}" Height="40" AutomationProperties.Name="Player 2 name"/></StackPanel>
-       <StackPanel Grid.Column="2"><TextBlock Text="AVATAR" FontSize="11" Foreground="#78939F" Margin="2,0,0,3"/><Button x:Name="P2AvatarButton" Style="{StaticResource AvatarSlot}" ToolTip="Choose the avatar for player 2" AutomationProperties.Name="Player 2 avatar"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><Image x:Name="P2AvatarImage" Width="30" Height="30" Margin="0,0,8,0" RenderOptions.BitmapScalingMode="HighQuality"/><TextBlock x:Name="P2AvatarName" Grid.Column="1" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Padding="0"/><Path Grid.Column="2" Data="M 0,0 L 5,5 L 10,0" Stroke="#A5BAC5" StrokeThickness="2" VerticalAlignment="Center" Margin="8,0,2,0"/></Grid></Button></StackPanel>
+       <StackPanel><TextBlock Text="NAME" FontSize="13" Foreground="#78939F" Margin="2,0,0,3"/><TextBox x:Name="P2NameBox" Style="{StaticResource NameBox}" Height="40" AutomationProperties.Name="Player 2 name"/></StackPanel>
+       <StackPanel Grid.Column="2"><TextBlock Text="AVATAR" FontSize="13" Foreground="#78939F" Margin="2,0,0,3"/><Button x:Name="P2AvatarButton" Style="{StaticResource AvatarSlot}" ToolTip="Choose the avatar for player 2" AutomationProperties.Name="Player 2 avatar"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><Image x:Name="P2AvatarImage" Width="30" Height="30" Margin="0,0,8,0" RenderOptions.BitmapScalingMode="HighQuality"/><TextBlock x:Name="P2AvatarName" Grid.Column="1" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Padding="0"/><Path Grid.Column="2" Data="M 0,0 L 5,5 L 10,0" Stroke="#A5BAC5" StrokeThickness="2" VerticalAlignment="Center" Margin="8,0,2,0"/></Grid></Button></StackPanel>
       </Grid>
       <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="*"/><ColumnDefinition Width="76"/></Grid.ColumnDefinitions>
        <Canvas Height="60" Width="175" HorizontalAlignment="Left"><Ellipse Width="58" Height="58" Canvas.Left="0" Canvas.Top="0" Fill="#0B141B" Stroke="#304752"/><Ellipse Width="58" Height="58" Canvas.Left="91" Canvas.Top="0" Fill="#0B141B" Stroke="#304752"/><Ellipse x:Name="P2L" Width="18" Height="18" Fill="#63E0BD" Canvas.Left="20" Canvas.Top="20"/><Ellipse x:Name="P2R" Width="18" Height="18" Fill="#E0BE75" Canvas.Left="111" Canvas.Top="20"/></Canvas>
-       <StackPanel Grid.Column="1"><TextBlock Text="LT / RT" FontSize="12" Foreground="#78939F"/><ProgressBar x:Name="P2LT" Maximum="255" Margin="0,8,0,10"/><ProgressBar x:Name="P2RT" Maximum="255"/></StackPanel><Viewbox Grid.Column="2" Width="64" Height="60" HorizontalAlignment="Right" IsHitTestVisible="False"><Canvas x:Name="P2Motion" Width="64" Height="60" AutomationProperties.Name="Player 2 motion sensor"><Ellipse x:Name="P2MotionRing" Width="54" Height="54" Canvas.Left="5" Canvas.Top="3" Stroke="#304752" StrokeThickness="2"/><Image x:Name="P2MotionDevice" Width="34" Height="24" Canvas.Left="15" Canvas.Top="18" Source="{StaticResource MotionDeviceImage}" RenderTransformOrigin="0.5,0.5" AutomationProperties.Name="Player 2 motion sensor" AutomationProperties.ItemStatus="Unavailable"><Image.RenderTransform><RotateTransform/></Image.RenderTransform></Image><Ellipse x:Name="P2MotionDot" Width="8" Height="8" Canvas.Left="28" Canvas.Top="26" Fill="#E5C384" Visibility="Collapsed"/><Path x:Name="P2MotionSlash" Data="M 16,44 L 48,16" Stroke="#78939F" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/></Canvas></Viewbox>
+       <StackPanel Grid.Column="1"><TextBlock Text="LT / RT" FontSize="13" Foreground="#78939F"/><ProgressBar x:Name="P2LT" Maximum="255" Margin="0,8,0,10"/><ProgressBar x:Name="P2RT" Maximum="255"/></StackPanel><Viewbox Grid.Column="2" Width="64" Height="60" HorizontalAlignment="Right" IsHitTestVisible="False"><Canvas x:Name="P2Motion" Width="64" Height="60" AutomationProperties.Name="Player 2 motion sensor"><Ellipse x:Name="P2MotionRing" Width="54" Height="54" Canvas.Left="5" Canvas.Top="3" Stroke="#304752" StrokeThickness="2"/><Image x:Name="P2MotionDevice" Width="34" Height="24" Canvas.Left="15" Canvas.Top="18" Source="{StaticResource MotionDeviceImage}" RenderTransformOrigin="0.5,0.5" AutomationProperties.Name="Player 2 motion sensor" AutomationProperties.ItemStatus="Unavailable"><Image.RenderTransform><RotateTransform/></Image.RenderTransform></Image><Ellipse x:Name="P2MotionDot" Width="8" Height="8" Canvas.Left="28" Canvas.Top="26" Fill="#E5C384" Visibility="Collapsed"/><Path x:Name="P2MotionSlash" Data="M 16,44 L 48,16" Stroke="#78939F" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/></Canvas></Viewbox>
       </Grid>
       <WrapPanel HorizontalAlignment="Center" Margin="0,4,0,0"><Button x:Name="Assign2" Width="200" Content="Assign controller"/><Button x:Name="Rumble2" Width="200" Content="Test vibration"/></WrapPanel>
       </StackPanel>
       <StackPanel x:Name="P2Picker" Visibility="Collapsed" Margin="0,10,0,0">
        <Grid Margin="0,0,0,8"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Text="Choose your avatar" Foreground="#E5C384" FontSize="16"/><TextBlock x:Name="P2PickerName" Grid.Column="1" HorizontalAlignment="Right" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Margin="12,0,0,0" FontSize="16"/></Grid>
        <UniformGrid x:Name="P2AvatarGrid" Columns="7"/>
-       <TextBlock x:Name="PadHint2" TextAlignment="Center" Foreground="#78939F" FontSize="12" Margin="0,8,0,0"/>
+       <TextBlock x:Name="PadHint2" TextAlignment="Center" Foreground="#78939F" FontSize="13" Margin="0,8,0,0"/>
       </StackPanel>
      </StackPanel>
     </Border>
@@ -194,7 +226,7 @@
     <Button x:Name="Swap" Content="⇄  Swap players" HorizontalAlignment="Center" MinWidth="300"/>
    </StackPanel>
    <StackPanel x:Name="DisplayPanel" Grid.Column="1">
-    <TextBlock Text="DISPLAY" TextAlignment="Center" FontFamily="{DynamicResource TitleFont}" FontStretch="Normal" FontWeight="Normal" FontSize="14" Foreground="#CBBF9F" Margin="0,0,0,12"/>
+    <TextBlock Text="DISPLAY" Style="{StaticResource SectionTitle}" Margin="0,0,0,12"/>
     <Border Background="#A0152027" CornerRadius="8" Padding="18" BorderBrush="#3449585A" BorderThickness="1" Margin="0,0,0,12">
      <StackPanel>
       <TextBlock x:Name="ScreenInfo" TextAlignment="Center" FontSize="23" FontWeight="Normal" Margin="0,0,0,15"/>
@@ -225,7 +257,7 @@
       </StackPanel>
      </StackPanel>
     </Border>
-    <TextBlock Text="SESSION" TextAlignment="Center" FontFamily="{DynamicResource TitleFont}" FontStretch="Normal" FontWeight="Normal" FontSize="14" Foreground="#CBBF9F" Margin="0,8,0,12"/>
+    <TextBlock Text="SESSION" Style="{StaticResource SectionTitle}" Margin="0,8,0,12"/>
     <Border Background="#A0152027" CornerRadius="8" Padding="18" BorderBrush="#3449585A" BorderThickness="1">
      <Grid>
       <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*" MinWidth="190"/></Grid.ColumnDefinitions>
@@ -245,85 +277,101 @@
      </Grid>
     </Border>
    </StackPanel>
-  </Grid>
+  </Grid></ScrollViewer>
   <Grid x:Name="GraphicsPage" Visibility="Collapsed">
+   <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+   <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False"><Grid x:Name="GraphicsBody">
    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-   <StackPanel Margin="0,0,14,0">
-    <TextBlock Text="GRAPHICS" TextAlignment="Center" FontFamily="{DynamicResource TitleFont}" FontStretch="Normal" FontWeight="Normal" FontSize="14" Foreground="#CBBF9F" Margin="0,0,0,12"/>
-    <Border Background="#A0152027" CornerRadius="8" Padding="28,22" BorderBrush="#3449585A" BorderThickness="1">
+   <StackPanel x:Name="GraphicsLeft" Margin="0,0,10,0">
+    <TextBlock Text="GRAPHICS" Style="{StaticResource SectionTitle}"/>
+    <Border Background="#A0152027" CornerRadius="8" Padding="22,14" BorderBrush="#3449585A" BorderThickness="1">
      <StackPanel>
-      <TextBlock x:Name="GraphicsNote" TextAlignment="Center" Foreground="#9EB2BD" FontSize="14" Margin="0,0,0,16" TextWrapping="Wrap" Text="Applied to both games the next time a session starts."/>
-      <StackPanel Orientation="Horizontal"><TextBlock Text="Render resolution" FontSize="13" Foreground="#78939F"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="How many pixels each game renders. Higher is sharper but needs a stronger graphics card."/></StackPanel>
-      <ComboBox x:Name="ScaleBox" Margin="0,4,0,14" ToolTip="How many pixels each game renders. Higher is sharper but needs a stronger graphics card."/>
-      <TextBlock x:Name="GraphicsSeparateNote" Visibility="Collapsed" Foreground="#E0BE75" FontSize="13" TextWrapping="Wrap" Margin="0,-8,0,14" Text="Each player sets this on the Play page while there is one display per player."/>
-      <StackPanel Orientation="Horizontal"><TextBlock Text="Shadows" FontSize="13" Foreground="#78939F"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="Quality of the shadows in the game."/></StackPanel>
-      <ComboBox x:Name="ShadowsBox" Margin="0,4,0,14" ToolTip="Quality of the shadows in the game."/>
-      <StackPanel Orientation="Horizontal"><TextBlock Text="Shadow draw distance" FontSize="13" Foreground="#78939F"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="How far from the player shadows are drawn."/></StackPanel>
-      <ComboBox x:Name="ShadowDistanceBox" Margin="0,4,0,14" ToolTip="How far from the player shadows are drawn."/>
-      <StackPanel Orientation="Horizontal"><TextBlock Text="Anti-aliasing" FontSize="13" Foreground="#78939F"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="Smooths jagged edges."/></StackPanel>
-      <ComboBox x:Name="AntiAliasingBox" Margin="0,4,0,0" ToolTip="Smooths jagged edges."/>
+      <TextBlock x:Name="GraphicsNote" TextAlignment="Center" Foreground="#9EB2BD" FontSize="14" Margin="0,0,0,10" Text="Applies at the next session start."/>
+      <StackPanel Orientation="Horizontal"><TextBlock Text="Render resolution" Style="{StaticResource FieldLabel}"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="How many pixels each game renders. Higher is sharper but needs a stronger graphics card."/></StackPanel>
+      <ComboBox x:Name="ScaleBox" Style="{StaticResource CompactCombo}" Margin="0,3,0,10" ToolTip="How many pixels each game renders. Higher is sharper but needs a stronger graphics card."/>
+      <TextBlock x:Name="GraphicsSeparateNote" Visibility="Collapsed" Foreground="#E0BE75" FontSize="14" TextWrapping="Wrap" Margin="0,-6,0,10" Text="Each player sets this on the Play page while there is one display per player."/>
+      <StackPanel Orientation="Horizontal"><TextBlock Text="Shadows" Style="{StaticResource FieldLabel}"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="Quality of the shadows in the game."/></StackPanel>
+      <ComboBox x:Name="ShadowsBox" Style="{StaticResource CompactCombo}" Margin="0,3,0,10" ToolTip="Quality of the shadows in the game."/>
+      <StackPanel Orientation="Horizontal"><TextBlock Text="Shadow draw distance" Style="{StaticResource FieldLabel}"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="How far from the player shadows are drawn."/></StackPanel>
+      <ComboBox x:Name="ShadowDistanceBox" Style="{StaticResource CompactCombo}" Margin="0,3,0,10" ToolTip="How far from the player shadows are drawn."/>
+      <StackPanel Orientation="Horizontal"><TextBlock Text="Anti-aliasing" Style="{StaticResource FieldLabel}"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="Smooths jagged edges."/></StackPanel>
+      <ComboBox x:Name="AntiAliasingBox" Style="{StaticResource CompactCombo}" Margin="0,3,0,0" ToolTip="Smooths jagged edges."/>
      </StackPanel>
     </Border>
-    <TextBlock Text="MENU CONTROLS" TextAlignment="Center" FontFamily="{DynamicResource TitleFont}" FontStretch="Normal" FontWeight="Normal" FontSize="14" Foreground="#CBBF9F" Margin="0,16,0,12"/>
-    <Border Background="#A0152027" CornerRadius="8" Padding="28,18" BorderBrush="#3449585A" BorderThickness="1">
+    <TextBlock Text="MENU CONTROLS" Style="{StaticResource SectionTitle}" Margin="0,12,0,8"/>
+    <Border Background="#A0152027" CornerRadius="8" Padding="22,14" BorderBrush="#3449585A" BorderThickness="1">
      <StackPanel>
-      <StackPanel Orientation="Horizontal"><TextBlock Text="Controller button layout" FontSize="13" Foreground="#78939F"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="Which button confirms and which one goes back while a controller moves through this launcher. Auto follows each controller: Nintendo pads confirm with the right button, Xbox, PlayStation and Steam Input pads with the bottom one. It does not change the controls inside the game."/></StackPanel>
-      <ComboBox x:Name="PadLayoutBox" Margin="0,4,0,6" ToolTip="Which button confirms and which one goes back while a controller moves through this launcher. Auto follows each controller: Nintendo pads confirm with the right button, Xbox, PlayStation and Steam Input pads with the bottom one. It does not change the controls inside the game."/>
-      <TextBlock x:Name="PadLayoutInfo" Foreground="#78939F" FontSize="12" TextWrapping="Wrap"/>
+      <StackPanel Orientation="Horizontal"><TextBlock Text="Controller button layout" Style="{StaticResource FieldLabel}"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="Which button confirms and which one goes back while a controller moves through this launcher. Auto follows each controller: Nintendo pads confirm with the right button, Xbox, PlayStation and Steam Input pads with the bottom one. It does not change the controls inside the game."/></StackPanel>
+      <ComboBox x:Name="PadLayoutBox" Style="{StaticResource CompactCombo}" Margin="0,3,0,4" ToolTip="Which button confirms and which one goes back while a controller moves through this launcher. Auto follows each controller: Nintendo pads confirm with the right button, Xbox, PlayStation and Steam Input pads with the bottom one. It does not change the controls inside the game."/>
+      <TextBlock x:Name="PadLayoutInfo" Foreground="#8FA7B1" FontSize="13" TextWrapping="Wrap"/>
+      <StackPanel Orientation="Horizontal" Margin="0,10,0,0"><TextBlock Text="Open this menu from a game" Style="{StaticResource FieldLabel}"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="Hold these controller buttons for 1.5 seconds while a game is in front to bring this launcher over it. Hold them again, or press the back button here, to return to the game. Pick buttons the game does not need together, or turn it off."/></StackPanel>
+      <ComboBox x:Name="ShortcutBox" Style="{StaticResource CompactCombo}" Margin="0,3,0,6" ToolTip="Hold these controller buttons for 1.5 seconds while a game is in front to bring this launcher over it. Hold them again, or press the back button here, to return to the game. Pick buttons the game does not need together, or turn it off."/>
+      <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+       <Button x:Name="ShortcutChange" Content="Change shortcut" FontSize="16" Padding="16,5" Margin="0,0,12,0" VerticalAlignment="Top"/>
+       <TextBlock x:Name="ShortcutInfo" Grid.Column="1" Foreground="#8FA7B1" FontSize="13" TextWrapping="Wrap" VerticalAlignment="Center"/>
+      </Grid>
      </StackPanel>
     </Border>
    </StackPanel>
-   <StackPanel Grid.Column="1" Margin="14,0,0,0">
-    <TextBlock Text="ADVANCED (CEMU)" TextAlignment="Center" FontFamily="{DynamicResource TitleFont}" FontStretch="Normal" FontWeight="Normal" FontSize="14" Foreground="#CBBF9F" Margin="0,0,0,12"/>
-    <Border Background="#A0152027" CornerRadius="8" Padding="28,14" BorderBrush="#3449585A" BorderThickness="1">
+   <StackPanel x:Name="GraphicsRight" Grid.Column="1" Margin="10,0,0,0">
+    <TextBlock Text="ADVANCED (CEMU)" Style="{StaticResource SectionTitle}"/>
+    <Border Background="#A0152027" CornerRadius="8" Padding="22,14" BorderBrush="#3449585A" BorderThickness="1">
      <StackPanel>
-      <TextBlock TextAlignment="Center" Foreground="#9EB2BD" FontSize="14" Margin="0,0,0,10" TextWrapping="Wrap" Text="For advanced users: the defaults suit most PCs. The card below picks values for this one."/>
-      <StackPanel Orientation="Horizontal"><TextBlock Text="Graphics API" FontSize="13" Foreground="#78939F"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="The graphics backend Cemu uses. Vulkan is usually the better choice on modern graphics cards; OpenGL is the older backend, useful if Vulkan crashes or glitches on this PC. Auto picks Vulkan when this PC supports it and OpenGL otherwise."/></StackPanel>
-      <ComboBox x:Name="ApiBox" Margin="0,4,0,6" ToolTip="The graphics backend Cemu uses. Vulkan is usually the better choice on modern graphics cards; OpenGL is the older backend, useful if Vulkan crashes or glitches on this PC. Auto picks Vulkan when this PC supports it and OpenGL otherwise."/>
-      <TextBlock Foreground="#E0BE75" FontSize="13" TextWrapping="Wrap" Margin="0,0,0,14" Text="After changing the API the first start can take longer while shaders compile again."/>
-      <UniformGrid Columns="2" Margin="0,0,0,14">
+      <TextBlock TextAlignment="Center" Foreground="#9EB2BD" FontSize="14" Margin="0,0,0,10" TextWrapping="Wrap" Text="The defaults suit most PCs."/>
+      <StackPanel Orientation="Horizontal"><TextBlock Text="Graphics API" Style="{StaticResource FieldLabel}"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="The graphics backend Cemu uses. Vulkan is usually the better choice on modern graphics cards; OpenGL is the older backend, useful if Vulkan crashes or glitches on this PC. Auto picks Vulkan when this PC supports it and OpenGL otherwise. After changing it, the first start can take longer while shaders compile again."/></StackPanel>
+      <ComboBox x:Name="ApiBox" Style="{StaticResource CompactCombo}" Margin="0,3,0,10" ToolTip="The graphics backend Cemu uses. Vulkan is usually the better choice on modern graphics cards; OpenGL is the older backend, useful if Vulkan crashes or glitches on this PC. Auto picks Vulkan when this PC supports it and OpenGL otherwise. After changing it, the first start can take longer while shaders compile again."/>
+      <UniformGrid Columns="2" Margin="0,0,0,10">
        <StackPanel Margin="0,0,6,0">
-        <StackPanel Orientation="Horizontal"><TextBlock Text="Upscale filter" FontSize="13" Foreground="#78939F"/>        <TextBlock Style="{StaticResource InfoDot}" ToolTip="How Cemu stretches the picture when the window is larger than the game's resolution. Bilinear is the softest and fastest; Bicubic and Bicubic Hermite look sharper at a small cost; Nearest neighbor keeps hard pixel edges."/></StackPanel>
-                <ComboBox x:Name="UpscaleBox" Margin="0,4,0,0" ToolTip="How Cemu stretches the picture when the window is larger than the game's resolution. Bilinear is the softest and fastest; Bicubic and Bicubic Hermite look sharper at a small cost; Nearest neighbor keeps hard pixel edges."/>
+        <StackPanel Orientation="Horizontal"><TextBlock Text="Upscale filter" Style="{StaticResource FieldLabel}"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="How Cemu stretches the picture when the window is larger than the game's resolution. Bilinear is the softest and fastest; Bicubic and Bicubic Hermite look sharper at a small cost; Nearest neighbor keeps hard pixel edges."/></StackPanel>
+        <ComboBox x:Name="UpscaleBox" Style="{StaticResource CompactCombo}" Margin="0,3,0,0" ToolTip="How Cemu stretches the picture when the window is larger than the game's resolution. Bilinear is the softest and fastest; Bicubic and Bicubic Hermite look sharper at a small cost; Nearest neighbor keeps hard pixel edges."/>
        </StackPanel>
        <StackPanel Margin="6,0,0,0">
-        <StackPanel Orientation="Horizontal"><TextBlock Text="Downscale filter" FontSize="13" Foreground="#78939F"/>        <TextBlock Style="{StaticResource InfoDot}" ToolTip="How Cemu shrinks the picture when the window is smaller than the game's resolution, which happens with a render resolution above 100%. Bilinear suits almost everyone; the others are slower and rarely worth it."/></StackPanel>
-                <ComboBox x:Name="DownscaleBox" Margin="0,4,0,0" ToolTip="How Cemu shrinks the picture when the window is smaller than the game's resolution, which happens with a render resolution above 100%. Bilinear suits almost everyone; the others are slower and rarely worth it."/>
+        <StackPanel Orientation="Horizontal"><TextBlock Text="Downscale filter" Style="{StaticResource FieldLabel}"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="How Cemu shrinks the picture when the window is smaller than the game's resolution, which happens with a render resolution above 100%. Bilinear suits almost everyone; the others are slower and rarely worth it."/></StackPanel>
+        <ComboBox x:Name="DownscaleBox" Style="{StaticResource CompactCombo}" Margin="0,3,0,0" ToolTip="How Cemu shrinks the picture when the window is smaller than the game's resolution, which happens with a render resolution above 100%. Bilinear suits almost everyone; the others are slower and rarely worth it."/>
        </StackPanel>
       </UniformGrid>
-      <CheckBox x:Name="VSyncBox" Content="VSync" Style="{StaticResource RuleToggle}" Margin="0,0,0,10"       ToolTip="Waits for the display refresh to avoid screen tearing. It can cap the frame rate at the display's refresh rate and adds a little input delay. Off suits most setups."/>
-            <CheckBox x:Name="AsyncBox" Content="Asynchronous shader compile" Style="{StaticResource RuleToggle}" Margin="0,0,0,10" ToolTip="Compiles shaders in the background instead of pausing the game, so there is less stutter when something new appears for the first time. The price: objects may be missing for a moment. Recommended on."/>
-            <CheckBox x:Name="BarriersBox" Content="Accurate barriers (Vulkan)" Style="{StaticResource RuleToggle}" Margin="0,0,0,0" ToolTip="Vulkan only. Fixes rare graphical glitches on some graphics cards at a small cost in speed. Leave it off unless you see flickering or missing effects."/>
+      <StackPanel Margin="0,0,0,10">
+       <StackPanel Orientation="Horizontal"><TextBlock Text="Master volume" Style="{StaticResource FieldLabel}"/></StackPanel>
+       <Grid Margin="0,3,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto" MinWidth="84"/></Grid.ColumnDefinitions>
+        <Slider x:Name="VolumeSlider" Style="{StaticResource FlatSlider}" Margin="0,0,8,0" ToolTip="The sound level of every game window, for one or two players. Muted silences the games. Applied at the next session start."/>
+        <TextBlock x:Name="VolumeText" Grid.Column="1" Foreground="#ECF5F4" FontSize="16" FontStyle="Italic" TextAlignment="Right" VerticalAlignment="Center"/>
+       </Grid>
+      </StackPanel>
+      <UniformGrid x:Name="AdvancedToggles" Columns="2">
+      <CheckBox x:Name="VSyncBox" Content="VSync" Style="{StaticResource RuleToggle}" Margin="0,0,8,6" ToolTip="Waits for the display refresh to avoid screen tearing. It can cap the frame rate at the display's refresh rate and adds a little input delay. Off suits most setups."/>
+      <CheckBox x:Name="AsyncBox" Content="Asynchronous shader compile" Style="{StaticResource RuleToggle}" Margin="0,0,8,6" ToolTip="Compiles shaders in the background instead of pausing the game, so there is less stutter when something new appears for the first time. The price: objects may be missing for a moment. Recommended on."/>
+      <CheckBox x:Name="BarriersBox" Content="Accurate barriers (Vulkan)" Style="{StaticResource RuleToggle}" Margin="0,0,8,6" ToolTip="Vulkan only. Fixes rare graphical glitches on some graphics cards at a small cost in speed. Leave it off unless you see flickering or missing effects."/>
+      <CheckBox x:Name="ShowFpsBox" Content="Show FPS" Style="{StaticResource RuleToggle}" Margin="0,0,8,6" ToolTip="Shows Cemu's frame counter in a corner of each game window. It only changes what is drawn on screen, not how the game runs. Applied at the next session start."/>
+      <CheckBox x:Name="ShowUsageBox" Content="Show CPU, RAM and VRAM usage" Style="{StaticResource RuleToggle}" Margin="0,0,8,6" ToolTip="Adds Cemu's CPU, RAM and VRAM readouts to the counter in each game window, to see how much two games ask of this PC. Applied at the next session start."/>
+      <CheckBox x:Name="ShaderNoticeBox" Content="Show the &quot;compiling shaders&quot; notice" Style="{StaticResource RuleToggle}" Margin="0,0,8,6" ToolTip="Shows Cemu's &quot;compiling shaders&quot; message in each game window while new shaders build. Turn it off for a cleaner picture; the shaders still compile. Applied at the next session start."/>
+      <CheckBox x:Name="SharedShadersBox" Content="Share shader cache between players (experimental)" Style="{StaticResource RuleToggle}" Margin="0,0,8,6" ToolTip="Experimental. When the second player's shader cache is missing or empty, it is copied once from the first player's when a session starts, so it needs no separate copy. Nothing is shared while the games run, and afterwards each player keeps an independent cache. If anything fails, the games use their own caches and the reason is written to shader-cache.log. Off by default."/>
+      </UniformGrid>
      </StackPanel>
     </Border>
-    <TextBlock     Text="RECOMMENDED FOR THIS PC" TextAlignment="Center" FontFamily="{DynamicResource TitleFont}" FontStretch="Normal" FontWeight="Normal" FontSize="14" Foreground="#CBBF9F" Margin="0,10,0,8"/>
-        <Border Background="#A0152027" CornerRadius="8" Padding="28,12" BorderBrush="#3449585A" BorderThickness="1">
-     <StackPanel>
-      <TextBlock x:Name="HardwareText" Foreground="#C9D6DB" FontSize="13" TextWrapping="Wrap" Margin="0,0,0,8"/>
-      <TextBlock x:Name="RecommendedText" Foreground="#9EB2BD" FontSize="13" TextWrapping="Wrap" Margin="0,0,0,10"/>
-      <TextBlock Foreground="#78939F" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12" Text="A starting point chosen from the graphics card, memory and processor. It is not a benchmark, so adjust it if the game runs badly."/>
-      <Button x:Name="UseRecommendedGraphics" Content="Use recommended settings" FontStyle="Normal" FontSize="16" Padding="22,9" ToolTip="Sets the render resolution, shadows, anti-aliasing, the Cemu options and the FPS target to the values recommended for this PC. Applied the next time a session starts."/>
-     </StackPanel>
-    </Border>
+    <Button x:Name="UseRecommendedGraphics" Content="Use recommended settings" FontStyle="Normal" FontSize="16" Padding="22,7" Margin="0,12,0,0" HorizontalAlignment="Left" ToolTip="Sets the render resolution, shadows, anti-aliasing, the Cemu options and the FPS target to the values recommended for this PC. Applied the next time a session starts. It is a starting point, not a benchmark: adjust it if the game runs badly."/>
    </StackPanel>
-   <Border Grid.Row="1" Grid.ColumnSpan="2" Margin="0,16,0,0" Background="#80111A20" CornerRadius="6" Padding="16,9" MinHeight="40">
+   </Grid></ScrollViewer>
+   <Border Grid.Row="1" Margin="0,10,0,0" Background="#80111A20" CornerRadius="6" Padding="16,7" MinHeight="36">
     <TextBlock x:Name="GraphicsHint" Foreground="#C9D6DB" FontSize="14" TextWrapping="Wrap" VerticalAlignment="Center"/>
    </Border>
   </Grid>
   <Grid x:Name="MultiplayerPage" Visibility="Collapsed">
+   <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+   <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False"><Grid x:Name="MultiplayerBody">
    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
    <StackPanel x:Name="RulesPanel" Margin="0,0,14,0">
-    <TextBlock Text="WORLD RULES" TextAlignment="Center" FontFamily="{DynamicResource TitleFont}" FontStretch="Normal" FontWeight="Normal" FontSize="14" Foreground="#CBBF9F" Margin="0,0,0,12"/>
+    <TextBlock Text="WORLD RULES" Style="{StaticResource SectionTitle}" Margin="0,0,0,12"/>
+    <TextBlock x:Name="WorldJoinNote" Visibility="Collapsed" Foreground="#E0BE75" FontSize="14" TextWrapping="Wrap" Margin="0,0,0,12" Text="You joined a friend's server: the host sets the world rules, so these are locked."/>
     <Border Background="#A0152027" CornerRadius="8" Padding="24,20" BorderBrush="#3449585A" BorderThickness="1">
      <StackPanel>
       <TextBlock TextAlignment="Center" Foreground="#9EB2BD" FontSize="14" Margin="0,0,0,14" Text="What the two players share. Applied when the next session starts."/>
-      <StackPanel Orientation="Horizontal"><TextBlock Text="Preset" FontSize="13" Foreground="#78939F"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="A ready-made set of sync rules. You can still change each rule below."/></StackPanel>
+      <StackPanel Orientation="Horizontal"><TextBlock Text="Preset" Style="{StaticResource FieldLabel}"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="A ready-made set of sync rules. You can still change each rule below."/></StackPanel>
       <ComboBox x:Name="RulesBox" FontSize="17" Padding="14,8" Margin="0,4,0,6" AutomationProperties.Name="Rules preset" ToolTip="A ready-made set of sync rules. You can still change each rule below."/>
       <TextBlock x:Name="PresetInfo" Foreground="#C9D6DB" FontSize="13" TextWrapping="Wrap" Margin="0,0,0,2"/>
-      <TextBlock x:Name="PresetShares" Foreground="#78939F" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12"/>
-      <StackPanel Orientation="Horizontal"><TextBlock Text="Special mode" FontSize="13" Foreground="#78939F"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="An optional game mode on top of the rules: Hunter vs Speedrunner or Death Swap."/></StackPanel>
+      <TextBlock x:Name="PresetShares" Foreground="#78939F" FontSize="13" TextWrapping="Wrap" Margin="0,0,0,12"/>
+      <StackPanel Orientation="Horizontal"><TextBlock Text="Special mode" Style="{StaticResource FieldLabel}"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="An optional game mode on top of the rules: Hunter vs Speedrunner or Death Swap."/></StackPanel>
       <ComboBox x:Name="SpecialBox" FontSize="17" Padding="14,8" Margin="0,4,0,6" AutomationProperties.Name="Special mode" ToolTip="An optional game mode on top of the rules: Hunter vs Speedrunner or Death Swap."/>
       <TextBlock x:Name="SpecialInfo" Foreground="#C9D6DB" FontSize="13" TextWrapping="Wrap" Margin="0,0,0,12"/>
       <UniformGrid Columns="2">
@@ -340,16 +388,16 @@
     </Border>
    </StackPanel>
    <StackPanel x:Name="LivePanel" Grid.Column="1" Margin="14,0,0,0">
-    <TextBlock Text="LIVE CONTROLS" TextAlignment="Center" FontFamily="{DynamicResource TitleFont}" FontStretch="Normal" FontWeight="Normal" FontSize="14" Foreground="#CBBF9F" Margin="0,0,0,12"/>
+    <TextBlock Text="LIVE CONTROLS" Style="{StaticResource SectionTitle}" Margin="0,0,0,12"/>
     <Border Background="#A0152027" CornerRadius="8" Padding="24,20" BorderBrush="#3449585A" BorderThickness="1">
      <StackPanel>
       <TextBlock TextAlignment="Center" Foreground="#9EB2BD" FontSize="14" Margin="0,0,0,14" Text="Available while the server is running."/>
-      <StackPanel Orientation="Horizontal"><TextBlock Text="Time of day (24 hour, HH:MM)" FontSize="13" Foreground="#78939F"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="The time to set in the game, written as 24 hour HH:MM."/></StackPanel>
+      <StackPanel Orientation="Horizontal"><TextBlock Text="Time of day (24 hour, HH:MM)" Style="{StaticResource FieldLabel}"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="The time to set in the game, written as 24 hour HH:MM."/></StackPanel>
       <Grid Margin="0,4,0,12"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
        <TextBox x:Name="TimeBox" Style="{StaticResource NameBox}" Text="12:00" MaxLength="5" Height="44" FontSize="17" AutomationProperties.Name="Time of day"/>
        <Button x:Name="SetTime" Grid.Column="1" Content="Set time" FontStyle="Normal" FontSize="16" Padding="22,9" Margin="8,0,0,0" Width="170" ToolTip="Changes the time of day for every player."/>
       </Grid>
-      <StackPanel Orientation="Horizontal"><TextBlock Text="Weather" FontSize="13" Foreground="#78939F"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="The weather to apply with the button next to it."/></StackPanel>
+      <StackPanel Orientation="Horizontal"><TextBlock Text="Weather" Style="{StaticResource FieldLabel}"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="The weather to apply with the button next to it."/></StackPanel>
       <Grid Margin="0,4,0,12"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
        <ComboBox x:Name="WeatherBox" FontSize="17" Padding="14,8" AutomationProperties.Name="Weather" ToolTip="The weather to apply with the button next to it."/>
        <Button x:Name="SetWeather" Grid.Column="1" Content="Set weather" FontStyle="Normal" FontSize="16" Padding="22,9" Margin="8,0,0,0" Width="170" ToolTip="Changes the weather for every player."/>
@@ -364,19 +412,100 @@
      </StackPanel>
     </Border>
    </StackPanel>
-   <Border Grid.Row="1" Grid.ColumnSpan="2" Margin="0,16,0,0" Background="#80111A20" CornerRadius="6" Padding="16,9" MinHeight="40">
+   </Grid></ScrollViewer>
+   <Border Grid.Row="1" Margin="0,10,0,0" Background="#80111A20" CornerRadius="6" Padding="16,7" MinHeight="36">
     <TextBlock x:Name="MultiplayerHint" Foreground="#C9D6DB" FontSize="14" TextWrapping="Wrap" VerticalAlignment="Center"/>
    </Border>
   </Grid>
+  <Grid x:Name="OnlinePage" Visibility="Collapsed">
+   <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False"><Grid x:Name="OnlineBody">
+   <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+   <StackPanel x:Name="OnlineLeft" Margin="0,0,14,0">
+    <TextBlock Text="ONLINE" Style="{StaticResource SectionTitle}" Margin="0,0,0,12"/>
+    <Border Background="#A0152027" CornerRadius="8" Padding="24,20" BorderBrush="#3449585A" BorderThickness="1">
+     <StackPanel>
+      <TextBlock TextAlignment="Center" Foreground="#9EB2BD" FontSize="14" Margin="0,0,0,14" Text="How this PC takes part. Applied when the next session starts."/>
+      <StackPanel Orientation="Horizontal"><TextBlock Text="Online mode" Style="{StaticResource FieldLabel}"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="Play on this PC keeps the server private. Host a server lets friends join over the network. Join a server connects to a friend's server."/></StackPanel>
+      <ComboBox x:Name="OnlineModeBox" FontSize="17" Padding="14,8" Margin="0,4,0,6" AutomationProperties.Name="Online mode" ToolTip="Play on this PC keeps the server private. Host a server lets friends join over the network. Join a server connects to a friend's server."/>
+      <TextBlock x:Name="OnlineModeInfo" Foreground="#C9D6DB" FontSize="13" TextWrapping="Wrap" Margin="0,0,0,12"/>
+      <StackPanel x:Name="HostFields">
+       <StackPanel Orientation="Horizontal"><TextBlock Text="Port" Style="{StaticResource FieldLabel}"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="The TCP port the server listens on, from 1024 to 65535. It goes in the invite. The default is 5050."/></StackPanel>
+       <TextBox x:Name="HostPortBox" Style="{StaticResource NameBox}" HorizontalContentAlignment="Left" MaxLength="5" Height="44" FontStyle="Normal" Margin="0,4,0,12" AutomationProperties.Name="Server port"/>
+       <StackPanel Orientation="Horizontal"><TextBlock Text="Password" Style="{StaticResource FieldLabel}"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="Optional. Friends need it to join. Leave it empty for an open server."/></StackPanel>
+       <TextBox x:Name="HostPasswordBox" Style="{StaticResource NameBox}" HorizontalContentAlignment="Left" MaxLength="40" Height="44" FontStyle="Normal" Margin="0,4,0,12" AutomationProperties.Name="Server password"/>
+       <StackPanel Orientation="Horizontal"><TextBlock Text="Server description" Style="{StaticResource FieldLabel}"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="The text friends see about this server."/></StackPanel>
+       <TextBox x:Name="HostDescriptionBox" Style="{StaticResource NameBox}" HorizontalContentAlignment="Left" MaxLength="80" Height="44" FontStyle="Normal" Margin="0,4,0,0" AutomationProperties.Name="Server description"/>
+      </StackPanel>
+      <StackPanel x:Name="JoinFields">
+       <StackPanel Orientation="Horizontal"><TextBlock Text="Invite or address" Style="{StaticResource FieldLabel}"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="Paste the invite your friend sent you, or type their address and port."/></StackPanel>
+       <Grid Margin="0,4,0,12">
+        <TextBox x:Name="JoinAddressBox" Style="{StaticResource NameBox}" HorizontalContentAlignment="Left" MaxLength="200" Height="44" FontStyle="Normal" AutomationProperties.Name="Invite or address"/>
+        <TextBlock x:Name="JoinAddressHint" Text="Example: hyrule://100.64.0.5:5050 or 192.168.1.20:5050" IsHitTestVisible="False" Foreground="#6F8590" FontStyle="Italic" FontSize="14" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="16,0,16,0"/>
+       </Grid>
+       <StackPanel Margin="0,0,0,12">
+        <StackPanel Orientation="Horizontal">
+         <Button x:Name="FindServersButton" Content="Search" FontStyle="Normal" FontSize="16" Padding="22,9" Margin="0,0,8,0" ToolTip="Looks for servers on your VPN (Tailscale) and on your local network."/>
+         <Button x:Name="TestServerButton" Content="Test" FontStyle="Normal" FontSize="16" Padding="22,9" Margin="0" ToolTip="Checks that this address answers, without joining."/>
+        </StackPanel>
+        <TextBlock x:Name="FindResult" Foreground="#9EB2BD" FontSize="13" TextWrapping="Wrap" Margin="0,8,0,0" Visibility="Collapsed" AutomationProperties.LiveSetting="Polite"/>
+       </StackPanel>
+       <StackPanel Orientation="Horizontal"><TextBlock Text="Password" Style="{StaticResource FieldLabel}"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="The server password, if the invite does not carry it."/></StackPanel>
+       <TextBox x:Name="JoinPasswordBox" Style="{StaticResource NameBox}" HorizontalContentAlignment="Left" MaxLength="40" Height="44" FontStyle="Normal" Margin="0,4,0,12" AutomationProperties.Name="Server password to join"/>
+      </StackPanel>
+     </StackPanel>
+    </Border>
+   </StackPanel>
+   <StackPanel x:Name="OnlineRight" Grid.Column="1" Margin="14,0,0,0">
+    <StackPanel x:Name="HostShare">
+     <TextBlock Text="INVITE FRIENDS" Style="{StaticResource SectionTitle}" Margin="0,0,0,12"/>
+     <Border Background="#A0152027" CornerRadius="8" Padding="24,20" BorderBrush="#3449585A" BorderThickness="1">
+      <StackPanel>
+       <StackPanel Orientation="Horizontal"><TextBlock Text="Address in the invite" Style="{StaticResource FieldLabel}"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="The Tailscale or home network address of this PC. Use your public address if you forward the port on your router. Empty it to detect the address again."/></StackPanel>
+       <TextBox x:Name="HostAddressBox" Style="{StaticResource NameBox}" HorizontalContentAlignment="Left" MaxLength="100" Height="44" FontStyle="Normal" Margin="0,4,0,12" AutomationProperties.Name="Address in the invite"/>
+       <TextBlock Text="Invite" Style="{StaticResource FieldLabel}"/>
+       <TextBox x:Name="InviteBox" Style="{StaticResource NameBox}" HorizontalContentAlignment="Left" MaxLength="400" Height="44" FontStyle="Normal" IsReadOnly="True" Margin="0,4,0,8" AutomationProperties.Name="Invite"/>
+       <Button x:Name="CopyInvite" Content="Copy invite" FontStyle="Normal" FontSize="16" Padding="22,9" Margin="0,0,0,14" ToolTip="Copies the invite. Your friends paste it in the Join a server mode of their launcher."/>
+       <TextBlock x:Name="FirewallInfo" Foreground="#C9D6DB" FontSize="13" TextWrapping="Wrap" Margin="0,0,0,8"/>
+       <Button x:Name="OpenFirewall" Content="Allow through firewall" FontStyle="Normal" FontSize="16" Padding="22,9" Margin="0,0,0,14" ToolTip="Adds a Windows Firewall rule for the server port. Windows asks for administrator permission."/>
+       <TextBlock x:Name="NetworkHintText" Foreground="#9EB2BD" FontSize="13" TextWrapping="Wrap"/>
+      </StackPanel>
+     </Border>
+    </StackPanel>
+    <StackPanel x:Name="PlayersBox" Margin="0,18,0,0">
+     <TextBlock Text="PLAYERS" Style="{StaticResource SectionTitle}" Margin="0,0,0,12"/>
+     <Border Background="#A0152027" CornerRadius="8" Padding="24,20" BorderBrush="#3449585A" BorderThickness="1">
+      <StackPanel>
+       <TextBlock x:Name="OnlineStatusText" TextWrapping="Wrap" Foreground="#C9D6DB" FontSize="14" Margin="0,0,0,12" AutomationProperties.LiveSetting="Polite"/>
+       <StackPanel x:Name="PlayerList"/>
+       <TextBlock x:Name="PlayerEvent" Foreground="#9EB2BD" FontSize="13" TextWrapping="Wrap" Margin="0,4,0,0" AutomationProperties.LiveSetting="Polite"/>
+      </StackPanel>
+     </Border>
+    </StackPanel>
+    <StackPanel x:Name="JoinHelp">
+     <TextBlock Text="JOINING A SERVER" Style="{StaticResource SectionTitle}" Margin="0,0,0,12"/>
+     <Border Background="#A0152027" CornerRadius="8" Padding="24,20" BorderBrush="#3449585A" BorderThickness="1">
+      <TextBlock Foreground="#C9D6DB" FontSize="14" TextWrapping="Wrap" Text="Ask the host for their invite and paste it here. You play on this PC with one or two players. The host chooses the world rules and runs the server."/>
+     </Border>
+    </StackPanel>
+    <StackPanel x:Name="FoundBox" Margin="0,18,0,0" Visibility="Collapsed">
+     <TextBlock Text="SERVERS FOUND" Style="{StaticResource SectionTitle}" Margin="0,0,0,12"/>
+     <Border Background="#A0152027" CornerRadius="8" Padding="24,20,24,12" BorderBrush="#3449585A" BorderThickness="1">
+      <StackPanel x:Name="FoundList"/>
+     </Border>
+    </StackPanel>
+   </StackPanel>
+   </Grid></ScrollViewer>
+  </Grid>
   <Grid x:Name="LanguagePage" Visibility="Collapsed">
    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Top" Width="700">
-    <TextBlock Text="LANGUAGE" TextAlignment="Center" FontFamily="{DynamicResource TitleFont}" FontStretch="Normal" FontWeight="Normal" FontSize="14" Foreground="#CBBF9F" Margin="0,0,0,12"/>
+    <TextBlock Text="LANGUAGE" Style="{StaticResource SectionTitle}" Margin="0,0,0,12"/>
     <Border Background="#A0152027" CornerRadius="8" Padding="28,20" BorderBrush="#3449585A" BorderThickness="1">
      <StackPanel>
-      <TextBlock Text="LAUNCHER" FontSize="11" Foreground="#78939F" Margin="2,0,0,6"/>
+      <TextBlock Text="LAUNCHER" FontSize="13" Foreground="#78939F" Margin="2,0,0,6"/>
       <UniformGrid x:Name="LauncherLanguageList" Columns="3" Margin="0,0,-8,0"/>
       <TextBlock Foreground="#9EB2BD" FontSize="14" Margin="2,0,0,16" Text="The launcher text changes right away."/>
-      <TextBlock Text="GAME" FontSize="11" Foreground="#78939F" Margin="2,0,0,6"/>
+      <TextBlock Text="GAME" FontSize="13" Foreground="#78939F" Margin="2,0,0,6"/>
       <UniformGrid x:Name="LanguageList" Columns="2" Margin="0,0,-8,0"/>
       <TextBlock Foreground="#9EB2BD" FontSize="14" Margin="2,0,0,0" TextWrapping="Wrap" Text="The game applies it to both players the next time a session starts. Text added by the mod itself may stay in English."/>
      </StackPanel>
@@ -390,14 +519,38 @@
     <TextBox x:Name="Log" Grid.Row="1" IsReadOnly="True" FontFamily="Consolas" FontStretch="Normal" FontSize="13" Background="#0F171C" Foreground="#A5BAC5" BorderBrush="#3449585A" VerticalScrollBarVisibility="Auto" TextWrapping="Wrap"/>
     <TextBlock Grid.Row="2" Text="Server console" TextAlignment="Center" Foreground="#CBBF9F" FontSize="14" Margin="0,14,0,8"/>
     <TextBox x:Name="ServerLog" Grid.Row="3" IsReadOnly="True" FontFamily="Consolas" FontStretch="Normal" FontSize="13" Background="#0F171C" Foreground="#A5BAC5" BorderBrush="#3449585A" VerticalScrollBarVisibility="Auto" TextWrapping="Wrap"/>
-    <TextBox x:Name="ServerCommand" Grid.Row="4" ToolTip="Server command, then Enter (type help)" Margin="0,8,0,0" FontFamily="Consolas" FontStretch="Normal" FontSize="13" Background="#0F171C" Foreground="#E2D5B2" BorderBrush="#3449585A" Padding="6,4"/>
+    <Grid Grid.Row="4" Margin="0,8,0,0">
+     <TextBox x:Name="ServerCommand" ToolTip="Server command, then Enter (type help)" FontFamily="Consolas" FontStretch="Normal" FontSize="13" Background="#0F171C" Foreground="#E2D5B2" BorderBrush="#3449585A" Padding="6,4"/>
+     <TextBlock x:Name="ServerCommandHint" Text="Example: Time Set 18:30 (sets the time of day). Type help to list every command." IsHitTestVisible="False" Foreground="#6F8590" FontFamily="Consolas" FontStretch="Normal" FontStyle="Italic" FontSize="13" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="9,0,9,0"/>
+    </Grid>
    </Grid></Border>
   </Grid>
-  <Border x:Name="HelpPanel" Visibility="Collapsed" VerticalAlignment="Top" CornerRadius="12" Padding="18" Background="#FC193039" BorderBrush="#3449585A" BorderThickness="1" Panel.ZIndex="5"><TextBlock x:Name="HelpText" Foreground="#C7DCDD"/></Border>
+  <Grid x:Name="SetupPage" Visibility="Collapsed">
+   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+   <StackPanel HorizontalAlignment="Center" Width="860">
+    <TextBlock Text="FIRST-TIME SETUP" Style="{StaticResource SectionTitle}" Margin="0,0,0,8"/>
+    <TextBlock Text="Some things this launcher needs are not here yet. Download what can be downloaded, then point it at your own copy of the game." TextAlignment="Center" TextWrapping="Wrap" Foreground="#9EB2BD" FontSize="14" Margin="0,0,0,10"/>
+   </StackPanel>
+   <Border Grid.Row="1" HorizontalAlignment="Center" Width="860" Background="#A0152027" CornerRadius="8" Padding="22,16" BorderBrush="#3449585A" BorderThickness="1">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False"><StackPanel x:Name="SetupList"/></ScrollViewer>
+   </Border>
+   <StackPanel Grid.Row="2" HorizontalAlignment="Center" Width="860" Margin="0,10,0,0">
+    <ProgressBar x:Name="SetupProgress" Maximum="100" Visibility="Collapsed" Margin="0,0,0,6"/>
+    <TextBlock x:Name="SetupProgressText" Foreground="#AEE2D2" FontSize="13" TextAlignment="Center" TextWrapping="Wrap"/>
+    <TextBlock x:Name="SetupNotes" Foreground="#E0BE75" FontSize="13" TextAlignment="Center" TextWrapping="Wrap" Margin="0,2,0,6"/>
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+     <Button x:Name="SetupDownload" Content="Download what is missing" Padding="20,12" Background="#B03C554B" BorderBrush="#D5C396"/>
+     <Button x:Name="SetupCancel" Content="Cancel" Padding="20,12" Visibility="Collapsed"/>
+     <Button x:Name="SetupLocate" Content="Locate my game files" Padding="20,12"/>
+     <Button x:Name="SetupRecheck" Content="Check again" Padding="20,12"/>
+    </StackPanel>
+   </StackPanel>
+  </Grid>
+  <Border x:Name="HelpPanel" Visibility="Collapsed" CornerRadius="12" Padding="22,14,10,14" Background="#FC193039" BorderBrush="#3449585A" BorderThickness="1" Panel.ZIndex="5"><ScrollViewer x:Name="HelpScroll" VerticalScrollBarVisibility="Auto" Focusable="False"><StackPanel x:Name="HelpText" Margin="0,0,12,0"/></ScrollViewer></Border>
  </Grid>
  <StackPanel Grid.Row="3" Margin="14,0,14,8">
-  <Border Background="#80212E2D" CornerRadius="5" Padding="14" Margin="0,8,0,12"><TextBlock x:Name="Status" TextAlignment="Center" Text="Ready." Foreground="#AEE2D2"/></Border>
-  <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"><Button x:Name="Start" MinWidth="300" FontFamily="{DynamicResource TitleFont}" FontStretch="Normal" FontStyle="Normal" Background="#B03C554B" BorderBrush="#D5C396" FontSize="20" Padding="40,15"><StackPanel Orientation="Horizontal" HorizontalAlignment="Center"><TextBlock x:Name="StartText" Text="START SESSION" VerticalAlignment="Center"/><ContentControl x:Name="StartIcon" Margin="16,0,0,0" VerticalAlignment="Center"/></StackPanel></Button><Button x:Name="Stop" Content="Stop session" MinWidth="180" Padding="20,16"/><Button x:Name="Exit" Content="Exit" MinWidth="150" Padding="20,16"/></StackPanel>
+  <Border x:Name="StatusBar" Background="#80212E2D" CornerRadius="5" Padding="14,10" Margin="0,6,0,10"><TextBlock x:Name="Status" TextAlignment="Center" Text="Ready." Foreground="#AEE2D2"/></Border>
+  <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"><Button x:Name="Start" MinWidth="300" FontFamily="{DynamicResource TitleFont}" FontStretch="Normal" FontStyle="Normal" Background="#B03C554B" BorderBrush="#D5C396" FontSize="20" Padding="40,15"><StackPanel Orientation="Horizontal" HorizontalAlignment="Center"><TextBlock x:Name="StartText" Text="START SESSION" VerticalAlignment="Center"/><ContentControl x:Name="StartIcon" Margin="16,0,0,0" VerticalAlignment="Center"/></StackPanel></Button><Button x:Name="ReturnGame" Content="Return to game" MinWidth="180" Padding="20,16" Visibility="Collapsed"/><Button x:Name="Stop" Content="Stop session" MinWidth="180" Padding="20,16"/><Button x:Name="Exit" Content="Exit" MinWidth="150" Padding="20,16"/></StackPanel>
  </StackPanel>
  <Canvas x:Name="CursorLayer" Grid.RowSpan="4" IsHitTestVisible="False" Panel.ZIndex="100"/>
  </Grid></Viewbox></Grid>

@@ -35,7 +35,12 @@ namespace HyruleOnline {
   readonly bool[] scriptOwners = new bool[3];
 
   // HYRULE_PAD_SCRIPT=file drives the cursors without a controller, for layout checks. Lines: "p1|p2|any up|down|left|right|accept|back", "wait milliseconds", "page index".
+  // HYRULE_STATE_DUMP=file then gets one line per step (the step, the page, where each cursor stands, the hint bar), so a run can be read without screenshots.
+  string stateDumpFile, dumpStep, dumpNext;
+
   void LoadPadScript() {
+   stateDumpFile = Environment.GetEnvironmentVariable("HYRULE_STATE_DUMP");
+   if (!string.IsNullOrEmpty(stateDumpFile)) File.WriteAllText(stateDumpFile, "");
    string file = Environment.GetEnvironmentVariable("HYRULE_PAD_SCRIPT");
    if (string.IsNullOrEmpty(file) || !File.Exists(file)) return;
    padScript = File.ReadAllLines(file).Select(l => l.Trim().ToLowerInvariant().Split(' ')).Where(p => p.Length >= 2 && p[0].Length > 0 && p[0][0] != '#').ToList();
@@ -69,16 +74,18 @@ namespace HyruleOnline {
   }
 
   int OwnerOf(int slot, RouterSnapshot snapshot) {
-   if (page != 0) return 2;
-   return snapshot.Routes[0] == slot ? 0 : playerCount == 2 && snapshot.Routes[1] == slot ? 1 : 2;
+   if (page != 0 || setupActive) return 2;
+   if (playerCount == 1) return 0;
+   return snapshot.Routes[0] == slot ? 0 : snapshot.Routes[1] == slot ? 1 : 2;
   }
 
   // Reads every pad once per tick, then lets each cursor act on what its pads did.
   void DrivePads(RouterSnapshot snapshot) {
    if (cursors[0] == null) return;
    long now = Environment.TickCount;
-   bool listening = (Window.IsActive || padScript != null) && snapshot.Assigning < 0;
+   bool listening = (Window.IsActive || padScript != null) && snapshot.Assigning < 0 && !capturing;
    var active = new bool[3];
+   var acceptSlots = new[] { -1, -1, -1 };
    var presses = new List<KeyValuePair<int, PadPress>>();
    for (int slot = 0; slot < 4; slot++) {
     if (snapshot.Names[slot] == null) { slotNavs[slot] = new PadNav(); continue; }
@@ -89,12 +96,14 @@ namespace HyruleOnline {
     var press = slotNavs[slot].Update(state.buttons, state.lx, state.ly, now);
     if (snapshot.Assigning >= 0 && press.Back) router.CancelAssign();
     if (listening) presses.Add(new KeyValuePair<int, PadPress>(owner, press));
+    if (press.Accept) acceptSlots[owner] = slot;
    }
    if (padScript != null) {
     for (int i = 0; i < 3; i++) if (scriptOwners[i]) active[page == 0 ? i : 2] = true;
     if (padScriptNext == 0) padScriptNext = now + 2500;
     while (padScriptStep < padScript.Count && now >= padScriptNext) {
      var step = padScript[padScriptStep++];
+     dumpStep = string.Join(" ", step);
      padScriptNext = now + 450;
      int wait, index;
      if (step[0] == "wait" && int.TryParse(step[1], out wait)) { padScriptNext = now + wait; break; }
@@ -108,14 +117,25 @@ namespace HyruleOnline {
    }
    foreach (var cursor in cursors) cursor.Active = active[cursor.Owner];
    foreach (var cursor in cursors) if (cursor.Active) Sync(cursor);
+   if (dumpNext != null) { DumpState(dumpNext); dumpNext = null; }
    foreach (var entry in presses) {
     var cursor = cursors[entry.Key];
     if (!cursor.Active) continue;
     if (entry.Value.Direction >= 0) MoveCursor(cursor, entry.Value.Direction);
-    if (entry.Value.Accept) { AcceptCursor(cursor); var shown = cursor.Target; Window.Dispatcher.BeginInvoke(new Action(() => ShowHint(shown)), DispatcherPriority.Background); }
+    if (entry.Value.Accept) { actorSlot = acceptSlots[entry.Key]; AcceptCursor(cursor); actorSlot = -1; var shown = cursor.Target; Window.Dispatcher.BeginInvoke(new Action(() => ShowHint(shown)), DispatcherPriority.Background); }
     if (entry.Value.Back) BackCursor(cursor);
    }
    DrawCursors();
+   dumpNext = dumpStep; dumpStep = null;
+  }
+
+  // Written one tick after the step, once the cursors have settled.
+  void DumpState(string step) {
+   if (string.IsNullOrEmpty(stateDumpFile)) return;
+   string[] who = { "p1", "p2", "any" };
+   var cursorText = cursors.Select(c => who[c.Owner] + "=" + (!c.Active || c.Target == null ? "-" : string.IsNullOrEmpty(c.Target.Name) ? c.Target.GetType().Name : c.Target.Name) + (c.Combo != null ? "(open)" : "")).ToArray();
+   string bar = HintBar();
+   File.AppendAllText(stateDumpFile, step + " | page=" + PageNames[page] + " | " + string.Join(" ", cursorText) + (bar == null ? "" : " | hint=" + C<TextBlock>(bar).Text) + Environment.NewLine);
   }
 
   // Keeps each cursor on something that exists: it follows a picker that opened or closed and re-seats when its target is gone.
@@ -146,9 +166,9 @@ namespace HyruleOnline {
    else if (HelpOpen) start = C<Button>("Help");
    else if (cursor.Memory.TryGetValue(page, out start) && !all.Contains(start)) start = null;
    if (start == null && cursor.Picker < 0 && !HelpOpen) {
-    if (page == 0) start = C<Button>(cursor.Owner == 0 ? "P1AvatarButton" : cursor.Owner == 1 ? "P2AvatarButton" : "Start");
+    if (page == 0 && !setupActive) start = C<Button>(cursor.Owner == 0 ? "P1AvatarButton" : cursor.Owner == 1 ? "P2AvatarButton" : "Start");
     if (start == null || !all.Contains(start)) {
-     var chrome = new[] { "Help", "Start", "Stop", "Exit" };
+     var chrome = ChromeNames;
      var content = all.Where(e => !chrome.Contains(e.Name)).ToList();
      start = (content.Count > 0 ? content : all).OrderBy(e => Math.Round(Bounds(e).Top / 12)).ThenBy(e => Bounds(e).Left).FirstOrDefault();
     }
@@ -165,10 +185,13 @@ namespace HyruleOnline {
    var tile = element.Tag as Character;
    if (tile != null && cursor.Picker >= 0) ShowPickerName(cursor.Picker, tile);
    ShowHint(element);
+   if (cursor.Picker < 0) element.BringIntoView();
   }
 
+  string HintBar() { string name = PageNames[page]; return name == "Graphics" || name == "Multiplayer" ? name + "Hint" : null; }
+
   void ShowHint(FrameworkElement element) {
-   string bar = page == 1 ? "GraphicsHint" : page == 2 ? "MultiplayerHint" : null;
+   string bar = HintBar();
    if (bar != null && element != null) C<TextBlock>(bar).Text = element.ToolTip as string ?? Tr("Hover an option, or move the focus to it, to see what it does.");
   }
 
@@ -177,39 +200,21 @@ namespace HyruleOnline {
    catch (Exception) { return Rect.Empty; }
   }
 
-  void Collect(DependencyObject node, List<FrameworkElement> found) {
-   for (int i = 0; i < VisualTreeHelper.GetChildrenCount(node); i++) {
-    var child = VisualTreeHelper.GetChild(node, i);
-    var element = child as FrameworkElement;
-    if (element != null && !element.IsVisible) continue;
-    if (element is Button || element is CheckBox || element is ComboBox || element is TextBox && !((TextBox)element).IsReadOnly) {
-     if (element.IsEnabled && element.ActualWidth > 0) found.Add(element);
-     continue;
-    }
-    Collect(child, found);
-   }
-  }
-
   // What this cursor may move to: the open mosaic if it is choosing, otherwise the controls of the page and the footer, minus other players' cards.
   List<FrameworkElement> Candidates(PadCursor cursor) {
    if (cursor.Picker >= 0) return avatarTiles[cursor.Picker].Cast<FrameworkElement>().Where(t => t.IsVisible && t.IsEnabled).ToList();
    if (HelpOpen) return new List<FrameworkElement> { C<Button>("Help") };
-   var found = new List<FrameworkElement>();
-   Collect(C<FrameworkElement>(PageNames[page] + "Page"), found);
-   foreach (var name in new[] { "Help", "Start", "Stop", "Exit" }) {
-    var button = C<Button>(name);
-    if (button.IsVisible && button.IsEnabled) found.Add(button);
-   }
+   var found = ShellLayout.Controls(Window, setupActive ? "SetupPage" : PageNames[page] + "Page");
    for (int player = 0; player < 2; player++) {
     var card = C<Border>("P" + (player + 1) + "Card");
     var mosaic = C<FrameworkElement>("P" + (player + 1) + "Picker");
-    bool taken = player != cursor.Owner && cursors[player].Active && page == 0;
+    bool taken = playerCount == 2 && player != cursor.Owner && cursors[player].Active && page == 0;
     found.RemoveAll(e => e.IsDescendantOf(mosaic) || taken && e.IsDescendantOf(card));
    }
    return found;
   }
 
-  static readonly string[] ChromeNames = { "Help", "Start", "Stop", "Exit" };
+  static readonly string[] ChromeNames = ShellLayout.ChromeNames;
 
   void MoveCursor(PadCursor cursor, int direction) {
    if (cursor.Combo != null) {
@@ -218,20 +223,21 @@ namespace HyruleOnline {
     FocusComboItem(cursor.Combo, cursor.ComboIndex);
     return;
    }
+   if (HelpOpen && direction < 2) {
+    var scroll = C<ScrollViewer>("HelpScroll");
+    scroll.ScrollToVerticalOffset(Math.Max(0, scroll.VerticalOffset + (direction == 0 ? -80 : 80)));
+    return;
+   }
    if (cursor.Target is TextBox && cursor.Target.IsKeyboardFocused) Window.Focus();
+   var slider = cursor.Target as Slider;
+   if (slider != null && direction >= 2) { slider.Value += direction == 2 ? -slider.SmallChange : slider.SmallChange; return; }
    var all = Candidates(cursor);
    var from = cursor.Target == null ? Rect.Empty : Bounds(cursor.Target);
    if (all.Count == 0 || from.IsEmpty) return;
    var boxes = all.Select(e => { var b = Bounds(e); return new Box(b.X, b.Y, b.Width, b.Height); }).ToList();
-   int pick = Spatial.Pick(new Box(from.X, from.Y, from.Width, from.Height), boxes, direction);
-   // Nothing in the same row: a content control may still cross to the other column (player 1's cards sit higher than the display options). The footer and Help never do.
-   if (pick < 0 && direction >= 2 && cursor.Target != null && !ChromeNames.Contains(cursor.Target.Name)) {
-    var sideways = all.Where(e => !ChromeNames.Contains(e.Name)).ToList();
-    int side = Spatial.Pick(new Box(from.X, from.Y, from.Width, from.Height), sideways.Select(e => { var b = Bounds(e); return new Box(b.X, b.Y, b.Width, b.Height); }).ToList(), direction, true);
-    if (side >= 0) pick = all.IndexOf(sideways[side]);
-   }
+   int pick = Spatial.Next(new Box(from.X, from.Y, from.Width, from.Height), boxes, all.Select(e => ChromeNames.Contains(e.Name)).ToList(), ChromeNames.Contains(cursor.Target.Name), direction);
    if (pick >= 0) SetTarget(cursor, all[pick]);
-   else if (page == 4 && direction < 2) { if (direction == 0) C<TextBox>("Log").LineUp(); else C<TextBox>("Log").LineDown(); }
+   else if (page == 5 && direction < 2) { if (direction == 0) C<TextBox>("Log").LineUp(); else C<TextBox>("Log").LineDown(); }
   }
 
   void FocusComboItem(ComboBox combo, int index) {
@@ -284,6 +290,7 @@ namespace HyruleOnline {
    if (cursor.Combo != null) { cursor.Combo.IsDropDownOpen = false; cursor.Combo = null; return; }
    if (cursor.Picker < 0) {
     if (HelpOpen) C<Border>("HelpPanel").Visibility = Visibility.Collapsed;
+    else if (gameRunning && !setupActive) ReturnToGame(cursor.Owner == 1 ? 1 : 0);
     return;
    }
    int player = cursor.Picker;

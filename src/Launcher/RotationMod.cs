@@ -57,8 +57,8 @@ namespace HyruleOnline {
   public static void Apply(string instance, int degrees, string source) {
    degrees = ScreenLayout.CleanRotation(degrees);
    if (degrees == 0) { Remove(instance); return; }
-   if (File.Exists(Path.Combine(instance, ConfigFile)) && !Managed(instance)) throw new InvalidDataException("Cemu already has its own ReShade setup in " + instance + ".");
-   if (!LayerReady(source)) throw new FileNotFoundException("ReShade64.dll and ReShade64.json are missing from " + source + ".");
+   if (File.Exists(Path.Combine(instance, ConfigFile)) && !Managed(instance)) throw new InvalidDataException(Lang.T("Cemu already has its own ReShade setup in {0}.", instance));
+   if (!LayerReady(source)) throw new FileNotFoundException(Lang.T("ReShade64.dll and ReShade64.json are missing from {0}.", source));
    foreach (var name in LayerFiles) File.Copy(Path.Combine(source, name), Path.Combine(instance, name), true);
    string folder = Path.Combine(instance, Folder);
    Directory.CreateDirectory(folder);

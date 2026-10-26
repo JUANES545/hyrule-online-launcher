@@ -2,3 +2,5 @@
 .tools/
 *.log
 
+!tests/fixtures/*.log
+__pycache__/

@@ -136,6 +136,76 @@ namespace HyruleOnline {
    Console.WriteLine("PASS: hardware classes and recommendations.");
   }
 
+  static PadState Held(ushort buttons, byte lt = 0, byte rt = 0) { return new PadState { buttons = buttons, lt = lt, rt = rt }; }
+
+  static void Shortcuts() {
+   var standard = MenuShortcut.Parse("Start+LT");
+   Require(standard != null && standard.ToString() == "Start+LT" && standard.Count == 2, "the default shortcut parses and prints back");
+   Require(MenuShortcut.FromDefault().ToString() == MenuShortcut.Default, "the default shortcut is valid");
+   Require(MenuShortcut.Parse("L3+R3").ToString() == "L3+R3" && MenuShortcut.Parse("Start+LT+RT").ToString() == "Start+LT+RT", "the other presets parse");
+   Require(MenuShortcut.Parse("RT+Start").ToString() == "Start+RT", "the order of the parts does not matter");
+   Require(MenuShortcut.Parse("Start") == null && MenuShortcut.Parse("") == null && MenuShortcut.Parse(null) == null && MenuShortcut.Parse("Off") == null, "one input, nothing or Off is no shortcut");
+   Require(MenuShortcut.Parse("Start+Banana") == null && MenuShortcut.Parse("A+B+X+Y+LB") == null, "unknown names and more than four inputs are refused");
+   Require(MenuShortcut.Parse("Start+Back") == null && MenuShortcut.Parse("Start+Back+LB") == null, "Start with Back is refused: Moonlight quits the stream with it");
+   Require(MenuShortcut.Parse("Back+LT") != null, "Back alone with another input is fine");
+
+   var captured = MenuShortcut.Capture((ushort)(PadKind.StartButton | 0x4000), true, false);
+   Require(captured != null && captured.ToString() == "Start+X+LT", "a capture keeps the buttons and triggers that were held");
+   Require(MenuShortcut.Capture(0, true, false) == null && MenuShortcut.Capture(PadKind.StartButton, false, false) == null, "a capture of one input is refused");
+   Require(MenuShortcut.Capture(0x0400, true, false) == null, "the unused Guide bit is ignored by a capture");
+
+   var tracker = new ShortcutTracker();
+   Require(!tracker.Update(standard, Held(PadKind.StartButton, 0), 0) && !tracker.Engaged, "Start alone does not engage the shortcut");
+   Require(!tracker.Update(standard, Held(PadKind.StartButton, 255), 100) && tracker.Engaged, "Start with the trigger engages it");
+   Require(!tracker.Update(standard, Held(PadKind.StartButton, 255), 100 + MenuShortcut.HoldMs - 1), "it does not fire before the hold time");
+   Require(tracker.Update(standard, Held(PadKind.StartButton, 255), 100 + MenuShortcut.HoldMs), "it fires once the hold time has passed");
+   Require(!tracker.Update(standard, Held(PadKind.StartButton, 255), 100 + MenuShortcut.HoldMs + 500), "it fires only once per hold");
+   Require(!tracker.Update(standard, Held(PadKind.StartButton, 255), 100 + MenuShortcut.HoldMs + 5000) && tracker.Engaged, "a long hold stays engaged without firing again");
+   tracker.Update(standard, Held(0, 0), 9000);
+   Require(!tracker.Engaged, "letting go releases it");
+   tracker.Update(standard, Held(PadKind.StartButton, 255), 9100);
+   Require(tracker.Update(standard, Held(PadKind.StartButton, 255), 9100 + MenuShortcut.HoldMs), "it can fire again after a release");
+
+   var soft = new ShortcutTracker();
+   soft.Update(standard, Held(PadKind.StartButton, MenuShortcut.TriggerOn - 1), 0);
+   Require(!soft.Engaged, "a half-pressed trigger does not count");
+   soft.Update(standard, Held(PadKind.StartButton, MenuShortcut.TriggerOn), 10);
+   Require(soft.Engaged, "a pressed trigger counts");
+   soft.Update(standard, Held(PadKind.StartButton, MenuShortcut.TriggerOff), 20);
+   Require(soft.Engaged, "a trigger that eases a little stays pressed");
+   soft.Update(standard, Held(PadKind.StartButton, MenuShortcut.TriggerOff - 1), 30);
+   Require(!soft.Engaged, "a trigger that falls well down is released");
+
+   var interrupted = new ShortcutTracker();
+   interrupted.Update(standard, Held(PadKind.StartButton, 255), 0);
+   interrupted.Update(standard, Held(PadKind.StartButton, 0), 1000);
+   Require(!interrupted.Update(standard, Held(PadKind.StartButton, 255), 1000 + MenuShortcut.HoldMs - 1) && !interrupted.Update(standard, Held(PadKind.StartButton, 255), 2000 + MenuShortcut.HoldMs - 1), "letting go in the middle restarts the hold time");
+   var off = new ShortcutTracker();
+   Require(!off.Update(null, Held(PadKind.StartButton, 255), 0) && !off.Update(null, Held(PadKind.StartButton, 255), 5000) && !off.Engaged, "without a shortcut nothing happens");
+
+   var game = standard.Hide(new PadState { buttons = (ushort)(PadKind.StartButton | 0x1000), lt = 255, rt = 50, lx = 100 });
+   Require(game.buttons == 0x1000 && game.lt == 0 && game.rt == 50 && game.lx == 100, "the game still gets the rest of the controller while the shortcut is held");
+
+   var guard = new TapGuard();
+   ushort start = PadKind.StartButton;
+   Require(guard.Update(start, 0, 0, start, false) && !guard.Update(start, 0, 0, start, false), "without the shortcut Start acts on the press");
+   guard.Update(0, 0, 0, start, false);
+   var late = new TapGuard();
+   Require(!late.Update(start, 0, 0, start, true) && late.Update(0, 0, 0, start, true), "with the shortcut a clean Start tap acts on the release");
+   var chord = new TapGuard();
+   chord.Update(start, 0, 0, start, true);
+   chord.Update(start, 255, 0, start, true);
+   Require(!chord.Update(0, 0, 0, start, true), "Start released after a trigger was held does nothing");
+   var triggerFirst = new TapGuard();
+   triggerFirst.Update(0, 255, 0, start, true);
+   triggerFirst.Update(start, 255, 0, start, true);
+   Require(!triggerFirst.Update(start, 0, 0, start, true) && !triggerFirst.Update(0, 0, 0, start, true), "Start pressed on top of a held trigger does nothing either");
+   var again = new TapGuard();
+   again.Update(start, 255, 0, start, true); again.Update(0, 0, 0, start, true);
+   again.Update(start, 0, 0, start, true);
+   Require(again.Update(0, 0, 0, start, true), "the next clean tap works again");
+  }
+
   static void PadMenus() {
    var pad = new PadNav();
    var idle = pad.Update(0, 0, 0, 0);
@@ -183,6 +253,8 @@ namespace HyruleOnline {
    Require(Spatial.Pick(cells[0], cells, 3) == 1 && Spatial.Pick(cells[1], cells, 3) == 2 && Spatial.Pick(cells[2], cells, 3) == -1, "right walks along the row and stops at the end");
    Require(Spatial.Pick(cells[4], cells, 2) == 3 && Spatial.Pick(cells[3], cells, 2) == -1, "left walks back");
    Require(Spatial.Pick(cells[1], cells, 1) == 4 && Spatial.Pick(cells[4], cells, 0) == 1 && Spatial.Pick(cells[1], cells, 0) == -1, "down and up stay in the same column");
+   var split = new List<Box> { new Box(0, 0, 100, 10), new Box(0, 20, 48, 10), new Box(52, 20, 48, 10), new Box(0, 40, 100, 10) };
+   Require(Spatial.Pick(split[0], split, 1) >= 1 && Spatial.Pick(split[0], split, 1) <= 2 && Spatial.Pick(split[3], split, 0) >= 1 && Spatial.Pick(split[3], split, 0) <= 2, "a wide box reaches the two narrow boxes next to each other before skipping past them");
    var uneven = new List<Box> { new Box(0, 0, 100, 10), new Box(0, 20, 40, 10), new Box(60, 20, 40, 10), new Box(300, 20, 10, 10) };
    Require(Spatial.Pick(uneven[0], uneven, 1) == 1, "down from a wide box picks the nearest lined up one");
    Require(Spatial.Pick(uneven[2], uneven, 3) == 3 && Spatial.Pick(uneven[1], uneven, 3) == 2, "a far box is still reachable when nothing is closer");
@@ -251,35 +323,6 @@ namespace HyruleOnline {
 
   static void Require(bool ok, string message) { if (!ok) throw new Exception("TEST: " + message); }
 
-  // The text of every string literal inside the calls to the given methods.
-  static List<string> CallLiterals(string source, params string[] calls) {
-   var found = new List<string>();
-   foreach (string call in calls) {
-    int at = 0;
-    while ((at = source.IndexOf(call + "(", at, StringComparison.Ordinal)) >= 0) {
-     if (at > 0 && (char.IsLetterOrDigit(source[at - 1]) || source[at - 1] == '_' || source[at - 1] == '.')) { at += call.Length; continue; }
-     int i = at + call.Length + 1, depth = 1;
-     while (i < source.Length && depth > 0) {
-      char c = source[i];
-      if (c == '"') {
-       var text = new System.Text.StringBuilder();
-       i++;
-       while (source[i] != '"') {
-        if (source[i] == '\\') { char next = source[i + 1]; text.Append(next == 'n' ? '\n' : next); i += 2; }
-        else text.Append(source[i++]);
-       }
-       found.Add(text.ToString());
-      }
-      else if (c == '(') depth++;
-      else if (c == ')') depth--;
-      i++;
-     }
-     at = i;
-    }
-   }
-   return found;
-  }
-
   static void ServerRulesTest() {
    const string ini = "\uFEFF[Connection]\r\nIP=100.1.2.3\r\nPort=5050\r\nPassword=secret\r\n\r\n[Gamemode]\r\n# keep me\r\nDefaultGamemode=False\r\n\r\n[DefaultGamemode]\r\n# rules\r\nName=Custom\r\nEnemySync=False\r\nQuestSync=True\r\n# special\r\nSpecial=0\r\n";
    var rules = ServerRules.Parse(ini);
@@ -303,7 +346,7 @@ namespace HyruleOnline {
 
    Require(ServerCommands.Time("7:05") == "Time Set 07:05" && ServerCommands.Time(" 23:59 ") == "Time Set 23:59" && ServerCommands.Time("24:00") == null && ServerCommands.Time("12:60") == null && ServerCommands.Time("noon") == null && ServerCommands.Time(null) == null, "time text");
    Require(ServerCommands.SetWeather("Rain") == "Weather Set Rain" && ServerCommands.Bring("Link", "Pedro") == "Teleport Link Pedro" && ServerCommands.Bring("Sir Link", "Pedro") == "Teleport \"Sir Link\" Pedro", "weather and teleport commands");
-   Require(ServerCommands.NameTags("Activated Name Tags") == true && ServerCommands.NameTags("Deactivated Name Tags") == false && ServerCommands.NameTags("Server started") == null, "name tag lines");
+   Require(ServerCommands.NameTags("Activated Name Tags") == true && ServerCommands.NameTags("Deactivated Name Tags") == false && ServerCommands.NameTags("Server started") == null && ServerCommands.NameTags("[17:19:00] Player Activated Name Tags joined the server. Assigned to player 2.") == null, "name tag lines");
 
    string temp = Path.Combine(Path.GetTempPath(), "hyrule-rules-" + Guid.NewGuid().ToString("N"));
    try {
@@ -317,6 +360,54 @@ namespace HyruleOnline {
    }
    finally { if (Directory.Exists(temp)) Directory.Delete(temp, true); }
    Console.WriteLine("PASS: server rules and commands.");
+  }
+
+  static void ServerConnectionTest() {
+   string host, password; int port;
+   Require(ServerConnection.TryParse("hyrule://100.64.0.5:5051?pw=a%26b%20c", out host, out port, out password) && host == "100.64.0.5" && port == 5051 && password == "a&b c", "an invite carries host, port and password");
+   Require(ServerConnection.TryParse(" friend.example.com ", out host, out port, out password) && host == "friend.example.com" && port == 5050 && password == "", "a bare host uses the default port");
+   Require(ServerConnection.TryParse("192.168.1.20:6000/", out host, out port, out password) && host == "192.168.1.20" && port == 6000, "host:port");
+   foreach (string bad in new[] { "", "   ", "host:0", "host:70000", "host:abc", "bad host", "-host", "host;calc", "hyrule://" })
+    Require(!ServerConnection.TryParse(bad, out host, out port, out password), "not an address: " + bad);
+   string invite = ServerConnection.Invite("100.64.0.5", 5051, "a&b c");
+   Require(invite == "hyrule://100.64.0.5:5051?pw=a%26b%20c" && ServerConnection.Invite("h", 5050, "") == "hyrule://h:5050", "invites are written");
+   Require(ServerConnection.TryParse(invite, out host, out port, out password) && password == "a&b c", "an invite reads back");
+   Require(ServerConnection.CleanPort("80") == 5050 && ServerConnection.CleanPort("abc") == 5050 && ServerConnection.CleanPort(null) == 5050 && ServerConnection.CleanPort(" 6001 ") == 6001, "ports");
+   Require(ServerConnection.ValidHost("friend.example.com") && ServerConnection.ValidHost("100.64.0.5") && !ServerConnection.ValidHost("host/path") && !ServerConnection.ValidHost("my host") && !ServerConnection.ValidHost("host:5050") && !ServerConnection.ValidHost("") && !ServerConnection.ValidHost(null), "host names are checked");
+   string rules = "Rule Name:                            Hyrule Online Server 5050\r\n----\r\nRule Name:    Hyrule Online Server 5051\r\nRule Name:    Hyrule Online Server 5051\r\nRule Name:    Hyrule Online Server 6000\r\nRule Name:    Other Hyrule Online Server 7000 x\r\nRule Name:    Something else\r\n";
+   var stale = ServerConnection.StaleRulePorts(rules, 5050);
+   Require(stale.Count == 2 && stale[0] == 5051 && stale[1] == 6000 && ServerConnection.StaleRulePorts("", 5050).Count == 0 && ServerConnection.StaleRulePorts(null, 1).Count == 0, "old firewall rules are found once each and the current port is kept");
+   Require(ServerConnection.CleanText(" a\r\nb\t ", 10) == "ab" && ServerConnection.CleanText("abcdef", 3) == "abc" && ServerConnection.CleanText(null, 3) == "" && ServerConnection.CleanMode("Nope") == "Local" && ServerConnection.CleanMode("Join") == "Join", "text and mode cleaning");
+   Require(ServerConnection.HostPassword("a;b#c=d") == "ab#c=d" && ServerConnection.HostPassword(null) == "", "a host password drops the ini comment character");
+   Require(ServerConnection.Best(new[] { "192.168.1.5", "100.100.1.2", "10.0.0.2" }) == "100.100.1.2" && ServerConnection.Best(new[] { "169.254.1.1", "172.20.0.3" }) == "172.20.0.3" && ServerConnection.Best(new[] { "169.254.1.1", "100.10.0.1" }) == null && ServerConnection.Best(new string[0]) == null, "the address worth sharing");
+
+   const string ini = "\uFEFF[Connection]\r\n# where\r\nIP=localhost\r\nPort=5050\r\nPassword=\r\n\r\n[ServerInformation]\r\nDescription=Old\r\n\r\n[DefaultGamemode]\r\nName=Custom\r\n";
+   string text = ServerConnection.Apply(ini.TrimStart('\uFEFF'), "0.0.0.0", 6000, "pw", "Hello");
+   Require(text.Contains("IP=0.0.0.0\r\n") && text.Contains("Port=6000\r\n") && text.Contains("Password=pw\r\n") && text.Contains("Description=Hello\r\n") && text.Contains("# where") && text.Contains("Name=Custom") && !text.Replace("\r\n", "").Contains("\n"), "the connection is written in place");
+   Require(ServerConnection.Apply(text, "0.0.0.0", 6000, "pw", "Hello") == text, "writing the same connection twice changes nothing");
+   string empty = ServerConnection.Apply("", "127.0.0.1", 5050, "", "D");
+   Require(empty.Contains("[Connection]") && empty.Contains("IP=127.0.0.1") && empty.Contains("[ServerInformation]") && empty.Contains("Description=D"), "an empty ini gets the sections");
+   Require(ServerConnection.Apply("[Connection]\nIP=a\n", "b", 5050, "", "D").Contains("IP=b\n") && !ServerConnection.Apply("[Connection]\nIP=a\n", "b", 5050, "", "D").Contains("\r"), "line endings stay");
+
+   string temp = Path.Combine(Path.GetTempPath(), "hyrule-conn-" + Guid.NewGuid().ToString("N"));
+   try {
+    Directory.CreateDirectory(temp);
+    string file = Path.Combine(temp, "ServerConfig.ini");
+    File.WriteAllText(file, ini.TrimStart('\uFEFF'), new System.Text.UTF8Encoding(true));
+    ServerConnection.Save(file, "0.0.0.0", 6001, "x", "Y");
+    var bytes = File.ReadAllBytes(file);
+    Require(bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF && bytes[3] == (byte)'[' && File.ReadAllText(file).Contains("Port=6001"), "the saved ini keeps its byte order mark");
+
+    string config = Path.Combine(temp, "user.config");
+    File.WriteAllText(config, "<?xml version=\"1.0\" encoding=\"utf-8\"?><configuration><userSettings><App.Settings><setting name=\"playerName\" serializeAs=\"String\"><value>Old</value></setting></App.Settings></userSettings></configuration>");
+    MilkBarSettings.SetServer(config, "Hyrule \"Online\"", "100.64.0.5", 5051, "p\\w");
+    var entry = System.Xml.Linq.XDocument.Load(config).Descendants("setting").First(e => (string)e.Attribute("name") == "serversAdded").Value;
+    Require(entry == "[{\"Name\":\"Hyrule \\\"Online\\\"\",\"IP\":\"100.64.0.5\",\"Port\":5051,\"Favorite\":false,\"Password\":\"p\\\\w\"}]", "the server entry is written as the Milk Bar client reads it");
+    MilkBarSettings.SetServer(config, "Again", "127.0.0.1", 5050, "");
+    Require(System.Xml.Linq.XDocument.Load(config).Descendants("setting").Count(e => (string)e.Attribute("name") == "serversAdded") == 1, "the server entry is replaced, not repeated");
+   }
+   finally { if (Directory.Exists(temp)) Directory.Delete(temp, true); }
+   Console.WriteLine("PASS: server connection.");
   }
 
   // Needs the extracted Milk Bar launcher; without it (a fresh clone) the check is skipped, not failed.
@@ -335,44 +426,20 @@ namespace HyruleOnline {
   }
 
   static void Languages(string root) {
-   var table = Lang.Table;
-   Require(table.Select(r => r[0]).Distinct().Count() == table.Length, "every English text appears once in the table");
-   Func<string, string> holes = text => string.Join(",", System.Text.RegularExpressions.Regex.Matches(text, "\\{\\d+\\}").Cast<System.Text.RegularExpressions.Match>().Select(m => m.Value).OrderBy(v => v));
-   foreach (var row in table) {
-    Require(row.Length == Lang.Supported.Length && row.All(t => !string.IsNullOrWhiteSpace(t)), "every language has text for: " + row[0]);
-    Require(row.All(t => holes(t) == holes(row[0])), "the same placeholders in every language: " + row[0]);
-    Require(row.All(t => t.Split('\n').Length == row[0].Split('\n').Length), "the same line breaks in every language: " + row[0]);
-   }
-   Require(Lang.HelpText.Length == Lang.Supported.Length && Lang.HelpText.All(t => t.Split(new[] { "\n\n" }, StringSplitOptions.None).Length == Lang.HelpText[0].Split(new[] { "\n\n" }, StringSplitOptions.None).Length), "the help text has the same sections in every language");
+   LanguageTests.Audit(root);
 
    try {
     Lang.Current = "es";
     Require(Lang.T("PLAY") == "JUGAR" && Lang.T("Unknown text") == "Unknown text" && Lang.T("Each game renders {0} × {1}", 1920, 1080) == "Cada juego se renderiza a 1920 × 1080", "Spanish text, English fallback and placeholders");
     Require(GraphicsMod.ScaleLabel(1.5, t => Lang.T(t)) == "150% (más nítido)" && GraphicsMod.ScaleLabel(1.0) == "100% (window size)", "render scale labels follow the language");
+    Require(GraphicsMod.Label("Medium (100%, Default)", t => Lang.T(t)) == "Media (100%, Predeterminado)" && GraphicsMod.Label("Very High (Recommended)", t => Lang.T(t)) == "Muy alta (Recomendado)" && GraphicsMod.Label("Disabled (Default)", t => Lang.T(t)) == "Desactivado (Predeterminado)" && GraphicsMod.Label("NVIDIA FXAA", t => Lang.T(t)) == "NVIDIA FXAA", "preset labels follow the language");
     Lang.Current = "fr";
+    Require(GraphicsMod.Label("Extreme (400%, Unstable)", t => Lang.T(t)) == "Extrême (400%, Instable)", "preset labels in French");
     Require(Lang.T("PLAY") == "JOUER" && Lang.Help().StartsWith("SESSION :"), "French text");
     Lang.Current = Lang.Ui("de");
     Require(Lang.Current == "en" && Lang.T("PLAY") == "PLAY" && Lang.Help().StartsWith("SESSION: Start"), "a language without a translation shows English");
    }
    finally { Lang.Current = "en"; }
-
-   // Nothing the launcher writes may be missing from the table.
-   var known = new HashSet<string>(table.Select(r => r[0]).Concat(Lang.Neutral));
-   var xaml = System.Xml.Linq.XDocument.Load(Path.Combine(root, "src", "Launcher", "Launcher.xaml"));
-   System.Xml.Linq.XNamespace x = "http://schemas.microsoft.com/winfx/2006/xaml";
-   foreach (var element in xaml.Descendants()) {
-    if (element.AncestorsAndSelf().Any(e => e.Name.LocalName == "Window.Resources" || Lang.Dynamic.Contains((string)e.Attribute(x + "Name")))) continue;
-    foreach (string attribute in new[] { "Text", "Content", "ToolTip", "AutomationProperties.Name" }) {
-     string value = (string)element.Attribute(attribute);
-     if (string.IsNullOrEmpty(value) || value.StartsWith("{")) continue;
-     Require(known.Contains(value), "the XAML text is translated: " + value);
-    }
-   }
-   string code = File.ReadAllText(Path.Combine(root, "src", "Launcher", "Launcher.cs"));
-   var skipped = new[] { "", "Server", "A", "B" };
-   var literals = CallLiterals(code, "Tr", "Fail", "SetStatus", "SetPrompt", "Step").Where(t => !skipped.Contains(t)).ToList();
-   Require(literals.Count > 40, "the launcher code uses the translation helpers");
-   foreach (string literal in literals) Require(known.Contains(literal), "the launcher text is translated: " + literal);
 
    string temp = Path.Combine(Path.GetTempPath(), "hyrule-lang-" + Guid.NewGuid().ToString("N"));
    try {
@@ -434,6 +501,15 @@ namespace HyruleOnline {
     routes = Reconcile(new[] { 0, 1 }, false, true, true, false);
     Require(routes[0] == 2 && routes[1] == 1, "reconnection keeps player two and refills player one");
 
+    routes = Reconcile(new[] { 0, 1 }, false, true, false, false);
+    Require(routes[0] == 1 && routes[1] == 0, "a lone pad on player two becomes player one and player one's slot stays reserved");
+
+    routes = Reconcile(new[] { -1, 1 }, false, true, false, false);
+    Require(routes[0] == 1 && routes[1] == -1, "a lone pad on player two moves up when player one is empty");
+
+    routes = Reconcile(new[] { 1, 0 }, true, true, false, false);
+    Require(routes[0] == 1 && routes[1] == 0, "two pads keep their players");
+
     routes = Reconcile(new[] { 0, 1 }, false, false, false, false);
     Require(routes[0] == 0 && routes[1] == 1, "slots stay reserved while pads are away");
 
@@ -447,7 +523,8 @@ namespace HyruleOnline {
        routes = Reconcile(new[] { first, second }, present);
        Require(routes[0] < 0 || routes[0] != routes[1], "unique controller ownership");
        Require(first < 0 || !present[first] || routes[0] == first, "connected player one is kept");
-       Require(second < 0 || !present[second] || routes[1] == second, "connected player two is kept");
+       Require(second < 0 || !present[second] || routes[1] == second || routes[0] == second && (first < 0 || !present[first]), "connected player two is kept unless it is the only pad");
+       Require(count != 1 || routes[0] >= 0 && present[routes[0]], "a lone pad is player one");
        int assigned = 0;
        foreach (int route in routes) if (route >= 0 && present[route]) assigned++;
        Require(assigned == Math.Min(2, count), "every available player is filled");
@@ -656,10 +733,25 @@ namespace HyruleOnline {
      Require(System.Xml.Linq.XDocument.Load(settingsFile).Root.Element("GraphicPack").Elements("Entry").Count() == 3, "no limit given leaves FPS++ as it was");
      Require(System.Xml.Linq.XDocument.Load(settingsFile).Root.Element("Graphic").Element("api") == null, "no advanced options leave Cemu's API alone");
 
-     var options = new GraphicsMod.Advanced { Api = GraphicsMod.AutoApi, VSync = true, AsyncCompile = true, AccurateBarriers = true, Upscale = 3, Downscale = 2 };
+     var options = new GraphicsMod.Advanced { Api = GraphicsMod.AutoApi, VSync = true, AsyncCompile = true, AccurateBarriers = true, Upscale = 3, Downscale = 2, ShowFps = false, ShowUsage = true };
+     Func<string> overlayValues = () => { var o = System.Xml.Linq.XDocument.Load(settingsFile).Root.Element("Graphic").Element("Overlay"); return string.Join(",", new[] { "FPS", "CPUUsage", "RAMUsage", "VRAMUsage", "DrawCalls" }.Select(n => (string)o.Element(n))); };
      Func<string> graphicValues = () => { var g = System.Xml.Linq.XDocument.Load(settingsFile).Root.Element("Graphic"); return string.Join(",", new[] { "api", "VSync", "AsyncCompile", "VulkanAccurateBarriers", "UpscaleFilter", "DownscaleFilter", "FullscreenScaling" }.Select(n => (string)g.Element(n))); };
      CemuDisplay.Apply(instance, view, null, null, null, options, true);
      Require(graphicValues() == "1,1,true,true,3,2,1", "advanced options are written to Cemu's graphic settings: " + graphicValues());
+     Require(overlayValues() == "false,true,true,true," || overlayValues() == "false,true,true,true", "overlay counters are written: " + overlayValues());
+     Func<string> soundValues = () => { var d = System.Xml.Linq.XDocument.Load(settingsFile).Root; return (string)d.Element("Audio").Element("TVVolume") + "," + (string)d.Element("Graphic").Element("Notification").Element("ShaderCompiling"); };
+     Require(soundValues() == "50,true", "the default volume and the shader notice are written: " + soundValues());
+     options.Volume = 0; options.ShowShaderNotice = false;
+     CemuDisplay.Apply(instance, view, null, null, null, options, true);
+     Require(soundValues() == "0,false", "a muted volume and a hidden shader notice are written: " + soundValues());
+     options.Volume = 73;
+     CemuDisplay.Apply(instance, view, null, null, null, options, true);
+     Require(soundValues() == "75,false", "an odd volume snaps to the nearest choice: " + soundValues());
+     options.Volume = 50; options.ShowShaderNotice = true;
+     options.ShowFps = true; options.ShowUsage = false;
+     CemuDisplay.Apply(instance, view, null, null, null, options, true);
+     Require(overlayValues().StartsWith("true,false,false,false"), "overlay counters can be turned back: " + overlayValues());
+     options.ShowFps = false; options.ShowUsage = true;
      CemuDisplay.Apply(instance, view, null, null, null, options, false);
      Require(graphicValues().StartsWith("0,"), "Auto and Vulkan fall back to OpenGL when Vulkan is missing");
      options.Api = GraphicsMod.OpenGlApi; options.VSync = false; options.AsyncCompile = false; options.AccurateBarriers = false; options.Upscale = 9; options.Downscale = -1;
@@ -703,9 +795,12 @@ namespace HyruleOnline {
     Console.WriteLine("PASS: controller motion.");
     Navigation();
     PadMenus();
+    Shortcuts();
+    Console.WriteLine("PASS: menu shortcut.");
     HardwareTiers();
     Players();
     ServerRulesTest();
+    ServerConnectionTest();
     Languages(args.Length > 0 ? args[0] : Directory.GetCurrentDirectory());
     Busts(args.Length > 0 ? args[0] : Directory.GetCurrentDirectory());
         return 0;

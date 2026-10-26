@@ -21,7 +21,7 @@ namespace HyruleOnline {
    string eol = stock.Contains("\r\n") ? "\r\n" : "\n";
    string rules = Regex.Replace(stock, "(?m)^name = Graphics[ \\t]*(?=\\r?$)", "name = Graphics (online display)");
    rules = Regex.Replace(rules, "(?m)^(path = \".*)/Graphics\"", "$1/Online Display\"");
-   if (rules == stock || !rules.Contains("[Definition]")) throw new InvalidDataException("The BOTW Graphics pack has an unexpected format.");
+   if (rules == stock || !rules.Contains("[Definition]")) throw new InvalidDataException(Lang.T("The BOTW Graphics pack has an unexpected format."));
    var text = new StringBuilder(rules.TrimEnd());
    Action<string> line = value => text.Append(eol).Append(value);
    line(""); line("# Written by the Hyrule Online launcher for this window.");
@@ -37,8 +37,8 @@ namespace HyruleOnline {
   public static void Apply(string instance, PlayerView view, string fpsPreset = null, GraphicsMod.Quality quality = null, int? consoleLanguage = null, GraphicsMod.Advanced advanced = null, bool vulkanAvailable = true) {
    string stockFolder = Path.Combine(instance, StockPack);
    string settingsFile = Path.Combine(instance, "settings.xml");
-   if (!File.Exists(Path.Combine(stockFolder, "rules.txt"))) throw new FileNotFoundException("The BOTW Graphics pack is missing from " + instance + ".");
-   if (!File.Exists(settingsFile)) throw new FileNotFoundException("Cemu settings are missing from " + instance + ".");
+   if (!File.Exists(Path.Combine(stockFolder, "rules.txt"))) throw new FileNotFoundException(Lang.T("The BOTW Graphics pack is missing from {0}.", instance));
+   if (!File.Exists(settingsFile)) throw new FileNotFoundException(Lang.T("Cemu settings are missing from {0}.", instance));
 
    string packFile = Path.Combine(instance, PackFile);
    string packFolder = Path.GetDirectoryName(packFile);
@@ -56,17 +56,12 @@ namespace HyruleOnline {
    var document = XDocument.Load(settingsFile);
    var content = document.Root;
    // The game language; Cemu's own menu language (<language>) is a different setting and stays as it is.
-   if (consoleLanguage.HasValue) {
-    var language = content.Element("console_language");
-    if (language == null) content.Add(new XElement("console_language", consoleLanguage.Value)); else language.Value = consoleLanguage.Value.ToString();
-   }
-   var packs = content.Element("GraphicPack");
-   if (packs == null) { packs = new XElement("GraphicPack"); content.Add(packs); }
+   if (consoleLanguage.HasValue) SetValue(content, "console_language", consoleLanguage.Value.ToString());
+   var packs = Child(content, "GraphicPack");
    // Two Graphics packs would patch the same game code, so the stock one must not stay enabled.
    packs.Elements("Entry").Where(e => ((string)e.Attribute("filename") ?? "").EndsWith("BreathOfTheWild\\Graphics\\rules.txt", StringComparison.OrdinalIgnoreCase)
     && !string.Equals((string)e.Attribute("filename"), PackFile, StringComparison.OrdinalIgnoreCase)).Remove();
-   var entry = packs.Elements("Entry").FirstOrDefault(e => string.Equals((string)e.Attribute("filename"), PackFile, StringComparison.OrdinalIgnoreCase));
-   if (entry == null) { entry = new XElement("Entry", new XAttribute("filename", PackFile)); packs.Add(entry); }
+   var entry = Entry(packs, PackFile);
    entry.RemoveNodes();
    entry.Add(Preset("Aspect Ratio", DisplayPreset), Preset("Resolution", ResolutionPreset));
    if (squareHud) entry.Add(Preset(SquareHudCategory, SquareHudMode));
@@ -76,14 +71,12 @@ namespace HyruleOnline {
    }
 
    if (fpsPreset != null) {
-    var fps = packs.Elements("Entry").FirstOrDefault(e => string.Equals((string)e.Attribute("filename"), FpsMod.PackFile, StringComparison.OrdinalIgnoreCase));
-    if (fps == null) { fps = new XElement("Entry", new XAttribute("filename", FpsMod.PackFile)); packs.Add(fps); }
+    var fps = Entry(packs, FpsMod.PackFile);
     fps.RemoveNodes();
     fps.Add(Preset(FpsMod.ModeCategory, FpsMod.NormalMode), Preset(FpsMod.LimitCategory, fpsPreset));
    }
 
-   var graphic = content.Element("Graphic");
-   if (graphic == null) { graphic = new XElement("Graphic"); content.Add(graphic); }
+   var graphic = Child(content, "Graphic");
    SetValue(graphic, "FullscreenScaling", "1");
    if (advanced != null) {
     SetValue(graphic, "api", GraphicsMod.ResolveApi(advanced.Api, vulkanAvailable) == GraphicsMod.OpenGlApi ? "0" : "1");
@@ -92,10 +85,27 @@ namespace HyruleOnline {
     SetValue(graphic, "VulkanAccurateBarriers", advanced.AccurateBarriers ? "true" : "false");
     SetValue(graphic, "UpscaleFilter", GraphicsMod.CleanFilter(advanced.Upscale.ToString(), 1).ToString());
     SetValue(graphic, "DownscaleFilter", GraphicsMod.CleanFilter(advanced.Downscale.ToString(), 0).ToString());
+    var overlay = Child(graphic, "Overlay");
+    SetValue(overlay, "FPS", advanced.ShowFps ? "true" : "false");
+    foreach (string name in new[] { "CPUUsage", "RAMUsage", "VRAMUsage" }) SetValue(overlay, name, advanced.ShowUsage ? "true" : "false");
+    SetValue(Child(graphic, "Notification"), "ShaderCompiling", advanced.ShowShaderNotice ? "true" : "false");
+    SetValue(Child(content, "Audio"), "TVVolume", GraphicsMod.CleanVolume(advanced.Volume.ToString()).ToString());
    }
 
    var settings = new XmlWriterSettings { Indent = true, IndentChars = "    ", Encoding = new UTF8Encoding(false) };
    using (var writer = XmlWriter.Create(settingsFile, settings)) document.Save(writer);
+  }
+
+  static XElement Child(XElement parent, string name) {
+   var element = parent.Element(name);
+   if (element == null) { element = new XElement(name); parent.Add(element); }
+   return element;
+  }
+
+  static XElement Entry(XElement packs, string file) {
+   var entry = packs.Elements("Entry").FirstOrDefault(e => string.Equals((string)e.Attribute("filename"), file, StringComparison.OrdinalIgnoreCase));
+   if (entry == null) { entry = new XElement("Entry", new XAttribute("filename", file)); packs.Add(entry); }
+   return entry;
   }
 
   static void SetValue(XElement parent, string name, string value) {

@@ -169,5 +169,13 @@ namespace HyruleOnline {
    Set(document, "playerModel", Characters.ModelJson(character));
    document.Save(file);
   }
+
+  // The server list holds the one server this player connects to.
+  public static void SetServer(string file, string name, string host, int port, string password) {
+   Func<string, string> quote = text => text.Replace("\\", "\\\\").Replace("\"", "\\\"");
+   var document = XDocument.Load(file);
+   Set(document, "serversAdded", "[{\"Name\":\"" + quote(name) + "\",\"IP\":\"" + quote(host) + "\",\"Port\":" + port + ",\"Favorite\":false,\"Password\":\"" + quote(password) + "\"}]");
+   document.Save(file);
+  }
  }
 }

@@ -1,0 +1,131 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  steamos-gate:
+    name: SteamOS tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install display tools
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends xvfb python3-tk imagemagick
+      - name: Installer and script tests
+        run: bash steamos/test.sh
+      - name: Launcher unit tests
+        run: python3 steamos/launcher_test.py
+      - name: Launcher window check (stub script, virtual display)
+        run: xvfb-run -a -s "-screen 0 1280x800x24" python3 tests/steamos_gui_check.py
+
+  release:
+    name: Build and publish
+    needs: steamos-gate
+    runs-on: windows-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check that main was updated through Gitflow
+        id: meta
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          fail() { echo "::error::$1"; exit 1; }
+          head_ref=$(gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/pulls" --jq '.[0].head.ref // ""')
+          echo "Merged from: ${head_ref:-<direct push>}"
+          case "$head_ref" in
+            release/*|hotfix/*) ;;
+            *) fail "main was updated outside Gitflow. Only release/* and hotfix/* pull requests may reach main." ;;
+          esac
+          version=$(head -n1 VERSION | tr -d '[:space:]')
+          echo "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || fail "VERSION must look like 1.2.3 (got '$version')."
+          if git rev-parse -q --verify "refs/tags/v$version" >/dev/null; then fail "Tag v$version already exists."; fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Test (includes the Windows and SteamOS parity test)
+        shell: powershell
+        run: .\scripts\Test.ps1
+      - name: Build
+        shell: powershell
+        run: .\scripts\Build.ps1
+      - name: Install Inno Setup
+        shell: powershell
+        run: choco install innosetup --no-progress -y
+      - name: Package
+        shell: powershell
+        run: .\scripts\Package.ps1
+      - name: Package SteamOS installer
+        shell: bash
+        run: |
+          v="${{ steps.meta.outputs.version }}"
+          bash steamos/test.sh
+          rm -rf .artifacts/steamos-stage && mkdir -p .artifacts/steamos-stage
+          cp -r steamos ".artifacts/steamos-stage/HyruleOnline-$v-steamos"
+          cp VERSION ".artifacts/steamos-stage/HyruleOnline-$v-steamos/VERSION"
+          tar -czf ".artifacts/dist/HyruleOnline-$v-steamos.tar.gz" -C .artifacts/steamos-stage "HyruleOnline-$v-steamos"
+          (cd .artifacts/dist && sha256sum "HyruleOnline-$v-steamos.tar.gz" > "HyruleOnline-$v-steamos.tar.gz.sha256")
+      - name: Check that VERSION, the tag and the packages agree
+        shell: bash
+        run: |
+          v="${{ steps.meta.outputs.version }}"
+          fail() { echo "::error::$1"; exit 1; }
+          [ "$(head -n1 VERSION | tr -d '[:space:]')" = "$v" ] || fail "VERSION changed while the release was built."
+          [ "${GITHUB_REF_TYPE}" != tag ] || [ "${GITHUB_REF_NAME}" = "v$v" ] || fail "The tag ${GITHUB_REF_NAME} does not match VERSION ($v)."
+          grep -q "\"version\": \"$v\"" steamos/parity.json || fail "steamos/parity.json is not at version $v. Review the Windows changes against the SteamOS launcher, then set its version."
+          for f in "HyruleOnline-$v-setup.exe" "HyruleOnline-$v-portable.zip"; do [ -f ".artifacts/dist/$f" ] || fail "$f was not built; the Windows packages do not carry version $v."; done
+          rm -rf .artifacts/verify && mkdir -p .artifacts/verify
+          tar -xzf ".artifacts/dist/HyruleOnline-$v-steamos.tar.gz" -C .artifacts/verify
+          pkg=".artifacts/verify/HyruleOnline-$v-steamos"
+          [ "$(head -n1 "$pkg/VERSION" | tr -d '[:space:]')" = "$v" ] || fail "The SteamOS tarball carries a different VERSION than $v."
+          shipped=$(bash "$pkg/hyrule-online.sh" --version)
+          [ "$shipped" = "Hyrule Online $v" ] || fail "The SteamOS tarball reports '$shipped' but the release is v$v."
+          echo "VERSION, tag v$v, Windows packages and the SteamOS tarball all say $v."
+      - name: Publish release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v="${{ steps.meta.outputs.version }}"
+          gh release create "v$v" .artifacts/dist/HyruleOnline-$v-setup.exe .artifacts/dist/HyruleOnline-$v-portable.zip \
+            .artifacts/dist/HyruleOnline-$v-steamos.tar.gz .artifacts/dist/HyruleOnline-$v-steamos.tar.gz.sha256 \
+            --target "${{ github.sha }}" --title "Hyrule Online $v" --generate-notes
+
+  backport:
+    name: Backport to develop
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Merge main into develop
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.release.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B develop origin/develop
+          if git merge-base --is-ancestor origin/main develop; then echo "develop already has main."; exit 0; fi
+          if git merge --no-ff origin/main -m "Merge main (v$VERSION) back into develop" && git push origin develop; then
+            echo "Backported v$VERSION to develop."
+            exit 0
+          fi
+          git merge --abort 2>/dev/null || true
+          git checkout -B "backport/$VERSION" origin/main
+          git push --force origin "backport/$VERSION"
+          gh pr create --base develop --head "backport/$VERSION" \
+            --title "Backport v$VERSION to develop" \
+            --body "Merging main into develop could not be done automatically. Resolve the conflicts and merge this pull request."

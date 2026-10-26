@@ -11,6 +11,9 @@ namespace HyruleOnline {
   public readonly PadState[] Pads = new PadState[4];
   public readonly MotionReading[] Motion = new MotionReading[4];
   public int Assigning = -1;
+  // ChordSeq grows each time a controller holds the menu shortcut long enough; ChordSlot is that controller. Engaged says which controllers are holding it now.
+  public int ChordSeq = 0, ChordSlot = -1;
+  public readonly bool[] Engaged = new bool[4];
  }
 
  // Reads controllers through SDL3 on its own thread and publishes them in the shared-memory layout the
@@ -20,6 +23,13 @@ namespace HyruleOnline {
   const string MapName = "Local\\HyruleCoop.Routing.v2";
   // Menu button layout setting (PadKind.Auto or a fixed layout), shared with the launcher's pad navigation.
   public static volatile int MenuLayout = PadKind.Auto;
+  // The shortcut that opens the launcher from a game (null turns it off), and whether the launcher is in front of a running game.
+  // While it is, the games get a neutral controller so a menu press never reaches them.
+  public static volatile MenuShortcut Shortcut = MenuShortcut.FromDefault();
+  public static volatile bool MenuOpen;
+  // When a controller last had a button, trigger or stick pressed (Environment.TickCount); the launcher uses it to tell keys sent by a controller mapper from real typing.
+  public static volatile int LastPadInput = Environment.TickCount - 60000;
+  const int PulseMs = 180;
   readonly object gate = new object();
   readonly int[] routes = { -1, -1 };
   readonly bool[] connected = new bool[4];
@@ -28,7 +38,8 @@ namespace HyruleOnline {
   readonly PadState[] pads = new PadState[4];
   readonly MotionReading[] motion = new MotionReading[4];
   readonly bool[] testRequested = new bool[2];
-  int assigning = -1;
+  readonly bool[] engaged = new bool[4];
+  int assigning = -1, chordSeq, chordSlot = -1;
   Thread thread;
   volatile bool stop;
   Exception startError;
@@ -36,6 +47,7 @@ namespace HyruleOnline {
   public event Action<string> Message;
 
   // A player keeps a reserved slot while its controller is away; a newly connected controller takes a player whose slot is empty or gone.
+  // A lone controller is always player one: if it sat on player two, the two players swap and player one's reserved slot moves to player two.
   public static void Reconcile(int[] routes, bool[] connected) {
    for (int player = 0; player < 2; player++) {
     if (routes[player] >= 0 && connected[routes[player]]) continue;
@@ -44,6 +56,7 @@ namespace HyruleOnline {
      routes[player] = slot; break;
     }
    }
+   if ((routes[0] < 0 || !connected[routes[0]]) && routes[1] >= 0 && connected[routes[1]]) { int first = routes[0]; routes[0] = routes[1]; routes[1] = first; }
   }
 
   // Gives the slot to the player; if the other player held it, that player takes the old slot.
@@ -70,6 +83,8 @@ namespace HyruleOnline {
     Array.Copy(pads, snapshot.Pads, 4);
     Array.Copy(motion, snapshot.Motion, 4);
     snapshot.Assigning = assigning;
+    snapshot.ChordSeq = chordSeq; snapshot.ChordSlot = chordSlot;
+    Array.Copy(engaged, snapshot.Engaged, 4);
    }
    return snapshot;
   }
@@ -77,6 +92,8 @@ namespace HyruleOnline {
   public void BeginAssign(int player) { lock (gate) assigning = player; }
   public void CancelAssign() { lock (gate) assigning = -1; }
   public void Swap() { lock (gate) { int first = routes[0]; routes[0] = routes[1]; routes[1] = first; } }
+  public void Promote(int slot) { lock (gate) Assign(routes, 0, slot); }
+  public void SetRoutes(int[] saved) { lock (gate) Array.Copy(saved, routes, 2); }
   public void TestRumble(int player) { lock (gate) testRequested[player] = true; }
 
   void Notify(string text) { var handler = Message; if (handler != null) handler(text); }
@@ -95,15 +112,35 @@ namespace HyruleOnline {
      var previousButtons = new ushort[4];
      var testSlot = new[] { -1, -1 };
      var testEnds = new long[2];
+     var trackers = new[] { new ShortcutTracker(), new ShortcutTracker(), new ShortcutTracker(), new ShortcutTracker() };
+     var pulseEnds = new long[4];
      var clock = Stopwatch.StartNew();
      int sequence = 0;
      while (!stop) {
       Sdl.Refresh();
       var states = new XInputState[4];
       var present = new bool[4];
-      for (int i = 0; i < 4; i++) { present[i] = Sdl.Present(i); if (present[i]) states[i] = Sdl.Read(i); }
+      for (int i = 0; i < 4; i++) {
+       present[i] = Sdl.Present(i);
+       if (!present[i]) continue;
+       states[i] = Sdl.Read(i);
+       var pad = states[i].pad;
+       if (pad.buttons != 0 || pad.lt > 100 || pad.rt > 100 || Math.Abs((int)pad.lx) > 20000 || Math.Abs((int)pad.ly) > 20000) LastPadInput = Environment.TickCount;
+      }
       int[] current;
+      var shortcut = Shortcut;
+      bool menuOpen = MenuOpen;
+      long tick = clock.ElapsedMilliseconds;
+      var fired = new bool[4];
+      for (int i = 0; i < 4; i++) fired[i] = present[i] ? trackers[i].Update(shortcut, states[i].pad, tick) : trackers[i].Update(null, new PadState(), tick);
       lock (gate) {
+       for (int i = 0; i < 4; i++) {
+        engaged[i] = trackers[i].Engaged;
+        if (!fired[i]) continue;
+        chordSeq++; chordSlot = i;
+        pulseEnds[i] = tick + PulseMs;
+        Sdl.Rumble(i, 0xA000, 0xA000, PulseMs);
+       }
        for (int i = 0; i < 4; i++) { connected[i] = present[i]; names[i] = Sdl.Names[i]; kinds[i] = present[i] ? Sdl.Kinds[i] : -1; pads[i] = states[i].pad; motion[i] = Sdl.Motion(i); }
        if (assigning >= 0) {
         for (int slot = 0; slot < 4; slot++) {
@@ -122,7 +159,12 @@ namespace HyruleOnline {
         if (testSlot[player] >= 0) { Sdl.Rumble(testSlot[player], 0xC000, 0xC000, 400); testEnds[player] = clock.ElapsedMilliseconds + 400; }
        }
       }
-      for (int i = 0; i < 4; i++) previousButtons[i] = states[i].pad.buttons;
+      for (int i = 0; i < 4; i++) {
+       previousButtons[i] = states[i].pad.buttons;
+       if (pulseEnds[i] > 0 && tick >= pulseEnds[i]) { pulseEnds[i] = 0; Sdl.Rumble(i, 0, 0, 0); }
+       if (menuOpen) states[i].pad = new PadState();
+       else if (trackers[i].Engaged && shortcut != null) states[i].pad = shortcut.Hide(states[i].pad);
+      }
       for (int player = 0; player < 2; player++) {
        if (testSlot[player] >= 0 && clock.ElapsedMilliseconds >= testEnds[player]) { Sdl.Rumble(testSlot[player], 0, 0, 0); testSlot[player] = -1; }
        if (published[player] == current[player]) continue;

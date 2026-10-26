@@ -1,0 +1,94 @@
+{
+  "schema": 1,
+  "requirements": {
+    "freeDiskBytes": 4294967296,
+    "minWindowsBuild": 17763,
+    "minDotNetRelease": 528040,
+    "gameTitleId": "00050000101C9400",
+    "updateTitleId": "0005000E101C9400",
+    "updateVersion": 208,
+    "dlcTitleId": "0005000C101C9400",
+    "dlcVersion": 80
+  },
+  "components": [
+    {
+      "id": "cemu",
+      "name": "Cemu",
+      "version": "1.26.2f",
+      "kind": "zip",
+      "url": "https://cemu.info/releases/cemu_1.26.2.zip",
+      "sha256": "B0E3ABF5048F78E352B42C3E1660A2C6E85D6905CD9F60D06CA2F2318FA3152C",
+      "size": 24987546,
+      "stripRoot": "cemu_1.26.2",
+      "targets": [ ".tools/instances/cemuA", ".tools/instances/cemuB" ],
+      "markers": [
+        { "file": "Cemu.exe", "size": 19923456, "sha256": "01074183E5CBAF553D6636FF7FB0959D4808F7ECBDEC667E6B6B031E289E0801" }
+      ],
+      "requiredFor": "Running the game (one Cemu per player)",
+      "verified": "Official Cemu release page; URL answers 200 and the hash is that of the file the working install was built from."
+    },
+    {
+      "id": "milkbar",
+      "name": "Milk Bar Launcher",
+      "version": "2.0.1",
+      "kind": "zip",
+      "url": "https://github.com/MilkBarModding/MilkBarLauncher/releases/download/2.0.1/MilkBarLauncher.zip",
+      "sha256": "8ED0B624489D601A54CE6CF16D6C1A0F43BAC6A608D5E30CFB783D944A30F9B9",
+      "size": 64558686,
+      "targets": [ ".artifacts/extract/milkbar", ".artifacts/extract/milkbarB" ],
+      "markers": [
+        { "file": "Milk Bar Launcher.dll", "size": 11454976, "sha256": "A4C2C968BECEC6FD546DA68CE16A829A12B65471AD2902D580C2179D04A6DB39" },
+        { "file": "DedicatedServer/MBL.DedicatedServer.exe", "size": 410624, "sha256": "8DE1219841E52E1697B70072B1B887F64243A43FB63F8DBEEAE901538A470DBD", "firstTargetOnly": true }
+      ],
+      "requiredFor": "Online mode (the multiplayer mod and the dedicated server). Never bundled: always downloaded from its upstream release.",
+      "verified": "Upstream GitHub release asset; URL answers 200 and the size matches. The release publishes no digest, so the hash is that of the file the working install was built from."
+    },
+    {
+      "id": "graphicpacks",
+      "name": "Cemu graphic packs",
+      "version": "v989",
+      "kind": "zip",
+      "url": "https://github.com/cemu-project/cemu_graphic_packs/releases/download/Github989/graphicPacks989.zip",
+      "sha256": "72B4708A476A810990A3EE1026EFC2A7B1C133D4E467EB8D8EBC23C436A03CBB",
+      "size": 3012937,
+      "targets": [ ".tools/instances/cemuA/graphicPacks/downloadedGraphicPacks", ".tools/instances/cemuB/graphicPacks/downloadedGraphicPacks" ],
+      "markers": [
+        { "file": "BreathOfTheWild/Mods/ExtendedMemory/rules.txt", "size": 950, "sha256": "3E2770CD45E5507A186B8C5F1D97750255E137387DCFEA5D62870874D3C5D14D" },
+        { "file": "BreathOfTheWild/Mods/FPS++/rules.txt", "size": 9407, "sha256": "47020B52AE94A2FF620030AB2970A480D905F195D56744C930BF384E1701BE21" }
+      ],
+      "versionFile": "version.txt",
+      "versionText": "Cemu Graphic Packs: v989",
+      "requiredFor": "Extended Memory (needed by the multiplayer mod) and FPS++",
+      "verified": "Official cemu-project release; the hash was computed from the downloaded file when this manifest was written (the release publishes no digest). The two marker files match the working install byte for byte."
+    },
+    {
+      "id": "python",
+      "name": "Python",
+      "version": "3.8.10",
+      "kind": "python-installer",
+      "url": "https://www.python.org/ftp/python/3.8.10/python-3.8.10-amd64.exe",
+      "sha256": "7628244CB53408B50639D2C1287C659F4E29D3DFDB9084B11AED5870C0C6A48A",
+      "size": 28296784,
+      "targets": [ ".tools/python38" ],
+      "markers": [
+        { "file": "python.exe", "fileVersion": "3.8.10" }
+      ],
+      "requiredFor": "BCML, which merges the multiplayer mod. Installed per user into the project folder: no PATH changes, no Store Python.",
+      "verified": "Official python.org download; URL answers 200 and the hash is that of the file the working install was built from."
+    },
+    {
+      "id": "bcml",
+      "name": "BCML",
+      "version": "3.10.8",
+      "kind": "pip",
+      "requires": "python",
+      "requirements": "scripts/bcml-requirements.txt",
+      "targets": [ ".tools/python38" ],
+      "markers": [
+        { "file": "Lib/site-packages/bcml-3.10.8.dist-info/METADATA" }
+      ],
+      "requiredFor": "Merging the multiplayer mod into the game",
+      "verified": "Every wheel is pinned by SHA-256 in the requirements file (taken from the pypi.org JSON API). The pip install itself has not been run end to end."
+    }
+  ]
+}

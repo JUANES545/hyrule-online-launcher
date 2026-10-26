@@ -1,0 +1,870 @@
+{
+ "Enemies": {
+  "es": "Enemigos",
+  "fr": "Ennemis"
+ },
+ "Quests": {
+  "es": "Misiones",
+  "fr": "Quêtes"
+ },
+ "Koroks": {
+  "es": "Kologs",
+  "fr": "Korogus"
+ },
+ "Towers": {
+  "es": "Torres",
+  "fr": "Tours"
+ },
+ "Shrines": {
+  "es": "Santuarios",
+  "fr": "Sanctuaires"
+ },
+ "Locations": {
+  "es": "Lugares",
+  "fr": "Lieux"
+ },
+ "Divine Beasts": {
+  "es": "Bestias Divinas",
+  "fr": "Créatures divines"
+ },
+ "No special mode": {
+  "es": "Sin modo especial",
+  "fr": "Aucun mode spécial"
+ },
+ "Hover an option, or move the focus to it, to see what it does.": {
+  "es": "Pasa el ratón por una opción, o ponle el foco, para ver qué hace.",
+  "fr": "Survolez une option, ou placez le focus dessus, pour voir son effet."
+ },
+ "Check the invite, the password, that the host has a session running, and that its firewall allows the port.": {
+  "es": "Revisa la invitación, la contraseña, que el anfitrión tenga una sesión abierta y que su cortafuegos permita el puerto.",
+  "fr": "Vérifiez l'invitation, le mot de passe, que l'hôte a une session ouverte et que son pare-feu autorise le port."
+ },
+ "PLAY": {
+  "es": "JUGAR",
+  "fr": "JOUER"
+ },
+ "ONLINE": {
+  "es": "EN LÍNEA",
+  "fr": "EN LIGNE"
+ },
+ "WORLD": {
+  "es": "MUNDO",
+  "fr": "MONDE"
+ },
+ "LANGUAGE": {
+  "es": "IDIOMA",
+  "fr": "LANGUE"
+ },
+ "DETAILS": {
+  "es": "DETALLES",
+  "fr": "DÉTAILS"
+ },
+ "Play on this device": {
+  "es": "Jugar en este dispositivo",
+  "fr": "Jouer sur cet appareil"
+ },
+ "Host a server": {
+  "es": "Alojar un servidor",
+  "fr": "Héberger un serveur"
+ },
+ "Join a server": {
+  "es": "Unirse a un servidor",
+  "fr": "Rejoindre un serveur"
+ },
+ "The server only accepts players from this device.": {
+  "es": "El servidor solo acepta jugadores de este dispositivo.",
+  "fr": "Le serveur n'accepte que les joueurs de cet appareil."
+ },
+ "Friends who run this launcher can join this device. The world rules are the ones on the World page.": {
+  "es": "Los amigos que usen este launcher pueden unirse a este dispositivo. Las reglas del mundo son las de la página Mundo.",
+  "fr": "Les amis qui utilisent ce launcher peuvent rejoindre cet appareil. Les règles du monde sont celles de la page Monde."
+ },
+ "One or two players on this device join a friend's server. The friend sets the rules.": {
+  "es": "Uno o dos jugadores de este dispositivo entran en el servidor de un amigo. Tu amigo decide las reglas.",
+  "fr": "Un ou deux joueurs de cet appareil rejoignent le serveur d'un ami. Votre ami fixe les règles."
+ },
+ "Keeps enemies in sync: what one player defeats is defeated for both.": {
+  "es": "Sincroniza los enemigos: lo que derrota un jugador queda derrotado para ambos.",
+  "fr": "Synchronise les ennemis : ce qu'un joueur bat l'est pour les deux."
+ },
+ "Shares quest progress between the players.": {
+  "es": "Comparte el progreso de las misiones entre los jugadores.",
+  "fr": "Partage la progression des quêtes entre les joueurs."
+ },
+ "Shares the Korok seeds found by each player.": {
+  "es": "Comparte las semillas Kolog que encuentra cada jugador.",
+  "fr": "Partage les graines Korogu trouvées par chaque joueur."
+ },
+ "Shares activated towers and the map they reveal.": {
+  "es": "Comparte las torres activadas y el mapa que revelan.",
+  "fr": "Partage les tours activées et la carte qu'elles révèlent."
+ },
+ "Shares the shrines either player has completed.": {
+  "es": "Comparte los santuarios que complete cualquiera de los jugadores.",
+  "fr": "Partage les sanctuaires terminés par l'un ou l'autre joueur."
+ },
+ "Shares the map locations either player has discovered.": {
+  "es": "Comparte los lugares del mapa que descubra cualquiera de los jugadores.",
+  "fr": "Partage les lieux de la carte découverts par l'un ou l'autre joueur."
+ },
+ "Shares Divine Beast progress between the players.": {
+  "es": "Comparte el progreso de las Bestias Divinas entre los jugadores.",
+  "fr": "Partage la progression des Créatures divines entre les joueurs."
+ },
+ "For playing the whole game together. Defeated enemies, Korok seeds, towers, shrines and map locations are shared; quests and Divine Beasts stay separate for each player.": {
+  "es": "Para jugar el juego entero en equipo. Se comparten los enemigos derrotados, las semillas Kolog, las torres, los santuarios y los lugares del mapa; las misiones y las Bestias Divinas son separadas para cada jugador.",
+  "fr": "Pour jouer au jeu entier ensemble. Les ennemis vaincus, les graines Korogu, les tours, les sanctuaires et les lieux de la carte sont partagés ; les quêtes et les Créatures divines restent séparées pour chaque joueur."
+ },
+ "A chase game: the speedrunner races through the game while the hunters try to stop them. What one player clears, activates or discovers counts for both.": {
+  "es": "Un juego de persecución: el speedrunner avanza a toda velocidad mientras los cazadores intentan detenerlo. Lo que uno despeja, activa o descubre cuenta para ambos.",
+  "fr": "Un jeu de poursuite : le speedrunner fonce à travers le jeu pendant que les chasseurs tentent de l'arrêter. Ce qu'un joueur termine, active ou découvre compte pour les deux."
+ },
+ "Built for speedruns: what one player defeats, activates or discovers counts for both, except quests, Korok seeds and Divine Beasts.": {
+  "es": "Pensado para speedruns: lo que uno derrota, activa o descubre cuenta para ambos, salvo las misiones, las semillas Kolog y las Bestias Divinas.",
+  "fr": "Conçu pour les speedruns : ce qu'un joueur bat, active ou découvre compte pour les deux, sauf les quêtes, les graines Korogu et les Créatures divines."
+ },
+ "Only defeated enemies are shared. Everything else stays separate for each player, which suits hide and seek in the same world.": {
+  "es": "Solo se comparten los enemigos derrotados. Todo lo demás es separado para cada jugador, lo que va bien para el escondite en el mismo mundo.",
+  "fr": "Seuls les ennemis vaincus sont partagés. Tout le reste reste séparé pour chaque joueur, ce qui convient à un cache-cache dans le même monde."
+ },
+ "A game mode where the players are swapped around the world at intervals. Nothing else is shared.": {
+  "es": "Un modo de juego en el que los jugadores se intercambian de posición por el mundo cada cierto tiempo. No se comparte nada más.",
+  "fr": "Un mode de jeu où les joueurs sont échangés de position dans le monde à intervalles réguliers. Rien d'autre n'est partagé."
+ },
+ "Your own mix: choose below what the players share.": {
+  "es": "Tu propia mezcla: elige abajo lo que comparten los jugadores.",
+  "fr": "Votre propre mélange : choisissez ci-dessous ce que les joueurs partagent."
+ },
+ "Normal co-op: only the rules above decide what the players share.": {
+  "es": "Cooperativo normal: solo las reglas de arriba deciden lo que comparten los jugadores.",
+  "fr": "Coopératif normal : seules les règles ci-dessus décident de ce que les joueurs partagent."
+ },
+ "Adds a chase: one player speedruns while the others hunt them. Best with the Hunter Vs Speedrunner preset.": {
+  "es": "Añade una persecución: un jugador hace speedrun mientras los demás lo cazan. Mejor con el preset Hunter Vs Speedrunner.",
+  "fr": "Ajoute une poursuite : un joueur fait un speedrun pendant que les autres le chassent. Idéal avec le preset Hunter Vs Speedrunner."
+ },
+ "Adds Death Swap: the players are swapped around the world at intervals. Best with the Death Swap preset.": {
+  "es": "Añade Death Swap: los jugadores se intercambian de posición por el mundo cada cierto tiempo. Mejor con el preset Death Swap.",
+  "fr": "Ajoute Death Swap : les joueurs sont échangés de position dans le monde à intervalles réguliers. Idéal avec le preset Death Swap."
+ },
+ "SESSION: Start session opens the server and the game. When the game reaches its main menu, press Continue in its window (about a minute). This device plays one local player. If you change the name, the online settings or the world rules while a session runs, Start becomes Restart session. The launcher language applies at once.": {
+  "es": "SESIÓN: Iniciar sesión abre el servidor y el juego. Cuando el juego llegue a su menú principal, pulsa Continuar en su ventana (tarda aproximadamente un minuto). Este dispositivo juega con un jugador local. Si con la sesión en marcha cambias el nombre, los ajustes en línea o las reglas del mundo, Iniciar se convierte en Reiniciar sesión. El idioma del launcher se aplica al instante.",
+  "fr": "SESSION : Démarrer la session ouvre le serveur et le jeu. Quand le jeu arrive à son menu principal, appuyez sur Continuer dans sa fenêtre (environ une minute). Cet appareil joue avec un joueur local. Si vous changez le nom, les réglages en ligne ou les règles du monde pendant que la session tourne, Démarrer devient Redémarrer la session. La langue du launcher s'applique tout de suite."
+ },
+ "ONLINE: Choose how this device takes part. Play on this device keeps the server private. Host a server opens it to friends: set the port, password and description, then copy the invite. Join a server connects this device to a friend's server with their invite. Changes apply at the next session start.": {
+  "es": "EN LÍNEA: Elige cómo participa este dispositivo. Jugar en este dispositivo mantiene el servidor privado. Alojar un servidor lo abre a tus amigos: indica el puerto, la contraseña y la descripción, y copia la invitación. Unirse a un servidor conecta este dispositivo al servidor de un amigo con su invitación. Los cambios se aplican al iniciar la próxima sesión.",
+  "fr": "EN LIGNE : Choisissez comment cet appareil participe. Jouer sur cet appareil garde le serveur privé. Héberger un serveur l'ouvre à vos amis : réglez le port, le mot de passe et la description, puis copiez l'invitation. Rejoindre un serveur connecte cet appareil au serveur d'un ami avec son invitation. Les changements s'appliquent au démarrage de la prochaine session."
+ },
+ "WORLD: World rules choose what everyone on the server shares (enemies, quests, koroks, towers, shrines, locations, Divine Beasts) and apply when the server starts. When you join a friend's server their rules apply and these are locked. Use recommended rules selects Game Completion.": {
+  "es": "MUNDO: Las reglas del mundo eligen lo que comparten todos en el servidor (enemigos, misiones, koroks, torres, santuarios, lugares, Bestias Divinas) y se aplican al iniciar el servidor. Si te unes al servidor de un amigo, valen sus reglas y estas quedan bloqueadas. Usar reglas recomendadas elige Game Completion.",
+  "fr": "MONDE : Les règles du monde choisissent ce que tous les joueurs du serveur partagent (ennemis, quêtes, korogus, tours, sanctuaires, lieux, créatures divines) et s'appliquent au démarrage du serveur. Si vous rejoignez le serveur d'un ami, ses règles s'appliquent et celles-ci sont verrouillées. Utiliser les règles recommandées choisit Game Completion."
+ },
+ "LANGUAGE: The launcher language changes at once.": {
+  "es": "IDIOMA: El idioma del launcher cambia al instante.",
+  "fr": "LANGUE : La langue du launcher change tout de suite."
+ },
+ "MOVING AROUND: The D-pad, the arrow keys or Tab move the focus. Confirm or Enter presses; back or Esc goes back and closes this help. LB and RB (or Ctrl+Tab) change page. Esc on the first page closes the launcher.": {
+  "es": "DESPLAZARSE: La cruceta, las flechas o Tab mueven el foco. Confirmar o Intro pulsa; atrás o Esc vuelve y cierra esta ayuda. LB y RB (o Ctrl+Tab) cambian de página. Esc en la primera página cierra el launcher.",
+  "fr": "SE DÉPLACER : La croix directionnelle, les flèches ou Tab déplacent le focus. Confirmer ou Entrée appuie ; retour ou Échap revient en arrière et ferme cette aide. LB et RB (ou Ctrl+Tab) changent de page. Échap sur la première page ferme le launcher."
+ },
+ "THE GAME: When the game starts the launcher steps aside so you can see it. Hold the menu shortcut (set on the Graphics page) to bring the launcher back, and again to go back to the game (or use Return to game). Start presses Start session when no session is running.": {
+  "es": "EL JUEGO: Cuando el juego arranca, el launcher se aparta para que lo veas. Mantén el atajo del menú (se elige en la página Gráficos) para volver al launcher, y otra vez para volver al juego (o usa Volver al juego). Start pulsa Iniciar sesión cuando no hay una sesión en marcha.",
+  "fr": "LE JEU : Quand le jeu démarre, le launcher s'efface pour que vous le voyiez. Maintenez le raccourci du menu (réglé sur la page Graphismes) pour revenir au launcher, et de nouveau pour retourner au jeu (ou utilisez Retourner au jeu). Start appuie sur Démarrer la session quand aucune session n'est en cours."
+ },
+ "MENU CONTROLS": {
+  "es": "CONTROL DE MENÚS",
+  "fr": "COMMANDES DES MENUS"
+ },
+ "Open this menu from a game": {
+  "es": "Abrir este menú desde un juego",
+  "fr": "Ouvrir ce menu depuis un jeu"
+ },
+ "Hold these controller buttons for 1.5 seconds while a game is in front to bring this launcher over it. Hold them again, or press the back button here, to return to the game. Pick buttons the game does not need together, or turn it off.": {
+  "es": "Mantén estos botones del mando durante 1,5 segundos con un juego delante para traer este launcher encima. Vuelve a mantenerlos, o pulsa el botón de volver aquí, para regresar al juego. Elige botones que el juego no use a la vez, o desactívalo.",
+  "fr": "Maintenez ces boutons de la manette pendant 1,5 seconde quand un jeu est au premier plan pour afficher ce launcher par-dessus. Maintenez-les à nouveau, ou appuyez sur le bouton retour ici, pour revenir au jeu. Choisissez des boutons que le jeu n'utilise pas ensemble, ou désactivez-le."
+ },
+ "Change shortcut": {
+  "es": "Cambiar atajo",
+  "fr": "Changer le raccourci"
+ },
+ "Off": {
+  "es": "Desactivado",
+  "fr": "Désactivé"
+ },
+ "Hold {0} for 1.5 seconds to bring this menu over the game. Hold it again, or press {1}, to go back.": {
+  "es": "Mantén {0} durante 1,5 segundos para traer este menú sobre el juego. Vuelve a mantenerlo, o pulsa {1}, para regresar.",
+  "fr": "Maintenez {0} pendant 1,5 seconde pour afficher ce menu par-dessus le jeu. Maintenez-le à nouveau, ou appuyez sur {1}, pour revenir."
+ },
+ "The menu shortcut is off.": {
+  "es": "El atajo del menú está desactivado.",
+  "fr": "Le raccourci du menu est désactivé."
+ },
+ "Hold the new shortcut on a controller (2 to 4 inputs), then let go. Tap {0} alone, or press nothing for 10 seconds, to cancel.": {
+  "es": "Mantén el nuevo atajo en un mando (de 2 a 4 botones) y suéltalo. Pulsa {0} solo, o no pulses nada durante 10 segundos, para cancelar.",
+  "fr": "Maintenez le nouveau raccourci sur une manette (2 à 4 touches), puis relâchez. Appuyez seul sur {0}, ou n'appuyez sur rien pendant 10 secondes, pour annuler."
+ },
+ "That combination cannot be used: pick 2 to 4 inputs, and not both small centre buttons.": {
+  "es": "Esa combinación no sirve: elige de 2 a 4 botones, y no los dos botones pequeños del centro a la vez.",
+  "fr": "Cette combinaison est impossible : choisissez 2 à 4 touches, pas les deux petits boutons centraux ensemble."
+ },
+ "Shortcut saved: {0}.": {
+  "es": "Atajo guardado: {0}.",
+  "fr": "Raccourci enregistré : {0}."
+ },
+ "Return to game": {
+  "es": "Volver al juego",
+  "fr": "Retourner au jeu"
+ },
+ "Friends can join from anywhere if the port is forwarded on your router.": {
+  "es": "Los amigos pueden entrar desde cualquier sitio si el puerto está redirigido en tu router.",
+  "fr": "Les amis peuvent rejoindre de n'importe où si le port est redirigé sur votre routeur."
+ },
+ "Not shared: {0}": {
+  "es": "No compartido: {0}",
+  "fr": "Non partagé : {0}"
+ },
+ "This is a {0} address. Friends on the same {0} network can join from anywhere.": {
+  "es": "Esta es una dirección de {0}. Los amigos en la misma red de {0} pueden entrar desde cualquier sitio.",
+  "fr": "Ceci est une adresse {0}. Les amis sur le même réseau {0} peuvent rejoindre de n'importe où."
+ },
+ "This is a home network address, so only people on the same network can join. For anyone else, install a VPN such as Tailscale on both devices, or forward the port on your router and use your public address.": {
+  "es": "Esta es una dirección de red local, así que solo entran las personas de la misma red. Para el resto, instala una VPN como Tailscale en ambos dispositivos, o redirige el puerto en tu router y usa tu dirección pública.",
+  "fr": "Ceci est une adresse de réseau local : seules les personnes du même réseau peuvent rejoindre. Pour les autres, installez un VPN comme Tailscale sur les deux appareils, ou redirigez le port sur votre routeur et utilisez votre adresse publique."
+ },
+ "No network address was found. Connect this device to a network, or type an address.": {
+  "es": "No se encontró ninguna dirección de red. Conecta este dispositivo a una red, o escribe una dirección.",
+  "fr": "Aucune adresse réseau n'a été trouvée. Connectez cet appareil à un réseau, ou saisissez une adresse."
+ },
+ "The start script failed.": {
+  "es": "El script de inicio falló.",
+  "fr": "Le script de démarrage a échoué."
+ },
+ "Start failed: {0}": {
+  "es": "No se pudo iniciar: {0}",
+  "fr": "Échec du démarrage : {0}"
+ },
+ "{0} joined.": {
+  "es": "{0} entró.",
+  "fr": "{0} a rejoint la partie."
+ },
+ "{0} left.": {
+  "es": "{0} salió.",
+  "fr": "{0} est parti."
+ },
+ "{0} could not join: wrong password.": {
+  "es": "{0} no pudo entrar: contraseña incorrecta.",
+  "fr": "{0} n'a pas pu entrer : mot de passe incorrect."
+ },
+ "{0} could not join (error {1}).": {
+  "es": "{0} no pudo entrar (error {1}).",
+  "fr": "{0} n'a pas pu entrer (erreur {1})."
+ },
+ "SESSION": {
+  "es": "SESIÓN",
+  "fr": "SESSION"
+ },
+ "Port": {
+  "es": "Puerto",
+  "fr": "Port"
+ },
+ "Password": {
+  "es": "Contraseña",
+  "fr": "Mot de passe"
+ },
+ "Server description": {
+  "es": "Descripción del servidor",
+  "fr": "Description du serveur"
+ },
+ "Invite or address": {
+  "es": "Invitación o dirección",
+  "fr": "Invitation ou adresse"
+ },
+ "INVITE FRIENDS": {
+  "es": "INVITAR AMIGOS",
+  "fr": "INVITER DES AMIS"
+ },
+ "Address in the invite": {
+  "es": "Dirección de la invitación",
+  "fr": "Adresse de l'invitation"
+ },
+ "JOINING A SERVER": {
+  "es": "UNIRSE A UN SERVIDOR",
+  "fr": "REJOINDRE UN SERVEUR"
+ },
+ "WORLD RULES": {
+  "es": "REGLAS DEL MUNDO",
+  "fr": "RÈGLES DU MONDE"
+ },
+ "Shared: {0}": {
+  "es": "Compartido: {0}",
+  "fr": "Partagé : {0}"
+ },
+ "The server address is not valid. Enter an invite link or host:port on the Online page.": {
+  "es": "La dirección del servidor no es válida. Escribe un enlace de invitación o host:puerto en la página En línea.",
+  "fr": "L'adresse du serveur n'est pas valide. Saisissez un lien d'invitation ou hôte:port sur la page En ligne."
+ },
+ "Server stopped": {
+  "es": "Servidor detenido",
+  "fr": "Serveur arrêté"
+ },
+ "Help": {
+  "es": "Ayuda",
+  "fr": "Aide"
+ },
+ "Previous page (LB or Ctrl+Shift+Tab)": {
+  "es": "Página anterior (LB o Ctrl+Mayús+Tab)",
+  "fr": "Page précédente (LB ou Ctrl+Maj+Tab)"
+ },
+ "Next page (RB or Ctrl+Tab)": {
+  "es": "Página siguiente (RB o Ctrl+Tab)",
+  "fr": "Page suivante (RB ou Ctrl+Tab)"
+ },
+ "START SESSION": {
+  "es": "INICIAR SESIÓN",
+  "fr": "DÉMARRER LA SESSION"
+ },
+ "Stop session": {
+  "es": "Detener sesión",
+  "fr": "Arrêter la session"
+ },
+ "Exit": {
+  "es": "Salir",
+  "fr": "Quitter"
+ },
+ "Cemu A: wait for the main menu, then press Continue within about a minute.": {
+  "es": "Cemu A: espera al menú principal y pulsa Continuar en aproximadamente un minuto.",
+  "fr": "Cemu A : attendez le menu principal, puis appuyez sur Continuer dans la minute environ."
+ },
+ "Copy invite": {
+  "es": "Copiar invitación",
+  "fr": "Copier l'invitation"
+ },
+ "Copies the invite. Your friends paste it in the Join a server mode of their launcher.": {
+  "es": "Copia la invitación. Tus amigos la pegan en el modo Unirse a un servidor de su launcher.",
+  "fr": "Copie l'invitation. Vos amis la collent dans le mode Rejoindre un serveur de leur launcher."
+ },
+ "Play on this device keeps the server private. Host a server lets friends join over the network. Join a server connects to a friend's server.": {
+  "es": "Jugar en este dispositivo mantiene el servidor privado. Alojar un servidor deja que tus amigos entren por la red. Unirse a un servidor te conecta al de un amigo.",
+  "fr": "Jouer sur cet appareil garde le serveur privé. Héberger un serveur permet à vos amis de vous rejoindre par le réseau. Rejoindre un serveur vous connecte à celui d'un ami."
+ },
+ "The TCP port the server listens on, from 1024 to 65535. It goes in the invite. The default is 5050.": {
+  "es": "El puerto TCP en el que escucha el servidor, de 1024 a 65535. Va en la invitación. Por defecto es 5050.",
+  "fr": "Le port TCP sur lequel le serveur écoute, de 1024 à 65535. Il figure dans l'invitation. Par défaut : 5050."
+ },
+ "Optional. Friends need it to join. Leave it empty for an open server.": {
+  "es": "Opcional. Tus amigos la necesitan para entrar. Déjala vacía para un servidor abierto.",
+  "fr": "Facultatif. Vos amis en ont besoin pour entrer. Laissez vide pour un serveur ouvert."
+ },
+ "A semicolon (;) is removed from the password.": {
+  "es": "Se quita el punto y coma (;) de la contraseña.",
+  "fr": "Le point-virgule (;) est retiré du mot de passe."
+ },
+ "The text friends see about this server.": {
+  "es": "El texto que ven tus amigos sobre este servidor.",
+  "fr": "Le texte que vos amis voient pour ce serveur."
+ },
+ "Paste the invite your friend sent you, or type their address and port.": {
+  "es": "Pega la invitación que te envió tu amigo, o escribe su dirección y puerto.",
+  "fr": "Collez l'invitation envoyée par votre ami, ou saisissez son adresse et son port."
+ },
+ "The server password, if the invite does not carry it.": {
+  "es": "La contraseña del servidor, si la invitación no la incluye.",
+  "fr": "Le mot de passe du serveur, si l'invitation ne le contient pas."
+ },
+ "The Tailscale or home network address of this device. Use your public address if you forward the port on your router. Empty it to detect the address again.": {
+  "es": "La dirección de este dispositivo en Tailscale o en tu red local. Usa tu dirección pública si redirigiste el puerto en el router. Vacíala para detectarla de nuevo.",
+  "fr": "L'adresse de cet appareil sur Tailscale ou sur votre réseau local. Utilisez votre adresse publique si vous avez redirigé le port sur le routeur. Videz le champ pour la détecter à nouveau."
+ },
+ "You joined a friend's server: the host sets the world rules, so these are locked.": {
+  "es": "Te uniste al servidor de un amigo: el anfitrión fija las reglas del mundo, así que estas están bloqueadas.",
+  "fr": "Vous avez rejoint le serveur d'un ami : l'hôte fixe les règles du monde, elles sont donc verrouillées."
+ },
+ "A ready-made set of sync rules. You can still change each rule below.": {
+  "es": "Un conjunto de reglas de sincronización ya preparado. Aún puedes cambiar cada regla abajo.",
+  "fr": "Un ensemble de règles de synchro prêt à l'emploi. Vous pouvez encore modifier chaque règle ci-dessous."
+ },
+ "An optional game mode on top of the rules: Hunter vs Speedrunner or Death Swap.": {
+  "es": "Un modo de juego opcional sobre las reglas: Hunter vs Speedrunner o Death Swap.",
+  "fr": "Un mode de jeu optionnel en plus des règles : Hunter vs Speedrunner ou Death Swap."
+ },
+ "Use recommended rules": {
+  "es": "Usar reglas recomendadas",
+  "fr": "Utiliser les règles recommandées"
+ },
+ "Selects the Game Completion preset with no special mode, the set that shares the most for playing the whole game together. It does not depend on this device's hardware.": {
+  "es": "Elige el preset Game Completion sin modo especial, el que más comparte para jugar el juego entero en equipo. No depende del hardware de este dispositivo.",
+  "fr": "Choisit le preset Game Completion sans mode spécial, celui qui partage le plus pour jouer au jeu entier ensemble. Il ne dépend pas du matériel de cet appareil."
+ },
+ "Online mode": {
+  "es": "Modo en línea",
+  "fr": "Mode en ligne"
+ },
+ "Preset": {
+  "es": "Preajuste",
+  "fr": "Préréglage"
+ },
+ "Special mode": {
+  "es": "Modo especial",
+  "fr": "Mode spécial"
+ },
+ "Stopping...": {
+  "es": "Deteniendo...",
+  "fr": "Arrêt..."
+ },
+ "Some changes only apply after a restart. Press Restart session to apply them.": {
+  "es": "Algunos cambios solo se aplican tras reiniciar. Pulsa Reiniciar sesión para aplicarlos.",
+  "fr": "Certains changements ne s'appliquent qu'après un redémarrage. Appuyez sur Redémarrer la session pour les appliquer."
+ },
+ "Session running.": {
+  "es": "Sesión en marcha.",
+  "fr": "Session en cours."
+ },
+ "Starting...": {
+  "es": "Iniciando...",
+  "fr": "Démarrage..."
+ },
+ "{0} is missing": {
+  "es": "Falta {0}",
+  "fr": "{0} est absent"
+ },
+ "Ready.": {
+  "es": "Listo.",
+  "fr": "Prêt."
+ },
+ "Nothing": {
+  "es": "Nada",
+  "fr": "Rien"
+ },
+ "Stopped": {
+  "es": "Detenido",
+  "fr": "Arrêté"
+ },
+ "Session log": {
+  "es": "Registro de la sesión",
+  "fr": "Journal de session"
+ },
+ "Server console": {
+  "es": "Consola del servidor",
+  "fr": "Console du serveur"
+ },
+ "Running": {
+  "es": "En marcha",
+  "fr": "En cours"
+ },
+ "Joined the server": {
+  "es": "Unido al servidor",
+  "fr": "Connecté au serveur"
+ },
+ "A session is running. The server and the game keep running if you close the launcher.": {
+  "es": "Hay una sesión en marcha. El servidor y el juego siguen funcionando si cierras el launcher.",
+  "fr": "Une session est en cours. Le serveur et le jeu continuent de tourner si vous fermez le launcher."
+ },
+ "Dedicated server": {
+  "es": "Servidor dedicado",
+  "fr": "Serveur dédié"
+ },
+ "Player 1 (Cemu A)": {
+  "es": "Jugador 1 (Cemu A)",
+  "fr": "Joueur 1 (Cemu A)"
+ },
+ "Player 1 name": {
+  "es": "Nombre del jugador 1",
+  "fr": "Nom du joueur 1"
+ },
+ "How this device takes part. Applied when the next session starts.": {
+  "es": "Cómo participa este dispositivo. Se aplica al iniciar la próxima sesión.",
+  "fr": "Comment cet appareil participe. S'applique au démarrage de la prochaine session."
+ },
+ "Example: hyrule://100.64.0.5:5050 or 192.168.1.20:5050": {
+  "es": "Ejemplo: hyrule://100.64.0.5:5050 o 192.168.1.20:5050",
+  "fr": "Exemple : hyrule://100.64.0.5:5050 ou 192.168.1.20:5050"
+ },
+ "Invite": {
+  "es": "Invitación",
+  "fr": "Invitation"
+ },
+ "ONLINE MULTIPLAYER": {
+  "es": "MULTIJUGADOR EN LÍNEA",
+  "fr": "MULTIJOUEUR EN LIGNE"
+ },
+ "Player 1": {
+  "es": "Jugador 1",
+  "fr": "Joueur 1"
+ },
+ "NAME": {
+  "es": "NOMBRE",
+  "fr": "NOM"
+ },
+ "LAUNCHER": {
+  "es": "LAUNCHER",
+  "fr": "LAUNCHER"
+ },
+ "Ask the host for their invite and paste it here. You play on this device with one or two players. The host chooses the world rules and runs the server.": {
+  "es": "Pide su invitación al anfitrión y pégala aquí. Juegas en este dispositivo con uno o dos jugadores. El anfitrión elige las reglas del mundo y ejecuta el servidor.",
+  "fr": "Demandez son invitation à l'hôte et collez-la ici. Vous jouez sur cet appareil avec un ou deux joueurs. L'hôte choisit les règles du monde et lance le serveur."
+ },
+ "What everyone on the server shares. Applied when the next session starts.": {
+  "es": "Lo que comparten todos en el servidor. Se aplica al iniciar la próxima sesión.",
+  "fr": "Ce que partagent tous les joueurs du serveur. S'applique au démarrage de la prochaine session."
+ },
+ "The launcher text changes right away.": {
+  "es": "El texto del launcher cambia al instante.",
+  "fr": "Le texte du launcher change immédiatement."
+ },
+ "GAME": {
+  "es": "JUEGO",
+  "fr": "JEU"
+ },
+ "The game applies it the next time a session starts. Text added by the mod itself may stay in English.": {
+  "es": "El juego lo aplica la próxima vez que inicies una sesión. El texto que añade el propio mod puede seguir en inglés.",
+  "fr": "Le jeu l'applique au prochain démarrage d'une session. Le texte ajouté par le mod lui-même peut rester en anglais."
+ },
+ "Starting": {
+  "es": "Iniciando",
+  "fr": "Démarrage"
+ },
+ "Waiting for Continue": {
+  "es": "Esperando Continuar",
+  "fr": "En attente de Continuer"
+ },
+ "Server running": {
+  "es": "Servidor activo",
+  "fr": "Serveur actif"
+ },
+ "RESTART SESSION": {
+  "es": "REINICIAR SESIÓN",
+  "fr": "REDÉMARRER LA SESSION"
+ },
+ "Server open at {0}:{1}.": {
+  "es": "Servidor abierto en {0}:{1}.",
+  "fr": "Serveur ouvert à {0}:{1}."
+ },
+ "Friends will join at {0}:{1} once the session starts.": {
+  "es": "Los amigos entrarán en {0}:{1} cuando empiece la sesión.",
+  "fr": "Les amis rejoindront à {0}:{1} dès que la session démarre."
+ },
+ "PLAYERS": {
+  "es": "JUGADORES",
+  "fr": "JOUEURS"
+ },
+ "Cancel": {
+  "es": "Cancelar",
+  "fr": "Annuler"
+ },
+ "Custom": {
+  "es": "Personalizado",
+  "fr": "Personnalisé"
+ },
+ "Waiting": {
+  "es": "Esperando",
+  "fr": "En attente"
+ },
+ "Nobody has joined yet.": {
+  "es": "Todavía no ha entrado nadie.",
+  "fr": "Personne n'a encore rejoint."
+ },
+ "FPS target": {
+  "es": "Objetivo de FPS",
+  "fr": "Objectif FPS"
+ },
+ "Sets the render resolution, shadows, anti-aliasing, the Cemu options and the FPS target to the values recommended for this device. Applied the next time a session starts. It is a starting point, not a benchmark: adjust it if the game runs badly.": {
+  "es": "Pone la resolución de renderizado, las sombras, el suavizado, las opciones de Cemu y el objetivo de FPS en los valores recomendados para este dispositivo. Se aplica la próxima vez que inicies una sesión. Es un punto de partida, no una prueba de rendimiento, así que ajústalo si el juego va mal.",
+  "fr": "Règle la résolution de rendu, les ombres, l'anticrénelage, les options de Cemu et l'objectif FPS sur les valeurs recommandées pour cet appareil. Appliqué au prochain démarrage d'une session. C'est un point de départ, pas un test de performance : ajustez-le si le jeu tourne mal."
+ },
+ "GRAPHICS": {
+  "es": "GRÁFICOS",
+  "fr": "GRAPHISMES"
+ },
+ "Graphics API": {
+  "es": "API gráfica",
+  "fr": "API graphique"
+ },
+ "The graphics backend Cemu uses. Vulkan is usually the better choice on modern graphics cards; OpenGL is the older backend, useful if Vulkan crashes or glitches on this device. Auto picks Vulkan when this device supports it and OpenGL otherwise. After changing it, the first start can take longer while shaders compile again.": {
+  "es": "El motor gráfico que usa Cemu. Vulkan suele ser mejor en tarjetas gráficas modernas; OpenGL es el motor antiguo y sirve si Vulkan se cuelga o da fallos en este dispositivo. Auto elige Vulkan si este dispositivo lo admite y OpenGL en caso contrario. Tras cambiarla, el primer inicio puede tardar más mientras se recompilan los shaders.",
+  "fr": "Le moteur graphique utilisé par Cemu. Vulkan est en général le meilleur choix sur les cartes graphiques récentes ; OpenGL est l'ancien moteur, utile si Vulkan plante ou provoque des défauts sur cet appareil. Auto choisit Vulkan si cet appareil le gère, sinon OpenGL. Après le changement, le premier démarrage peut être plus long pendant la recompilation des shaders."
+ },
+ "Master volume": {
+  "es": "Volumen general",
+  "fr": "Volume général"
+ },
+ "The sound level of every game window, for one or two players. Muted silences the games. Applied at the next session start.": {
+  "es": "El nivel de sonido de todas las ventanas de juego, con uno o dos jugadores. Silenciado apaga los juegos. Se aplica al iniciar la próxima sesión.",
+  "fr": "Le niveau sonore de toutes les fenêtres de jeu, à un ou deux joueurs. Muet coupe le son des jeux. S'applique au prochain démarrage d'une session."
+ },
+ "Low": {
+  "es": "Baja",
+  "fr": "Faible"
+ },
+ "Medium": {
+  "es": "Media",
+  "fr": "Moyenne"
+ },
+ "High": {
+  "es": "Alta",
+  "fr": "Élevée"
+ },
+ "Very High": {
+  "es": "Muy alta",
+  "fr": "Très élevée"
+ },
+ "Ultra": {
+  "es": "Ultra",
+  "fr": "Ultra"
+ },
+ "Extreme": {
+  "es": "Extrema",
+  "fr": "Extrême"
+ },
+ "Normal FXAA": {
+  "es": "FXAA normal",
+  "fr": "FXAA normal"
+ },
+ "Default": {
+  "es": "Predeterminado",
+  "fr": "Par défaut"
+ },
+ "Recommended": {
+  "es": "Recomendado",
+  "fr": "Recommandé"
+ },
+ "Recommended graphics settings applied ({0} class).": {
+  "es": "Ajustes gráficos recomendados aplicados (clase {0}).",
+  "fr": "Réglages graphiques recommandés appliqués (classe {0})."
+ },
+ "Unstable": {
+  "es": "Inestable",
+  "fr": "Instable"
+ },
+ "Experimental": {
+  "es": "Experimental",
+  "fr": "Expérimental"
+ },
+ "(window size)": {
+  "es": "(tamaño de ventana)",
+  "fr": "(taille de la fenêtre)"
+ },
+ "(sharper)": {
+  "es": "(más nítido)",
+  "fr": "(plus net)"
+ },
+ "(faster)": {
+  "es": "(más rápido)",
+  "fr": "(plus rapide)"
+ },
+ "Basic": {
+  "es": "Básica",
+  "fr": "Basique"
+ },
+ "Balanced": {
+  "es": "Equilibrada",
+  "fr": "Équilibrée"
+ },
+ "Render resolution": {
+  "es": "Resolución de renderizado",
+  "fr": "Résolution de rendu"
+ },
+ "How many pixels each game renders. Higher is sharper but needs a stronger graphics card.": {
+  "es": "Cuántos píxeles renderiza cada juego. Más es más nítido, pero exige una tarjeta gráfica más potente.",
+  "fr": "Nombre de pixels rendus par chaque jeu. Plus c'est élevé, plus c'est net, mais il faut une carte graphique plus puissante."
+ },
+ "Shadows": {
+  "es": "Sombras",
+  "fr": "Ombres"
+ },
+ "Quality of the shadows in the game.": {
+  "es": "Calidad de las sombras del juego.",
+  "fr": "Qualité des ombres dans le jeu."
+ },
+ "Shadow draw distance": {
+  "es": "Distancia de sombras",
+  "fr": "Distance des ombres"
+ },
+ "How far from the player shadows are drawn.": {
+  "es": "A qué distancia del jugador se dibujan las sombras.",
+  "fr": "Jusqu'où les ombres sont dessinées autour du joueur."
+ },
+ "Anti-aliasing": {
+  "es": "Suavizado de bordes",
+  "fr": "Anticrénelage"
+ },
+ "Smooths jagged edges.": {
+  "es": "Suaviza los bordes dentados.",
+  "fr": "Adoucit les bords crénelés."
+ },
+ "Upscale filter": {
+  "es": "Filtro de ampliación",
+  "fr": "Filtre d'agrandissement"
+ },
+ "How Cemu stretches the picture when the window is larger than the game's resolution. Bilinear is the softest and fastest; Bicubic and Bicubic Hermite look sharper at a small cost; Nearest neighbor keeps hard pixel edges.": {
+  "es": "Cómo estira Cemu la imagen cuando la ventana es mayor que la resolución del juego. Bilinear es el más suave y rápido; Bicubic y Bicubic Hermite se ven más nítidos con un pequeño coste; Nearest neighbor mantiene los bordes duros de los píxeles.",
+  "fr": "La façon dont Cemu étire l'image quand la fenêtre est plus grande que la résolution du jeu. Bilinear est le plus doux et le plus rapide ; Bicubic et Bicubic Hermite sont plus nets pour un petit coût ; Nearest neighbor garde des bords de pixels francs."
+ },
+ "Downscale filter": {
+  "es": "Filtro de reducción",
+  "fr": "Filtre de réduction"
+ },
+ "How Cemu shrinks the picture when the window is smaller than the game's resolution, which happens with a render resolution above 100%. Bilinear suits almost everyone; the others are slower and rarely worth it.": {
+  "es": "Cómo reduce Cemu la imagen cuando la ventana es menor que la resolución del juego, algo que ocurre con una resolución de renderizado superior al 100%. Bilinear sirve para casi todos; los demás son más lentos y rara vez compensan.",
+  "fr": "La façon dont Cemu réduit l'image quand la fenêtre est plus petite que la résolution du jeu, ce qui arrive avec une résolution de rendu supérieure à 100 %. Bilinear convient à presque tout le monde ; les autres sont plus lents et valent rarement la peine."
+ },
+ "VSync": {
+  "es": "VSync",
+  "fr": "VSync"
+ },
+ "Waits for the display refresh to avoid screen tearing. It can cap the frame rate at the display's refresh rate and adds a little input delay. Off suits most setups.": {
+  "es": "Espera al refresco de la pantalla para evitar cortes en la imagen. Puede limitar los FPS a la frecuencia de la pantalla y añade un poco de retardo. Desactivado sirve para la mayoría.",
+  "fr": "Attend le rafraîchissement de l'écran pour éviter le déchirement. Peut limiter les FPS à la fréquence de l'écran et ajoute un peu de latence. Désactivé convient à la plupart des configurations."
+ },
+ "Asynchronous shader compile": {
+  "es": "Compilación asíncrona de shaders",
+  "fr": "Compilation asynchrone des shaders"
+ },
+ "Compiles shaders in the background instead of pausing the game, so there is less stutter when something new appears for the first time. The price: objects may be missing for a moment. Recommended on.": {
+  "es": "Compila los shaders en segundo plano en lugar de pausar el juego, así hay menos tirones cuando algo nuevo aparece por primera vez. El precio: pueden faltar objetos un momento. Se recomienda activado.",
+  "fr": "Compile les shaders en arrière-plan au lieu de mettre le jeu en pause, ce qui limite les saccades quand quelque chose de nouveau apparaît pour la première fois. Le prix : des objets peuvent manquer un instant. Activé recommandé."
+ },
+ "Accurate barriers (Vulkan)": {
+  "es": "Barreras precisas (Vulkan)",
+  "fr": "Barrières précises (Vulkan)"
+ },
+ "Vulkan only. Fixes rare graphical glitches on some graphics cards at a small cost in speed. Leave it off unless you see flickering or missing effects.": {
+  "es": "Solo Vulkan. Corrige fallos gráficos poco comunes en algunas tarjetas a cambio de algo de rendimiento. Déjalo desactivado salvo que veas parpadeos o efectos que faltan.",
+  "fr": "Vulkan uniquement. Corrige de rares défauts d'affichage sur certaines cartes pour un petit coût en vitesse. Laissez-le désactivé sauf si vous voyez du scintillement ou des effets manquants."
+ },
+ "Show FPS": {
+  "es": "Mostrar FPS",
+  "fr": "Afficher les FPS"
+ },
+ "Shows Cemu's frame counter in a corner of each game window. It only changes what is drawn on screen, not how the game runs. Applied at the next session start.": {
+  "es": "Muestra el contador de FPS de Cemu en una esquina de cada ventana de juego. Solo cambia lo que se dibuja en pantalla, no cómo funciona el juego. Se aplica al iniciar la próxima sesión.",
+  "fr": "Affiche le compteur de FPS de Cemu dans un coin de chaque fenêtre de jeu. Cela ne change que l'affichage, pas le fonctionnement du jeu. S'applique au prochain démarrage d'une session."
+ },
+ "Show CPU, RAM and VRAM usage": {
+  "es": "Mostrar uso de CPU, RAM y VRAM",
+  "fr": "Afficher l'utilisation du CPU, de la RAM et de la VRAM"
+ },
+ "Adds Cemu's CPU, RAM and VRAM readouts to the counter in each game window, to see how much two games ask of this device. Applied at the next session start.": {
+  "es": "Añade las lecturas de CPU, RAM y VRAM de Cemu al contador de cada ventana de juego, para ver cuánto le piden dos juegos a este dispositivo. Se aplica al iniciar la próxima sesión.",
+  "fr": "Ajoute les mesures de CPU, de RAM et de VRAM de Cemu au compteur de chaque fenêtre de jeu, pour voir ce que deux jeux demandent à cet appareil. S'applique au prochain démarrage d'une session."
+ },
+ "Show the \"compiling shaders\" notice": {
+  "es": "Mostrar el aviso \"compilando shaders\"",
+  "fr": "Afficher l'avis « compilation des shaders »"
+ },
+ "Shows Cemu's \"compiling shaders\" message in each game window while new shaders build. Turn it off for a cleaner picture; the shaders still compile. Applied at the next session start.": {
+  "es": "Muestra el mensaje \"compilando shaders\" de Cemu en cada ventana de juego mientras se crean shaders nuevos. Desactívalo para una imagen más limpia; los shaders se compilan igual. Se aplica al iniciar la próxima sesión.",
+  "fr": "Affiche le message « compilation des shaders » de Cemu dans chaque fenêtre de jeu pendant la création de nouveaux shaders. Désactivez-le pour une image plus nette ; les shaders sont compilés quand même. S'applique au prochain démarrage d'une session."
+ },
+ "ADVANCED (CEMU)": {
+  "es": "AVANZADO (CEMU)",
+  "fr": "AVANCÉ (CEMU)"
+ },
+ "Use recommended settings": {
+  "es": "Usar ajustes recomendados",
+  "fr": "Utiliser les réglages recommandés"
+ },
+ "Applies at the next session start.": {
+  "es": "Se aplica al iniciar la próxima sesión.",
+  "fr": "S'applique au prochain démarrage d'une session."
+ },
+ "The defaults suit most devices.": {
+  "es": "Los valores predeterminados sirven para la mayoría de los dispositivos.",
+  "fr": "Les valeurs par défaut conviennent à la plupart des appareils."
+ },
+ "The primary display is not ready.": {
+  "es": "La pantalla principal no está lista.",
+  "fr": "L'écran principal n'est pas prêt."
+ },
+ "Auto ({0})": {
+  "es": "Auto ({0})",
+  "fr": "Auto ({0})"
+ },
+ "Muted": {
+  "es": "Silenciado",
+  "fr": "Muet"
+ },
+ "Each game renders {0} × {1}": {
+  "es": "Cada juego se renderiza a {0} × {1}",
+  "fr": "Chaque jeu est rendu en {0} × {1}"
+ },
+ "FPS++ is not installed": {
+  "es": "FPS++ no está instalado",
+  "fr": "FPS++ n'est pas installé"
+ },
+ "One player · the whole display": {
+  "es": "Un jugador · toda la pantalla",
+  "fr": "Un joueur · tout l'écran"
+ },
+ "at {0} FPS": {
+  "es": "a {0} FPS",
+  "fr": "à {0} FPS"
+ },
+ "DISPLAY: The launcher detects this device's screen and refresh rate, and each session starts the game at that size and frame rate. The FPS target never goes above the refresh rate. The preview shows the display, not a game screenshot.": {
+  "es": "PANTALLA: El launcher detecta la pantalla de este dispositivo y su frecuencia de actualización, y cada sesión inicia el juego con ese tamaño y esa tasa de fotogramas. El objetivo de FPS nunca supera la frecuencia de la pantalla. La vista previa muestra la pantalla, no una captura del juego.",
+  "fr": "ÉCRAN : Le launcher détecte l'écran de cet appareil et sa fréquence de rafraîchissement, et chaque session lance le jeu à cette taille et à cette cadence. L'objectif FPS ne dépasse jamais la fréquence de l'écran. L'aperçu montre l'écran, pas une capture du jeu."
+ },
+ "GRAPHICS: Render resolution scales the picture sharper or faster. Use recommended settings picks values that suit this device. Changes apply at the next session start.": {
+  "es": "GRÁFICOS: La resolución de renderizado hace la imagen más nítida o más rápida. Usar la configuración recomendada elige valores que encajan con este dispositivo. Los cambios se aplican al iniciar la próxima sesión.",
+  "fr": "GRAPHISMES : La résolution de rendu rend l'image plus nette ou plus rapide. Utiliser les paramètres recommandés choisit des valeurs adaptées à cet appareil. Les changements s'appliquent au prochain démarrage d'une session."
+ },
+ "DISPLAY": {
+  "es": "PANTALLA",
+  "fr": "ÉCRAN"
+ },
+ "FPS target: Auto · {0} FPS": {
+  "es": "Objetivo de FPS: Auto · {0} FPS",
+  "fr": "Objectif FPS : Auto · {0} FPS"
+ },
+ "SERVERS FOUND": {
+  "es": "SERVIDORES ENCONTRADOS",
+  "fr": "SERVEURS TROUVÉS"
+ },
+ "Search": {
+  "es": "Buscar",
+  "fr": "Rechercher"
+ },
+ "Test": {
+  "es": "Probar",
+  "fr": "Tester"
+ },
+ "Searching your VPN and local network…": {
+  "es": "Buscando en tu VPN y en la red local…",
+  "fr": "Recherche sur votre VPN et votre réseau local…"
+ },
+ "Servers found: {0}.": {
+  "es": "Servidores encontrados: {0}.",
+  "fr": "Serveurs trouvés : {0}."
+ },
+ "No servers found. Check that the host has a session running, or type the address.": {
+  "es": "No se encontró ningún servidor. Comprueba que el anfitrión tenga una sesión abierta, o escribe la dirección.",
+  "fr": "Aucun serveur trouvé. Vérifiez que l'hôte a une session ouverte, ou saisissez l'adresse."
+ },
+ "Tailscale was not found or is not connected on this device.": {
+  "es": "Tailscale no se encontró o no está conectado en este dispositivo.",
+  "fr": "Tailscale est introuvable ou n'est pas connecté sur cet appareil."
+ },
+ "Reachable in {0} ms.": {
+  "es": "Responde en {0} ms.",
+  "fr": "Joignable en {0} ms."
+ },
+ "Cannot reach {0}:{1}. Check the address, that the host has a session running, and its firewall.": {
+  "es": "No se puede llegar a {0}:{1}. Comprueba la dirección, que el anfitrión tenga una sesión abierta y su firewall.",
+  "fr": "Impossible de joindre {0}:{1}. Vérifiez l'adresse, que l'hôte a une session ouverte, et son pare-feu."
+ },
+ "Looks for servers on your VPN (Tailscale) and on your local network.": {
+  "es": "Busca servidores en tu VPN (Tailscale) y en tu red local.",
+  "fr": "Cherche des serveurs sur votre VPN (Tailscale) et sur votre réseau local."
+ },
+ "Checks that this address answers, without joining.": {
+  "es": "Comprueba que esta dirección responde, sin unirse.",
+  "fr": "Vérifie que cette adresse répond, sans rejoindre."
+ },
+ "VPN": {
+  "es": "VPN",
+  "fr": "VPN"
+ },
+ "Local": {
+  "es": "Local",
+  "fr": "Local"
+ }
+}

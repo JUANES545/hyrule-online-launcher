@@ -1,36 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace HyruleOnline {
- // The launcher is drawn on a design canvas that a Viewbox scales to the window, so nothing ever scrolls.
- // The canvas follows the window shape: wide windows get a wider canvas (up to a limit, then the content is centred),
- // narrow ones get a taller canvas and stack the two columns.
- sealed class ShellFit {
-  public const double WideHeight = 1030, MinWideWidth = 1280, MaxWideWidth = 1760;
-  public const double StackWidth = 760, StackHeight = 1700;
-  public const double StackBelow = 1.1;
-
-  public double Width, Height;
-  public bool Stacked;
-
-  public static ShellFit For(double windowWidth, double windowHeight) {
-   double aspect = Math.Max(1, windowWidth) / Math.Max(1, windowHeight);
-   var fit = new ShellFit();
-   if (aspect < StackBelow) {
-    fit.Stacked = true;
-    fit.Width = StackWidth;
-    fit.Height = Math.Max(StackHeight, StackWidth / aspect);
-    return fit;
-   }
-   double natural = aspect * WideHeight;
-   fit.Width = Math.Min(MaxWideWidth, Math.Max(MinWideWidth, natural));
-   fit.Height = natural < MinWideWidth ? MinWideWidth / aspect : WideHeight;
-   return fit;
-  }
-
-  public double Scale(double windowWidth, double windowHeight) { return Math.Min(windowWidth / Width, windowHeight / Height); }
- }
-
  // LB and RB move between the launcher pages, wrapping around at the ends.
  static class PageNav {
   public const ushort LeftBumper = 0x0100, RightBumper = 0x0200;
@@ -44,6 +16,24 @@ namespace HyruleOnline {
   public static bool Pressed(ushort previous, ushort current, ushort mask) { return (current & mask) != 0 && (previous & mask) == 0; }
 
   public static int Move(int page, int step, int count) { return count <= 0 ? 0 : ((page + step) % count + count) % count; }
+ }
+
+ // Start (or Select) is both a menu action and part of the menu shortcut. When the shortcut uses it, the action waits for the release
+ // and is dropped if anything else was held meanwhile, so opening or closing the menu with the shortcut never restarts the session.
+ sealed class TapGuard {
+  bool down, spoiled;
+
+  public bool Update(ushort buttons, byte lt, byte rt, ushort mask, bool onRelease) {
+   bool held = (buttons & mask) != 0;
+   bool other = (buttons & ~mask) != 0 || lt >= MenuShortcut.TriggerOff || rt >= MenuShortcut.TriggerOff;
+   bool fire = false;
+   if (!onRelease) fire = held && !down;
+   else if (held && !down) spoiled = other;
+   else if (held && other) spoiled = true;
+   else if (!held && down) fire = !spoiled;
+   down = held;
+   return fire;
+  }
  }
 
  // What one controller did to the menu since the last poll: a direction (0 up, 1 down, 2 left, 3 right, -1 none) and new A / B presses.
@@ -104,7 +94,23 @@ namespace HyruleOnline {
   }
 
   // With sideways set, left and right may also reach a box that is not in the same row when nothing lines up.
+  // How far a point is from a span: zero inside it. A wide box above two narrow ones is then close to both, instead of favouring a wide box further down.
+  static double Away(double point, double start, double length) {
+   return point < start ? start - point : point > start + length ? point - (start + length) : 0;
+  }
+
   public static int Pick(Box from, IList<Box> items, int direction) { return Pick(from, items, direction, false); }
+
+  // One controller step. Left and right from a content control may also cross to a content control on another row (player 1's cards sit higher than the display options); the footer and Help never do.
+  public static int Next(Box from, IList<Box> items, IList<bool> chrome, bool fromChrome, int direction) {
+   int pick = Pick(from, items, direction);
+   if (pick < 0 && direction >= 2 && !fromChrome) {
+    var content = Enumerable.Range(0, items.Count).Where(i => !chrome[i]).ToList();
+    int side = Pick(from, content.Select(i => items[i]).ToList(), direction, true);
+    if (side >= 0) pick = content[side];
+   }
+   return pick;
+  }
 
   public static int Pick(Box from, IList<Box> items, int direction, bool sideways) {
    if (direction < 0 || direction > 3) return -1;
@@ -120,10 +126,11 @@ namespace HyruleOnline {
      case 2: if (itemX >= fromX - 1) continue; along = Math.Max(0, from.X - (item.X + item.Width)) + (fromX - itemX) * .1; break;
      default: if (itemX <= fromX + 1) continue; along = Math.Max(0, item.X - (from.X + from.Width)) + (itemX - fromX) * .1; break;
     }
-    if (vertical) { across = Gap(from.X, from.Width, item.X, item.Width); offset = Math.Abs(itemX - fromX); }
-    else { across = Gap(from.Y, from.Height, item.Y, item.Height); offset = Math.Abs(itemY - fromY); }
+    double miss;
+    if (vertical) { across = Gap(from.X, from.Width, item.X, item.Width); offset = Math.Abs(itemX - fromX); miss = Away(fromX, item.X, item.Width); }
+    else { across = Gap(from.Y, from.Height, item.Y, item.Height); offset = Math.Abs(itemY - fromY); miss = Away(fromY, item.Y, item.Height); }
     if (across <= 0) {
-     double score = along + offset * .5;
+     double score = along + miss * .5 + offset * .1;
      if (score < bestScore) { bestScore = score; best = i; }
     }
     else if (vertical || sideways) {

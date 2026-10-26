@@ -18,6 +18,11 @@ namespace HyruleOnline {
 
  sealed class DisplayPlan { public LayoutMode Layout; public bool Separate; public PlayerView[] Players; }
 
+ static class RestartGate {
+  // The games were started with the applied signature; any other one means the options changed and only a restart can apply them.
+  public static bool Differs(string applied, string current) { return applied != null && applied != current; }
+ }
+
  // Splits the primary display between the two Cemu windows. Same Auto rule as the local co-op launcher:
  // a wide display (2:1 or more) goes side by side, anything else is stacked.
  static class ScreenLayout {
@@ -153,6 +158,16 @@ namespace HyruleOnline {
   const int SwRestore = 9;
 
   [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr window);
+  [DllImport("user32.dll")] static extern void keybd_event(byte key, byte scan, uint flags, UIntPtr extra);
+
+  // Windows only lets the program that got the last real input take the focus, and a controller is not an input for it.
+  // A synthetic Alt tap counts as input, so it unlocks the switch; the key is released right away and nothing else sees it as a shortcut.
+  public static void Focus(IntPtr window) {
+   const byte VkMenu = 0x12; const uint KeyUp = 2;
+   keybd_event(VkMenu, 0, 0, UIntPtr.Zero);
+   keybd_event(VkMenu, 0, KeyUp, UIntPtr.Zero);
+   BringToFront(window);
+  }
 
   // Puts the window above every other one, the launcher included. A topmost flip works even when Windows refuses to hand over the focus.
   public static void BringToFront(IntPtr window) {

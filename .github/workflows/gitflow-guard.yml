@@ -1,0 +1,61 @@
+name: Gitflow guard
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, edited]
+    branches: ['**']
+
+permissions:
+  contents: read
+
+jobs:
+  gitflow:
+    name: Gitflow guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check branch flow
+        env:
+          HEAD: ${{ github.head_ref }}
+          BASE: ${{ github.base_ref }}
+        run: |
+          fail() { echo "::error::$1"; exit 1; }
+          echo "Pull request: $HEAD -> $BASE"
+          case "$BASE" in
+            main)
+              case "$HEAD" in
+                release/*|hotfix/*) ;;
+                *) fail "main only accepts release/* or hotfix/* branches (got $HEAD)." ;;
+              esac ;;
+            develop)
+              case "$HEAD" in
+                feature/*|bugfix/*|backport/*) ;;
+                *) fail "develop only accepts feature/*, bugfix/* or backport/* branches (got $HEAD)." ;;
+              esac ;;
+            release/*)
+              case "$HEAD" in
+                bugfix/*) ;;
+                *) fail "release/* only accepts bugfix/* branches (got $HEAD)." ;;
+              esac ;;
+            *) fail "Pull requests must target main, develop or a release/* branch (got $BASE)." ;;
+          esac
+      - name: Check the version for releases and hotfixes
+        if: github.base_ref == 'main'
+        env:
+          HEAD: ${{ github.head_ref }}
+        run: |
+          fail() { echo "::error::$1"; exit 1; }
+          version=$(head -n1 VERSION | tr -d '[:space:]')
+          echo "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || fail "VERSION must look like 1.2.3 (got '$version')."
+          case "$HEAD" in
+            release/*|hotfix/*) [ "${HEAD#*/}" = "$version" ] || fail "Branch name $HEAD must match VERSION $version." ;;
+          esac
+          git fetch --tags --quiet
+          if git rev-parse -q --verify "refs/tags/v$version" >/dev/null; then fail "Tag v$version already exists. Bump VERSION in this branch."; fi
+          latest=$(git tag --list 'v[0-9]*' --sort=-v:refname | head -n1)
+          if [ -n "$latest" ] && [ "$(printf '%s\n%s\n' "${latest#v}" "$version" | sort -V | tail -n1)" != "$version" ]; then
+            fail "VERSION $version is older than $latest."
+          fi
+          echo "Releasing $version (latest tag: ${latest:-none})."
