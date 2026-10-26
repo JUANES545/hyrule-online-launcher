@@ -79,6 +79,7 @@ namespace HyruleOnline {
    add("rules.order", string.Join(",", all.Shared(true).ToArray()));
    add("rules.specials", string.Join(",", ServerRules.SpecialNames));
    add("rules.recommended", ServerRules.RecommendedName);
+   add("player.palette", string.Join(",", Roster.Palette));
    add("tabs", string.Join(",", Tabs(xaml).ToArray()));
    return facts;
   }
@@ -108,7 +109,7 @@ namespace HyruleOnline {
     if (value == null || value.Length == 0 || value.StartsWith("{") || !known.Contains(value) || seen.Any(s => s.Text == value)) return;
     seen.Add(new Seen { Text = value, Where = Rel(xamlFile) + ":" + ((IXmlLineInfo)element).LineNumber });
    };
-   var pages = new[] { "OnlinePage", "MultiplayerPage", "OnlineStatus", "PlayCopyInvite" };
+   var pages = new[] { "OnlinePage", "MultiplayerPage" };
    foreach (var page in xaml.Descendants().Where(e => pages.Contains((string)e.Attribute(x + "Name"))))
     foreach (var element in page.DescendantsAndSelf()) {
      foreach (var attribute in element.Attributes().Where(a => translated.Contains(a.Name.LocalName))) take(element, attribute.Value);
@@ -153,6 +154,7 @@ namespace HyruleOnline {
     return "Update the limits in steamos\\hyrule-online.sh (valid_host_port, clean_text; valid_name in lib.sh) and steamos\\launcher.py (the LIMITS dictionary, NAME_RE), then " + ManifestFile + ".";
    if (key.StartsWith("invite") || key.StartsWith("host.valid")) return "Update invite_url and parse_invite in steamos\\hyrule-online.sh and steamos\\launcher.py, then " + ManifestFile + ".";
    if (key.StartsWith("rules")) return "Update the rule names, specials and default preset in steamos\\hyrule-online.sh and steamos\\launcher.py, then " + ManifestFile + ".";
+   if (key.StartsWith("player")) return "Update PALETTE in steamos\\launcher.py to the colours of Roster.Palette, then " + ManifestFile + ".";
    return "Update steamos\\launcher.py (TABS) and the page it shows, then " + ManifestFile + ".";
   }
 
@@ -189,6 +191,7 @@ namespace HyruleOnline {
    Same("RULE_NAMES", facts["rules.order"].ToString().Split(',').ToList(), Section(launcher, "^RULE_NAMES = \\[([^\\]]*)\\]") == null ? null : Words(Section(launcher, "^RULE_NAMES = \\[([^\\]]*)\\]")), "steamos\\launcher.py", "Rule names follow the Windows World page.");
    Same("RULE_NAMES", facts["rules.order"].ToString().Split(',').ToList(), Section(script, "^RULE_NAMES=\\(([^)]*)\\)") == null ? null : Words(Section(script, "^RULE_NAMES=\\(([^)]*)\\)")), "steamos\\hyrule-online.sh", "Rule names follow the Windows World page.");
    Same("SPECIALS", facts["rules.specials"].ToString().Split(',').ToList(), Section(launcher, "^SPECIALS = \\[([^\\]]*)\\]") == null ? null : Words(Section(launcher, "^SPECIALS = \\[([^\\]]*)\\]")), "steamos\\launcher.py", "Special modes follow ServerRules.SpecialNames.");
+   Same("PALETTE", facts["player.palette"].ToString().Split(',').ToList(), Section(launcher, "^PALETTE = \\(([^)]*)\\)") == null ? null : Words(Section(launcher, "^PALETTE = \\(([^)]*)\\)")), "steamos\\launcher.py", "Player card colours follow Roster.Palette.");
    Needs(launcher, "steamos\\launcher.py", "the default port " + facts["port.default"], "\\b" + facts["port.default"] + "\\b");
    Needs(launcher, "steamos\\launcher.py", "the default description", Regex.Escape(Str(facts["description.default"])));
    Needs(launcher, "steamos\\launcher.py", "the host port range", "\\b1024\\b.*\\b65535\\b|\\b65535\\b.*\\b1024\\b|valid_port\\(.*1024");

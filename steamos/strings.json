@@ -543,13 +543,9 @@
   "es": "Los amigos entrarán en {0}:{1} cuando empiece la sesión.",
   "fr": "Les amis rejoindront à {0}:{1} dès que la session démarre."
  },
- "Playing on the server at {0}:{1}.": {
-  "es": "Jugando en el servidor de {0}:{1}.",
-  "fr": "Vous jouez sur le serveur {0}:{1}."
- },
- "Enter an invite on the Online page.": {
-  "es": "Escribe una invitación en la página En línea.",
-  "fr": "Saisissez une invitation sur la page En ligne."
+ "PLAYERS": {
+  "es": "JUGADORES",
+  "fr": "JOUEURS"
  },
  "Cancel": {
   "es": "Cancelar",
@@ -562,10 +558,6 @@
  "Waiting": {
   "es": "Esperando",
   "fr": "En attente"
- },
- "In the world: {0}": {
-  "es": "En el mundo: {0}",
-  "fr": "Dans le monde : {0}"
  },
  "Nobody has joined yet.": {
   "es": "Todavía no ha entrado nadie.",

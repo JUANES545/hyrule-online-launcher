@@ -64,6 +64,7 @@
     "rules.order": "Enemies,Quests,Koroks,Towers,Shrines,Locations,Divine Beasts",
     "rules.specials": "No special mode,Hunter vs Speedrunner,Death Swap",
     "rules.recommended": "Game Completion",
+    "player.palette": "#7EE9C9,#E5C384,#8DB8F5,#F08FA8,#B9A0F2,#F2A66B,#9BDD7A,#6FD3E8",
     "tabs": "PLAY,ONLINE,GRAPHICS,WORLD,LANGUAGE,DETAILS"
   },
   "presets": [
@@ -184,6 +185,26 @@
       "fr": "Exemple : hyrule://100.64.0.5:5050 ou 192.168.1.20:5050"
     },
     {
+      "en": "PLAYERS",
+      "es": "JUGADORES",
+      "fr": "JOUEURS"
+    },
+    {
+      "en": "Server open at {0}:{1}.",
+      "es": "Servidor abierto en {0}:{1}.",
+      "fr": "Serveur ouvert à {0}:{1}."
+    },
+    {
+      "en": "Friends will join at {0}:{1} once the session starts.",
+      "es": "Los amigos entrarán en {0}:{1} cuando empiece la sesión.",
+      "fr": "Les amis rejoindront à {0}:{1} dès que la session démarre."
+    },
+    {
+      "en": "Nobody has joined yet.",
+      "es": "Todavía no ha entrado nadie.",
+      "fr": "Personne n'a encore rejoint."
+    },
+    {
       "en": "INVITE FRIENDS",
       "es": "INVITAR AMIGOS",
       "fr": "INVITER DES AMIS"
@@ -202,11 +223,6 @@
       "en": "Check the invite, the password, that the host has a session running, and that its firewall allows the port.",
       "es": "Revisa la invitación, la contraseña, que el anfitrión tenga una sesión abierta y que su cortafuegos permita el puerto.",
       "fr": "Vérifiez l'invitation, le mot de passe, que l'hôte a une session ouverte et que son pare-feu autorise le port."
-    },
-    {
-      "en": "Enter an invite on the Online page.",
-      "es": "Escribe una invitación en la página En línea.",
-      "fr": "Saisissez une invitation sur la page En ligne."
     },
     {
       "en": "Play on this PC",
@@ -366,11 +382,6 @@
         "{0} could not join (error {1}).",
         "{0} joined.",
         "{0} left.",
-        "Server open at {0}:{1}.",
-        "Friends will join at {0}:{1} once the session starts.",
-        "In the world: {0}",
-        "Nobody has joined yet.",
-        "Playing on the server at {0}:{1}.",
         "Windows Firewall already allows port {0}.",
         "Windows Firewall may block port {0}. Allow it so friends can connect."
       ]

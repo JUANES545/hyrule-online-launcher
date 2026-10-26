@@ -29,7 +29,6 @@ namespace HyruleOnline {
    foreach (var name in new[] { "HostPortBox", "HostPasswordBox", "HostDescriptionBox", "HostAddressBox", "JoinAddressBox", "JoinPasswordBox" }) C<TextBox>(name).LostFocus += (s, e) => CommitOnline();
    Placeholder(C<TextBox>("JoinAddressBox"), C<TextBlock>("JoinAddressHint"));
    C<Button>("CopyInvite").Click += (s, e) => CopyInvite();
-   C<Button>("PlayCopyInvite").Click += (s, e) => CopyInvite();
    C<Button>("OpenFirewall").Click += (s, e) => AllowFirewall();
    C<Button>("FindServersButton").Click += (s, e) => FindServers(false);
    C<Button>("TestServerButton").Click += (s, e) => TestServer();
@@ -235,24 +234,43 @@ namespace HyruleOnline {
    else if (changed) ShowOnlineStatus();
   }
 
-  // Under Play: where the session is open and who is in it.
+  // On the Online page while hosting: where the session is open and a framed card, in the player's colour, for each player in the world.
   void ShowOnlineStatus() {
-   bool host = onlineMode == ServerConnection.Host;
-   C<UIElement>("OnlineStatus").Visibility = onlineMode == ServerConnection.Local ? Visibility.Collapsed : Visibility.Visible;
-   C<UIElement>("PlayCopyInvite").Visibility = host ? Visibility.Visible : Visibility.Collapsed;
-   var lines = new List<string>();
-   string target, password;
-   int port;
-   if (host) {
-    string address = hostAddress.Length > 0 ? hostAddress : DetectedAddress();
-    lines.Add(Tr(serverHost.Running ? "Server open at {0}:{1}." : "Friends will join at {0}:{1} once the session starts.", address, hostPort));
-    if (roster.Count > 0) lines.Add(Tr("In the world: {0}", roster.Text()));
-    else if (serverHost.Running) lines.Add(Tr("Nobody has joined yet."));
-   }
-   else if (ServerTarget(out target, out port, out password)) lines.Add(Tr("Playing on the server at {0}:{1}.", target, port));
-   else lines.Add(Tr("Enter an invite on the Online page."));
-   if (eventText != null) lines.Add(Tr(eventText, eventArgs));
-   C<TextBlock>("OnlineStatusText").Text = string.Join(Environment.NewLine, lines.ToArray());
+   if (onlineMode != ServerConnection.Host) return;
+   string address = hostAddress.Length > 0 ? hostAddress : DetectedAddress();
+   var players = roster.Players();
+   var status = Tr(serverHost.Running ? "Server open at {0}:{1}." : "Friends will join at {0}:{1} once the session starts.", address, hostPort);
+   if (players.Count == 0 && serverHost.Running) status += Environment.NewLine + Tr("Nobody has joined yet.");
+   C<TextBlock>("OnlineStatusText").Text = status;
+   C<TextBlock>("PlayerEvent").Text = eventText == null ? "" : Tr(eventText, eventArgs);
+   string signature = string.Join("\n", players.Select(p => p.Key + "=" + p.Value).ToArray());
+   if (signature == shownPlayers) return;
+   shownPlayers = signature;
+   var list = C<StackPanel>("PlayerList");
+   list.Children.Clear();
+   foreach (var player in players) list.Children.Add(PlayerCard(player.Key, player.Value));
+  }
+  string shownPlayers;
+
+  static UIElement PlayerCard(int slot, string name) {
+   var color = (Color)ColorConverter.ConvertFromString(Roster.ColorOf(slot));
+   var badge = new Border {
+    Width = 24, Height = 24, CornerRadius = new CornerRadius(12), Background = new SolidColorBrush(color), Margin = new Thickness(0, 0, 12, 0),
+    Child = new TextBlock { Text = slot.ToString(), Foreground = new SolidColorBrush(Color.FromRgb(0x0B, 0x10, 0x15)), FontWeight = FontWeights.Bold, FontSize = 13, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }
+   };
+   var label = new TextBlock { Text = name, Foreground = new SolidColorBrush(Color.FromRgb(0xEA, 0xF2, 0xF2)), FontSize = 15, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center };
+   Grid.SetColumn(label, 1);
+   var row = new Grid();
+   row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+   row.ColumnDefinitions.Add(new ColumnDefinition());
+   row.Children.Add(badge);
+   row.Children.Add(label);
+   var card = new Border {
+    BorderBrush = new SolidColorBrush(color), BorderThickness = new Thickness(2), CornerRadius = new CornerRadius(8), Padding = new Thickness(12, 4, 12, 4), Margin = new Thickness(0, 0, 0, 6),
+    Background = new SolidColorBrush(Color.FromArgb(0x22, color.R, color.G, color.B)), Child = row
+   };
+   System.Windows.Automation.AutomationProperties.SetName(card, slot + ". " + name);
+   return card;
   }
 
   // The hint sits over an empty box and disappears while the box has text or focus, like a form field.
@@ -330,7 +348,7 @@ namespace HyruleOnline {
    finally { filling = false; }
    bool host = onlineMode == ServerConnection.Host;
    Func<bool, Visibility> show = on => on ? Visibility.Visible : Visibility.Collapsed;
-   C<UIElement>("HostFields").Visibility = C<UIElement>("HostShare").Visibility = show(host);
+   C<UIElement>("HostFields").Visibility = C<UIElement>("HostShare").Visibility = C<UIElement>("PlayersBox").Visibility = show(host);
    C<UIElement>("JoinFields").Visibility = C<UIElement>("JoinHelp").Visibility = C<UIElement>("WorldJoinNote").Visibility = show(Joining);
    if (host) { string shown = C<TextBox>("HostAddressBox").Text; C<TextBlock>("NetworkHintText").Text = (addressProblem ? Tr("That address is not valid, so the previous one was kept. Use letters, digits, dots and dashes only.") + " " : "") + AddressHint(shown); }
    ShowOnlineStatus();

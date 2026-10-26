@@ -170,6 +170,12 @@ BRUSH = {"panel": "#A0152027", "edge": "#3449585A", "field": "#801B252B", "hover
          "pick": "#B03C554B", "pick_line": "#D5C396", "on_line": "#6A8F83", "bar": "#80212E2D", "hint": "#80111A20", "help": "#FC193039",
          "p1_line": "#557EE9C9", "p2_line": "#55E5C384", "badge": "#801B252B", "popup": "#F01B252B", "deep": "#E0152027"}
 BLURB, BADGE_FG, PLAYER1 = "#9EB2BD", "#CFE3E4", "#7EE9C9"
+# One colour per server slot, the same list as Roster.Palette in src/Launcher/ServerEvents.cs.
+PALETTE = ("#7EE9C9", "#E5C384", "#8DB8F5", "#F08FA8", "#B9A0F2", "#F2A66B", "#9BDD7A", "#6FD3E8")
+
+
+def slot_color(slot):
+    return PALETTE[(slot - 1) % len(PALETTE)]
 PANEL = blend(BRUSH["panel"], BG)
 
 # The fonts the Windows launcher bundles (src/Launcher/Fonts) are copied to fonts/ and used by name; every other family is only a fallback.
@@ -498,8 +504,12 @@ class Roster:
                     del self.rows[i]
                     break
 
+    def players(self):
+        """(slot, name) in slot order."""
+        return [(r[1], r[0]) for r in sorted(self.rows, key=lambda r: (r[1], r[2]))]
+
     def names(self):
-        return [r[0] for r in sorted(self.rows, key=lambda r: (r[1], r[2]))]
+        return [name for _, name in self.players()]
 
 
 def load_conf(path):
@@ -762,6 +772,7 @@ class ServerLog:
 # Fill, edge (a BRUSH key or a colour) and edge width in design px of the boxes that only decorate; the others follow the state of their widget.
 STATIC = {"card": ("panel", "edge", 1), "p1": ("panel", "p1_line", 2), "deep": ("deep", "deep", 0), "bar": ("bar", "bar", 0), "hint": ("hint", "hint", 0),
           "help": ("help", "edge", 1), "popup": ("popup", GOLD, 1), "badge": ("badge", MUTED, 2)}
+STATIC.update({"slot" + color: ("#22" + color[1:], color, 2) for color in PALETTE})  # a player's card: a tint of its colour inside a frame of it
 
 
 def rounded(x0, y0, x1, y1, radii, steps=5):
@@ -1228,14 +1239,6 @@ class App:
                                  wrap=inner * 45 // 100)
         self.prompt.pack(side="left", padx=(px(10), 0))
         self.promptbox.grid(row=0, column=3, rowspan=2, sticky="nsw", padx=(px(16), 0))
-        self.online_box = self.panel(right, None, pad=(18, 10), titled=False)
-        self.online_box.grid(row=2, column=0, sticky="ew", pady=(px(8), 0))
-        self.online_box.columnconfigure(0, weight=1)
-        self.online_text = self.label(self.online_box, "", fg=INFO, size=14, wrap=inner - 170)
-        self.online_text.grid(row=0, column=0, sticky="w")
-        self.copy_play = self.button(self.online_box, tr("Copy invite"), self.copy_invite, _k("Copies the invite. Your friends paste it in the Join a server mode of their launcher."),
-                                     size=16, style="", padx=22, pady=9)
-        self.copy_play.grid(row=0, column=1, sticky="e", padx=(px(18), 0))
 
     def build_online(self, page):
         px = self.px
@@ -1269,7 +1272,10 @@ class App:
         self.find_text = self.label(self.joinf, "", fg=SOFT, size=13, wrap=self.textw)
         self.find_text.grid(row=4, column=0, sticky="w", pady=(px(6), px(8)))
         self.field(self.joinf, 3, "Password", self.v["joinpass"], _k("The server password, if the invite does not carry it."), show="")
-        self.share = self.panel(page, "INVITE FRIENDS")
+        self.hostcol = tk.Frame(page, bg=BG)
+        self.hostcol.columnconfigure(0, weight=1)
+        self.share = self.panel(self.hostcol, "INVITE FRIENDS")
+        self.share.grid(row=0, column=0, sticky="new")
         self.share.columnconfigure(0, weight=1)
         self.addr_entry = self.field(self.share, 0, "Address in the invite", self.v["addr"], _k("The Tailscale or home network address of this device. Use your public address if you forward the port on your router. Empty it to detect the address again."))
         self.addr_entry.bind("<FocusOut>", lambda e: self.commit_addr(), add="+")
@@ -1281,6 +1287,17 @@ class App:
         self.copy_btn.grid(row=4, column=0, sticky="ew")
         self.nethint = self.label(self.share, "", fg=SOFT, size=13, wrap=self.textw)
         self.nethint.grid(row=5, column=0, sticky="w", pady=(px(8), 0))
+        self.playersbox = self.panel(self.hostcol, "PLAYERS")
+        self.playersbox.grid(row=1, column=0, sticky="new", pady=(px(18), 0))
+        self.playersbox.columnconfigure(0, weight=1)
+        self.online_text = self.label(self.playersbox, "", fg=INFO, size=14, wrap=self.textw)
+        self.online_text.grid(row=0, column=0, sticky="w", pady=(0, px(12)))
+        self.cards = tk.Frame(self.playersbox, bg=self.playersbox["bg"])
+        self.cards.grid(row=1, column=0, sticky="ew")
+        self.cards.columnconfigure(0, weight=1)
+        self.event_text = self.label(self.playersbox, "", fg=BLURB, size=13, wrap=self.textw)
+        self.event_text.grid(row=2, column=0, sticky="w", pady=(px(4), 0))
+        self.shown_players = None
         self.joincol = tk.Frame(page, bg=BG)
         self.joincol.columnconfigure(0, weight=1)
         self.joinhelp = self.panel(self.joincol, "JOINING A SERVER")
@@ -1474,12 +1491,12 @@ class App:
 
     def show_mode(self):
         m = self.mode.get()
-        for f in (self.hostf, self.joinf, self.share, self.joincol):
+        for f in (self.hostf, self.joinf, self.hostcol, self.joincol):
             f.grid_remove()
         gap = {"sticky": "new", "padx": (self.px(13), 0)}
         if m == HOST:
             self.hostf.grid(row=4, column=0, sticky="ew")
-            self.share.grid(row=0, column=1, **gap)
+            self.hostcol.grid(row=0, column=1, **gap)
         elif m == JOIN:
             self.joinf.grid(row=4, column=0, sticky="ew")
             self.joincol.grid(row=0, column=1, **gap)
@@ -1990,33 +2007,43 @@ class App:
         return tr("{0} is missing", c.missing[0]) if c.missing else tr("Ready.")
 
     def render_online(self, srv):
-        m, f = self.mode.get(), self.form()
-        invite = parse_invite(self.invite_text())
-        parsed = parse_invite(f["invite"])
-        if m == LOCAL:
-            line = tr("The server only accepts players from this device.")
-        elif m == HOST:
+        if self.mode.get() == HOST:
+            invite = parse_invite(self.invite_text())
+            players = self.log.roster.players() if srv else []
             line = tr("Server open at {0}:{1}.", invite[0], invite[1]) if srv and invite else \
-                tr("Friends will join at {0}:{1} once the session starts.", invite[0] if invite else "…", clean_port(f["port"]))
-        else:
-            line = tr("Playing on the server at {0}:{1}.", parsed[0], parsed[1]) if parsed else tr("Enter an invite on the Online page.")
-        names = self.log.roster.names() if srv and m != JOIN else []
-        lines = [line]
-        if m == HOST and names:
-            lines.append(tr("In the world: {0}", ", ".join(names)))
-        elif m == HOST and srv:
-            lines.append(tr("Nobody has joined yet."))
-        if srv and m == HOST and self.log.events:
-            lines.append(event_text(self.log.events[-1]))
-        self.online_text.config(text="\n".join(lines))
-        (self.online_box.grid_remove if m == LOCAL else self.online_box.grid)()  # Windows hides the card when the server is private
-        host_mode = m == HOST and bool(self.invite_text())
-        (self.copy_play.grid if host_mode else self.copy_play.grid_remove)()
+                tr("Friends will join at {0}:{1} once the session starts.", invite[0] if invite else "…", clean_port(self.form()["port"]))
+            if srv and not players:
+                line += "\n" + tr("Nobody has joined yet.")
+            self.online_text.config(text=line)
+            self.event_text.config(text=event_text(self.log.events[-1]) if srv and self.log.events else "")
+            self.render_players(players)
         if self.shown != self.cli.addresses:  # a new address list refreshes the detected address
             self.shown = list(self.cli.addresses)
             if not self.address() and self.root.focus_get() is not self.addr_entry:
                 self.commit_addr()
             self.refresh_invite()
+
+    def render_players(self, players):
+        """One framed card per player, in the colour of the player's slot; rebuilt only when the roster changes."""
+        if players == self.shown_players:
+            return
+        self.shown_players = players
+        for w in self.cards.winfo_children():
+            w.destroy()
+        px = self.px
+        for slot, name in players:
+            color = slot_color(slot)
+            card = Skin(self, self.cards, lambda o: tk.Frame(o, bg=self.cards["bg"]), "slot" + color, radius=8)
+            card.outer.grid(sticky="ew", pady=(0, px(6)))
+            fill = card.look()[0]
+            row = card.w
+            row.columnconfigure(1, weight=1)
+            size = px(24)
+            badge = tk.Canvas(row, width=size, height=size, bg=fill, bd=0, highlightthickness=0)
+            badge.create_oval(0, 0, size - 1, size - 1, fill=color, outline=color)
+            badge.create_text(size / 2, size / 2, text=str(slot), fill=BG, font=self.f(13, "menu", "bold"))
+            badge.grid(row=0, column=0, padx=(px(12), px(12)), pady=px(4))
+            self.label(row, name, fg=FG, size=15, bg=fill, wrap=self.textw - 90).grid(row=0, column=1, sticky="w")
 
     def render_details(self):
         for col, text in ((0, "\n".join(mask(line) for line in self.cli.lines[-200:])), (1, "\n".join(self.log.lines))):

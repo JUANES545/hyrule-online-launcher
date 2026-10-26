@@ -63,11 +63,19 @@ namespace HyruleOnline {
 
   public void Clear() { entries.Clear(); }
 
-  public List<string> Names() {
+  // One colour per server slot, so a player keeps theirs while others come and go. The SteamOS launcher uses the same list.
+  public static readonly string[] Palette = { "#7EE9C9", "#E5C384", "#8DB8F5", "#F08FA8", "#B9A0F2", "#F2A66B", "#9BDD7A", "#6FD3E8" };
+
+  public static string ColorOf(int slot) { return Palette[((slot - 1) % Palette.Length + Palette.Length) % Palette.Length]; }
+
+  // (slot, name) in slot order.
+  public List<KeyValuePair<int, string>> Players() {
    var sorted = new List<Entry>(entries);
    sorted.Sort((a, b) => a.Slot != b.Slot ? a.Slot.CompareTo(b.Slot) : a.Order.CompareTo(b.Order));
-   return sorted.ConvertAll(e => e.Name);
+   return sorted.ConvertAll(e => new KeyValuePair<int, string>(e.Slot, e.Name));
   }
+
+  public List<string> Names() { return Players().ConvertAll(p => p.Value); }
 
   public string Text() { return string.Join(", ", Names().ToArray()); }
 

@@ -14,7 +14,7 @@ namespace HyruleOnline {
   // Elements whose text the launcher sets from code; the XAML walker leaves them alone.
   public static readonly string[] Dynamic = {
    "CornerServer", "P1Status", "P2Status", "P1Name", "P2Name", "P1AvatarName", "P2AvatarName", "P1PickerName", "P2PickerName", "ScreenInfo", "LayoutInfo", "Layout", "Arrange", "Assign1", "Assign2",
-   "ServerText", "AText", "BText", "Status", "Prompt", "HelpText", "Log", "ServerLog", "LanguageList", "LauncherLanguageList", "TimeBox", "GraphicsHint", "MultiplayerHint", "Start", "PresetInfo", "PresetShares", "SpecialInfo", "PadHint1", "PadHint2", "PadLayoutInfo", "StartText", "Mode", "SetupProgressText", "SetupNotes", "OnlineModeInfo", "FirewallInfo", "OnlineStatusText", "NetworkHintText"
+   "ServerText", "AText", "BText", "Status", "Prompt", "HelpText", "Log", "ServerLog", "LanguageList", "LauncherLanguageList", "TimeBox", "GraphicsHint", "MultiplayerHint", "Start", "PresetInfo", "PresetShares", "SpecialInfo", "PadHint1", "PadHint2", "PadLayoutInfo", "StartText", "Mode", "SetupProgressText", "SetupNotes", "OnlineModeInfo", "FirewallInfo", "OnlineStatusText", "PlayerEvent", "NetworkHintText"
   };
 
   // Text that reads the same in every language.
@@ -293,10 +293,8 @@ namespace HyruleOnline {
    new[] { "{0} left.", "{0} salió.", "{0} est parti." },
    new[] { "Server open at {0}:{1}.", "Servidor abierto en {0}:{1}.", "Serveur ouvert à {0}:{1}." },
    new[] { "Friends will join at {0}:{1} once the session starts.", "Los amigos entrarán en {0}:{1} cuando empiece la sesión.", "Les amis rejoindront à {0}:{1} dès que la session démarre." },
-   new[] { "In the world: {0}", "En el mundo: {0}", "Dans le monde : {0}" },
+   new[] { "PLAYERS", "JUGADORES", "JOUEURS" },
    new[] { "Nobody has joined yet.", "Todavía no ha entrado nadie.", "Personne n'a encore rejoint." },
-   new[] { "Playing on the server at {0}:{1}.", "Jugando en el servidor de {0}:{1}.", "Vous jouez sur le serveur {0}:{1}." },
-   new[] { "Enter an invite on the Online page.", "Escribe una invitación en la página En línea.", "Saisissez une invitation sur la page En ligne." },
    new[] { "The server stopped. Press Restart session to bring it back.", "El servidor se detuvo. Pulsa Reiniciar sesión para recuperarlo.", "Le serveur s'est arrêté. Appuyez sur Redémarrer la session pour le relancer." },
    new[] { "The server stopped.", "El servidor se detuvo.", "Le serveur s'est arrêté." },
    new[] { "The server stopped while starting (exit code {0}).", "El servidor se detuvo al arrancar (código de salida {0}).", "Le serveur s'est arrêté au démarrage (code de sortie {0})." },

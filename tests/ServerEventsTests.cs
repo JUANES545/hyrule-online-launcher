@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace HyruleOnline {
  static class ServerEventsTests {
@@ -167,6 +168,15 @@ namespace HyruleOnline {
    Check(roster.Apply("Player Pedro disconnected. - Details: gone") && roster.Text() == "Link, Pedro", "Apply: leaving changes the roster");
    Check(roster.Apply("Player Pedro disconnected.") && roster.Text() == "Link", "Apply: the second Pedro leaves");
    Check(roster.Apply("Player Link disconnected.") && roster.Count == 0, "Apply: last player leaves");
+
+   // Players and colours.
+   roster.Joined("Pedro", 3);
+   roster.Joined("Link", 1);
+   var players = roster.Players();
+   Check(players.Count == 2 && players[0].Key == 1 && players[0].Value == "Link" && players[1].Key == 3 && players[1].Value == "Pedro", "Players are (slot, name) in slot order");
+   Check(Roster.ColorOf(1) == "#7EE9C9" && Roster.ColorOf(2) == "#E5C384", "slots 1 and 2 keep the player 1 and player 2 colours");
+   Check(Roster.ColorOf(1 + Roster.Palette.Length) == Roster.ColorOf(1) && Roster.ColorOf(0) == Roster.ColorOf(Roster.Palette.Length), "the colours repeat after the last one and slot 0 does not throw");
+   Check(Roster.Palette.Distinct().Count() == Roster.Palette.Length, "every colour in the palette is different");
 
    Console.WriteLine(failures == 0 ? "PASS: server events (" + checks + " checks)." : "FAIL: " + failures + " of " + checks + " server event checks failed.");
    return failures == 0 ? 0 : 1;

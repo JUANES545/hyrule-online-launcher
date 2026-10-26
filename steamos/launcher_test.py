@@ -338,6 +338,12 @@ class ServerEvents(unittest.TestCase):
         self.assertEqual(r.names(), ["A", "B"])
         r.apply(("joined", "D", 1))  # the slot is taken over
         self.assertEqual(r.names(), ["D", "B"])
+        self.assertEqual(r.players(), [(1, "D"), (2, "B")])
+
+    def test_slot_colors_follow_the_windows_palette(self):
+        self.assertEqual([L.slot_color(s) for s in (1, 2, 3)], list(L.PALETTE[:3]))
+        self.assertEqual(L.slot_color(len(L.PALETTE) + 1), L.slot_color(1))
+        self.assertEqual(len(set(L.PALETTE)), len(L.PALETTE))
 
     def test_hostile_names(self):
         forged = "Link disconnected. - Details: x"
@@ -715,6 +721,30 @@ class Window(unittest.TestCase):
                 for w in app.foundbox.winfo_children() if (width, height) == (1280, 800) else ():
                     self.assertGreaterEqual(w.winfo_height(), 30, where)
                 root.destroy()
+
+    def test_player_cards_show_in_host_mode_only(self):
+        for width, height in self.SIZES:
+            for language in ("en", "es", "fr"):
+                where = (width, height, language)
+                root, app = self.make(width, height, language)
+                try:
+                    app.show_page("Online")
+                    for mode in (L.LOCAL, L.JOIN):
+                        app.set_mode(mode)
+                        root.update()
+                        self.assertFalse(app.playersbox.winfo_ismapped(), where)
+                    app.set_mode(L.HOST)
+                    app.render_players([(1, "Link"), (2, "Zelda"), (3, "A very long player name indeed")])
+                    root.update()
+                    self.assertTrue(app.playersbox.winfo_ismapped(), where)
+                    self.assertEqual(len(app.cards.winfo_children()), 3, where)
+                    self.assertLessEqual(app.pages["Online"].winfo_reqheight(), app.host.winfo_height(), where)
+                    app.render_players([(1, "Link")])
+                    self.assertEqual(len(app.cards.winfo_children()), 1, where)
+                    app.render_players([])
+                    self.assertEqual(len(app.cards.winfo_children()), 0, where)
+                finally:
+                    root.destroy()
 
     def test_search_runs_on_the_online_page_in_join_and_not_while_up_or_busy(self):
         root, app = self.make(1280, 800)
