@@ -36,6 +36,11 @@ if [ -f "$HERE/gamepad.py" ]; then
   check "gamepad.py starts with a python3 shebang" grep -q "^#!/usr/bin/env python3" "$HERE/gamepad.py"
   [ -f "$HERE/gamepad_test.py" ] && check "gamepad.py logic tests" "$PY" "$HERE/gamepad_test.py"
 else echo "gamepad.py not found, skipped"; fi
+if [ -f "$HERE/display.py" ]; then
+  check "display.py compiles" "$PY" -m py_compile "$HERE/display.py"
+  check "display.py starts with a python3 shebang" grep -q "^#!/usr/bin/env python3" "$HERE/display.py"
+  [ -f "$HERE/display_test.py" ] && check "display.py logic tests" "$PY" "$HERE/display_test.py"
+else echo "display.py not found, skipped"; fi
 STUB=$HERE/../tests/fixtures/steamos/hyrule-online-stub.sh
 if command -v shellcheck >/dev/null 2>&1; then
   for f in "$HERE"/*.sh "$STUB"; do

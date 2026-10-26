@@ -13,6 +13,7 @@
     "steamos": [
       "Play",
       "Online",
+      "Graphics",
       "World",
       "Language",
       "Details"
@@ -20,6 +21,7 @@
     "map": {
       "Play": "PLAY",
       "Online": "ONLINE",
+      "Graphics": "GRAPHICS",
       "World": "WORLD",
       "Language": "LANGUAGE",
       "Details": "DETAILS"

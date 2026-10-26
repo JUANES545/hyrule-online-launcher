@@ -135,6 +135,8 @@ start_session() {
   rm -f "$HERE"/cemu/shaderCache/transferable/*.bin "$HERE"/cemu/shaderCache/precompiled/*.bin "$HERE"/cemu/shaderCache/driver/vk/*.bin
   mkdir -p "$HERE/logs" "$HERE/run"
   rm -f "$HERE/cemu/log.txt" "$LOG" "$HERE/logs/client.err"
+  # Best effort: a failure keeps the last Cemu settings and never blocks the start.
+  [ -f "$HERE/display.py" ] && { python3 "$HERE/display.py" apply "$HERE" || echo "Display settings were not applied; Cemu keeps its last ones."; }
   write_client_run
   run_unit "$UNIT" "$HERE/run/client-run.sh" "$LOG" "$HERE/logs/client.err"
 }

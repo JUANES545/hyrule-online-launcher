@@ -522,5 +522,245 @@
  "Nobody has joined yet.": {
   "es": "Todavía no ha entrado nadie.",
   "fr": "Personne n'a encore rejoint."
+ },
+ "FPS target": {
+  "es": "Objetivo de FPS",
+  "fr": "Objectif FPS"
+ },
+ "Sets the render resolution, shadows, anti-aliasing, the Cemu options and the FPS target to the values recommended for this device. Applied the next time a session starts. It is a starting point, not a benchmark: adjust it if the game runs badly.": {
+  "es": "Pone la resolución de renderizado, las sombras, el suavizado, las opciones de Cemu y el objetivo de FPS en los valores recomendados para este dispositivo. Se aplica la próxima vez que inicies una sesión. Es un punto de partida, no una prueba de rendimiento, así que ajústalo si el juego va mal.",
+  "fr": "Règle la résolution de rendu, les ombres, l'anticrénelage, les options de Cemu et l'objectif FPS sur les valeurs recommandées pour cet appareil. Appliqué au prochain démarrage d'une session. C'est un point de départ, pas un test de performance : ajustez-le si le jeu tourne mal."
+ },
+ "GRAPHICS": {
+  "es": "GRÁFICOS",
+  "fr": "GRAPHISMES"
+ },
+ "Graphics API": {
+  "es": "API gráfica",
+  "fr": "API graphique"
+ },
+ "The graphics backend Cemu uses. Vulkan is usually the better choice on modern graphics cards; OpenGL is the older backend, useful if Vulkan crashes or glitches on this device. Auto picks Vulkan when this device supports it and OpenGL otherwise. After changing it, the first start can take longer while shaders compile again.": {
+  "es": "El motor gráfico que usa Cemu. Vulkan suele ser mejor en tarjetas gráficas modernas; OpenGL es el motor antiguo y sirve si Vulkan se cuelga o da fallos en este dispositivo. Auto elige Vulkan si este dispositivo lo admite y OpenGL en caso contrario. Tras cambiarla, el primer inicio puede tardar más mientras se recompilan los shaders.",
+  "fr": "Le moteur graphique utilisé par Cemu. Vulkan est en général le meilleur choix sur les cartes graphiques récentes ; OpenGL est l'ancien moteur, utile si Vulkan plante ou provoque des défauts sur cet appareil. Auto choisit Vulkan si cet appareil le gère, sinon OpenGL. Après le changement, le premier démarrage peut être plus long pendant la recompilation des shaders."
+ },
+ "Master volume": {
+  "es": "Volumen general",
+  "fr": "Volume général"
+ },
+ "The sound level of every game window, for one or two players. Muted silences the games. Applied at the next session start.": {
+  "es": "El nivel de sonido de todas las ventanas de juego, con uno o dos jugadores. Silenciado apaga los juegos. Se aplica al iniciar la próxima sesión.",
+  "fr": "Le niveau sonore de toutes les fenêtres de jeu, à un ou deux joueurs. Muet coupe le son des jeux. S'applique au prochain démarrage d'une session."
+ },
+ "Low": {
+  "es": "Baja",
+  "fr": "Faible"
+ },
+ "Medium": {
+  "es": "Media",
+  "fr": "Moyenne"
+ },
+ "High": {
+  "es": "Alta",
+  "fr": "Élevée"
+ },
+ "Very High": {
+  "es": "Muy alta",
+  "fr": "Très élevée"
+ },
+ "Ultra": {
+  "es": "Ultra",
+  "fr": "Ultra"
+ },
+ "Extreme": {
+  "es": "Extrema",
+  "fr": "Extrême"
+ },
+ "Normal FXAA": {
+  "es": "FXAA normal",
+  "fr": "FXAA normal"
+ },
+ "Default": {
+  "es": "Predeterminado",
+  "fr": "Par défaut"
+ },
+ "Recommended": {
+  "es": "Recomendado",
+  "fr": "Recommandé"
+ },
+ "Unstable": {
+  "es": "Inestable",
+  "fr": "Instable"
+ },
+ "Experimental": {
+  "es": "Experimental",
+  "fr": "Expérimental"
+ },
+ "(window size)": {
+  "es": "(tamaño de ventana)",
+  "fr": "(taille de la fenêtre)"
+ },
+ "(sharper)": {
+  "es": "(más nítido)",
+  "fr": "(plus net)"
+ },
+ "(faster)": {
+  "es": "(más rápido)",
+  "fr": "(plus rapide)"
+ },
+ "Basic": {
+  "es": "Básica",
+  "fr": "Basique"
+ },
+ "Balanced": {
+  "es": "Equilibrada",
+  "fr": "Équilibrée"
+ },
+ "Render resolution": {
+  "es": "Resolución de renderizado",
+  "fr": "Résolution de rendu"
+ },
+ "How many pixels each game renders. Higher is sharper but needs a stronger graphics card.": {
+  "es": "Cuántos píxeles renderiza cada juego. Más es más nítido, pero exige una tarjeta gráfica más potente.",
+  "fr": "Nombre de pixels rendus par chaque jeu. Plus c'est élevé, plus c'est net, mais il faut une carte graphique plus puissante."
+ },
+ "Shadows": {
+  "es": "Sombras",
+  "fr": "Ombres"
+ },
+ "Quality of the shadows in the game.": {
+  "es": "Calidad de las sombras del juego.",
+  "fr": "Qualité des ombres dans le jeu."
+ },
+ "Shadow draw distance": {
+  "es": "Distancia de sombras",
+  "fr": "Distance des ombres"
+ },
+ "How far from the player shadows are drawn.": {
+  "es": "A qué distancia del jugador se dibujan las sombras.",
+  "fr": "Jusqu'où les ombres sont dessinées autour du joueur."
+ },
+ "Anti-aliasing": {
+  "es": "Suavizado de bordes",
+  "fr": "Anticrénelage"
+ },
+ "Smooths jagged edges.": {
+  "es": "Suaviza los bordes dentados.",
+  "fr": "Adoucit les bords crénelés."
+ },
+ "Upscale filter": {
+  "es": "Filtro de ampliación",
+  "fr": "Filtre d'agrandissement"
+ },
+ "How Cemu stretches the picture when the window is larger than the game's resolution. Bilinear is the softest and fastest; Bicubic and Bicubic Hermite look sharper at a small cost; Nearest neighbor keeps hard pixel edges.": {
+  "es": "Cómo estira Cemu la imagen cuando la ventana es mayor que la resolución del juego. Bilinear es el más suave y rápido; Bicubic y Bicubic Hermite se ven más nítidos con un pequeño coste; Nearest neighbor mantiene los bordes duros de los píxeles.",
+  "fr": "La façon dont Cemu étire l'image quand la fenêtre est plus grande que la résolution du jeu. Bilinear est le plus doux et le plus rapide ; Bicubic et Bicubic Hermite sont plus nets pour un petit coût ; Nearest neighbor garde des bords de pixels francs."
+ },
+ "Downscale filter": {
+  "es": "Filtro de reducción",
+  "fr": "Filtre de réduction"
+ },
+ "How Cemu shrinks the picture when the window is smaller than the game's resolution, which happens with a render resolution above 100%. Bilinear suits almost everyone; the others are slower and rarely worth it.": {
+  "es": "Cómo reduce Cemu la imagen cuando la ventana es menor que la resolución del juego, algo que ocurre con una resolución de renderizado superior al 100%. Bilinear sirve para casi todos; los demás son más lentos y rara vez compensan.",
+  "fr": "La façon dont Cemu réduit l'image quand la fenêtre est plus petite que la résolution du jeu, ce qui arrive avec une résolution de rendu supérieure à 100 %. Bilinear convient à presque tout le monde ; les autres sont plus lents et valent rarement la peine."
+ },
+ "VSync": {
+  "es": "VSync",
+  "fr": "VSync"
+ },
+ "Waits for the display refresh to avoid screen tearing. It can cap the frame rate at the display's refresh rate and adds a little input delay. Off suits most setups.": {
+  "es": "Espera al refresco de la pantalla para evitar cortes en la imagen. Puede limitar los FPS a la frecuencia de la pantalla y añade un poco de retardo. Desactivado sirve para la mayoría.",
+  "fr": "Attend le rafraîchissement de l'écran pour éviter le déchirement. Peut limiter les FPS à la fréquence de l'écran et ajoute un peu de latence. Désactivé convient à la plupart des configurations."
+ },
+ "Asynchronous shader compile": {
+  "es": "Compilación asíncrona de shaders",
+  "fr": "Compilation asynchrone des shaders"
+ },
+ "Compiles shaders in the background instead of pausing the game, so there is less stutter when something new appears for the first time. The price: objects may be missing for a moment. Recommended on.": {
+  "es": "Compila los shaders en segundo plano en lugar de pausar el juego, así hay menos tirones cuando algo nuevo aparece por primera vez. El precio: pueden faltar objetos un momento. Se recomienda activado.",
+  "fr": "Compile les shaders en arrière-plan au lieu de mettre le jeu en pause, ce qui limite les saccades quand quelque chose de nouveau apparaît pour la première fois. Le prix : des objets peuvent manquer un instant. Activé recommandé."
+ },
+ "Accurate barriers (Vulkan)": {
+  "es": "Barreras precisas (Vulkan)",
+  "fr": "Barrières précises (Vulkan)"
+ },
+ "Vulkan only. Fixes rare graphical glitches on some graphics cards at a small cost in speed. Leave it off unless you see flickering or missing effects.": {
+  "es": "Solo Vulkan. Corrige fallos gráficos poco comunes en algunas tarjetas a cambio de algo de rendimiento. Déjalo desactivado salvo que veas parpadeos o efectos que faltan.",
+  "fr": "Vulkan uniquement. Corrige de rares défauts d'affichage sur certaines cartes pour un petit coût en vitesse. Laissez-le désactivé sauf si vous voyez du scintillement ou des effets manquants."
+ },
+ "Show FPS": {
+  "es": "Mostrar FPS",
+  "fr": "Afficher les FPS"
+ },
+ "Shows Cemu's frame counter in a corner of each game window. It only changes what is drawn on screen, not how the game runs. Applied at the next session start.": {
+  "es": "Muestra el contador de FPS de Cemu en una esquina de cada ventana de juego. Solo cambia lo que se dibuja en pantalla, no cómo funciona el juego. Se aplica al iniciar la próxima sesión.",
+  "fr": "Affiche le compteur de FPS de Cemu dans un coin de chaque fenêtre de jeu. Cela ne change que l'affichage, pas le fonctionnement du jeu. S'applique au prochain démarrage d'une session."
+ },
+ "Show CPU, RAM and VRAM usage": {
+  "es": "Mostrar uso de CPU, RAM y VRAM",
+  "fr": "Afficher l'utilisation du CPU, de la RAM et de la VRAM"
+ },
+ "Adds Cemu's CPU, RAM and VRAM readouts to the counter in each game window, to see how much two games ask of this device. Applied at the next session start.": {
+  "es": "Añade las lecturas de CPU, RAM y VRAM de Cemu al contador de cada ventana de juego, para ver cuánto le piden dos juegos a este dispositivo. Se aplica al iniciar la próxima sesión.",
+  "fr": "Ajoute les mesures de CPU, de RAM et de VRAM de Cemu au compteur de chaque fenêtre de jeu, pour voir ce que deux jeux demandent à cet appareil. S'applique au prochain démarrage d'une session."
+ },
+ "Show the \"compiling shaders\" notice": {
+  "es": "Mostrar el aviso \"compilando shaders\"",
+  "fr": "Afficher l'avis « compilation des shaders »"
+ },
+ "Shows Cemu's \"compiling shaders\" message in each game window while new shaders build. Turn it off for a cleaner picture; the shaders still compile. Applied at the next session start.": {
+  "es": "Muestra el mensaje \"compilando shaders\" de Cemu en cada ventana de juego mientras se crean shaders nuevos. Desactívalo para una imagen más limpia; los shaders se compilan igual. Se aplica al iniciar la próxima sesión.",
+  "fr": "Affiche le message « compilation des shaders » de Cemu dans chaque fenêtre de jeu pendant la création de nouveaux shaders. Désactivez-le pour une image plus nette ; les shaders sont compilés quand même. S'applique au prochain démarrage d'une session."
+ },
+ "ADVANCED (CEMU)": {
+  "es": "AVANZADO (CEMU)",
+  "fr": "AVANCÉ (CEMU)"
+ },
+ "Use recommended settings": {
+  "es": "Usar ajustes recomendados",
+  "fr": "Utiliser les réglages recommandés"
+ },
+ "Applies at the next session start.": {
+  "es": "Se aplica al iniciar la próxima sesión.",
+  "fr": "S'applique au prochain démarrage d'une session."
+ },
+ "The defaults suit most devices.": {
+  "es": "Los valores predeterminados sirven para la mayoría de los dispositivos.",
+  "fr": "Les valeurs par défaut conviennent à la plupart des appareils."
+ },
+ "The primary display is not ready.": {
+  "es": "La pantalla principal no está lista.",
+  "fr": "L'écran principal n'est pas prêt."
+ },
+ "Auto ({0})": {
+  "es": "Auto ({0})",
+  "fr": "Auto ({0})"
+ },
+ "Muted": {
+  "es": "Silenciado",
+  "fr": "Muet"
+ },
+ "Each game renders {0} × {1}": {
+  "es": "Cada juego se renderiza a {0} × {1}",
+  "fr": "Chaque jeu est rendu en {0} × {1}"
+ },
+ "FPS++ is not installed": {
+  "es": "FPS++ no está instalado",
+  "fr": "FPS++ n'est pas installé"
+ },
+ "One player · the whole display": {
+  "es": "Un jugador · toda la pantalla",
+  "fr": "Un joueur · tout l'écran"
+ },
+ "at {0} FPS": {
+  "es": "a {0} FPS",
+  "fr": "à {0} FPS"
+ },
+ "GRAPHICS: The launcher detects this device's screen and refresh rate, and each session starts the game at that size and frame rate. Render resolution scales the picture sharper or faster, and the FPS target never goes above the refresh rate. Use recommended settings picks values that suit this device. Changes apply at the next session start.": {
+  "es": "GRÁFICOS: El launcher detecta la pantalla de este dispositivo y su frecuencia de actualización, y cada sesión inicia el juego con ese tamaño y esa tasa de fotogramas. La resolución de renderizado hace la imagen más nítida o más rápida, y el objetivo de FPS nunca supera la frecuencia de la pantalla. Usar la configuración recomendada elige valores que encajan con este dispositivo. Los cambios se aplican al iniciar la próxima sesión.",
+  "fr": "GRAPHISMES : Le launcher détecte l'écran de cet appareil et sa fréquence de rafraîchissement, et chaque session lance le jeu à cette taille et à cette cadence. La résolution de rendu rend l'image plus nette ou plus rapide, et l'objectif FPS ne dépasse jamais la fréquence de l'écran. Utiliser les paramètres recommandés choisit des valeurs adaptées à cet appareil. Les changements s'appliquent au prochain démarrage d'une session."
+ },
+ "FPS target: Auto · {0} FPS": {
+  "es": "Objetivo de FPS: Auto · {0} FPS",
+  "fr": "Objectif FPS : Auto · {0} FPS"
  }
 }

@@ -75,7 +75,7 @@ Controls (Steam Input maps the pad to these keys): arrows or D-pad move the focu
 | --- | --- | --- |
 | Header, status line, hint line, Start / Stop session / Exit | same | Start becomes Restart session when the settings changed while running; the hint line is only on the Online and World pages, as on Windows |
 | Look: fonts, colours, rounded buttons, cards, tabs, LB / RB badges, toggles, combo boxes, text fields | same | drawn to the numbers of `Launcher.xaml` at the Windows scale (`ShellFit.cs`); Roboto Condensed, Cinzel and Cinzel Decorative come from `fonts/` (copies of `src/Launcher/Fonts`); no translucency (colours are flattened over the background) and no anti-aliased corners |
-| Tabs Play, Online, World, Language, Details; last tab and mode remembered | same order | Graphics tab is not applicable (see below) |
+| Tabs Play, Online, World, Language, Details; last tab and mode remembered | same order | Tabs Play, Online, Graphics, World, Language, Details (see "Display and graphics") |
 | Online: mode (Play on this device / Host a server / Join a server) | same | choice list instead of a combo box |
 | Host: port (5 digits, 1024 to 65535, else 5050), password (40), description (80), address (100) | same limits | `;` is removed from the password and the page says so |
 | Invite box, Copy invite, VPN hint, "no network address" hint | same | the invite follows the form and the clipboard works |
@@ -85,7 +85,8 @@ Controls (Steam Input maps the pad to these keys): arrows or D-pad move the focu
 | Player name | same field | only `A-Za-z0-9_-`, 1 to 16 (Windows also allows space and dot) |
 | Second local player (swap, split, P2 name / avatar / motion) | not applicable | one display, one Cemu |
 | Controller assignment, vibration, pad router and cursors, menu shortcut, pad layout | not applicable | Steam Input does it; set the pad in Cemu |
-| Avatars, Graphics page, Cemu advanced settings, game language list | not applicable | the installer applies the Cemu settings |
+| Avatars, game language list | not applicable | the installer applies the Cemu settings |
+| Screen rotation options | not applicable | not added |
 | Firewall rule button | not applicable | not added; detected and warned about only |
 | Display policy (primary display) | not applicable | gamescope owns the display |
 | Setup wizard and preflight | not applicable | `install.sh` and `hyrule-online.sh --check` |
@@ -94,6 +95,10 @@ Controls (Steam Input maps the pad to these keys): arrows or D-pad move the focu
 | Test connection button | removed on both | a bare TCP connection crashes the server |
 
 Differences to keep in mind: Exit asks only when a session is running (the server and the game keep running if you exit); the invite parser rejects an address octet above 255; dialogs are lists inside the window (a second window may not get focus under gamescope). `install.sh` must copy `strings.json` and the `fonts/` folder next to `launcher.py`; without `strings.json` the window is English only, and without the fonts it uses the system fonts (DejaVu or Noto) and looks less like Windows. The fonts are Roboto Condensed (Apache 2.0, `Roboto-LICENSE.txt`), Cinzel and Cinzel Decorative (SIL Open Font License 1.1, `Cinzel-OFL.txt`); the window registers them for its own process only (fontconfig application fonts through `libfontconfig`), so nothing is installed system-wide and no root is needed. Fullscreen, focus and the physical controller are only tested with simulated input; check them on the device.
+
+### Display and graphics
+
+Before the game window opens, `hyrule-online.sh` runs `display.py apply` (best effort: a failure is logged and the session still starts). It reads the screen the game really gets (`xrandr`, so gamescope's resolution and refresh rate, with the Windows launcher's fallbacks), sizes the render resolution from the Graphics tab's scale, writes fullscreen and the window size into Cemu's `settings.xml`, rewrites the BOTW graphic pack's resolution preset (the pack ships a baked-in Windows preset, 1266x1170, which made Cemu open at 1280x720 on the Ally) and picks the FPS++ preset closest to the display's refresh rate. The Graphics tab saves its choices (render scale, shadows, shadow distance, anti-aliasing, FPS target, API, filters, master volume, vsync, async shaders, accurate barriers, FPS and usage overlays, shader notice) in `launcher.conf` as `gfx_*`; "Use recommended settings" picks a tier from the GPU and the screen. Rotation is not offered. `python3 ~/hyrule-online/display.py info` prints what it detects and what it would write. Checked on the Ally (1920x1080 at 120 Hz, VanGogh GPU): the game ran fullscreen at 120 FPS with no bars. Not checked: a physical pad, Desktop Mode or docked output, Steam's dynamic refresh rate, a scale above 100%, and a long FPS list on small screens.
 
 ### Controller
 

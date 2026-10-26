@@ -26,10 +26,11 @@ try:
     import gamepad
 except ImportError:  # no controller module next to the launcher: keyboard only
     gamepad = None
+import display
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 LOCAL, HOST, JOIN = "Local", "Host", "Join"
-TABS = ["Play", "Online", "World", "Language", "Details"]  # the Windows order without Graphics (nothing to set on the Ally)
+TABS = ["Play", "Online", "Graphics", "World", "Language", "Details"]  # the Windows order, without the menu-controls card of its Graphics page
 LANGUAGES = [("en", "English"), ("es", "Español"), ("fr", "Français")]
 GAME_DELAY_MS = 4000  # the Cemu window needs a moment to exist before the launcher steps aside
 TAG_MS = 2000  # how often new Cemu windows get the shortcut's STEAM_GAME while the launcher is hidden
@@ -52,14 +53,37 @@ def _k(english):
     return english
 
 
-TAB_LABELS = {"Play": _k("PLAY"), "Online": _k("ONLINE"), "World": _k("WORLD"), "Language": _k("LANGUAGE"), "Details": _k("DETAILS")}
+TAB_LABELS = {"Play": _k("PLAY"), "Online": _k("ONLINE"), "Graphics": _k("GRAPHICS"), "World": _k("WORLD"), "Language": _k("LANGUAGE"), "Details": _k("DETAILS")}
 MODE_WORDS = {LOCAL: _k("Play on this device"), HOST: _k("Host a server"), JOIN: _k("Join a server")}  # as in hyrule-online.sh
 MODES = [(LOCAL, "Play on this device"), (HOST, "Host a server"), (JOIN, "Join a server")]
 MODE_INFO = {LOCAL: _k("The server only accepts players from this device."),
              HOST: _k("Friends who run this launcher can join this device. The world rules are the ones on the World page."),
              JOIN: _k("One player on this device joins a friend's server. The friend sets the rules.")}
 DEFAULT_HINT = _k("Hover an option, or move the focus to it, to see what it does.")
-HINT_TABS = ("Online", "World")  # the pages of Launcher.xaml that carry the hint bar
+HINT_TABS = ("Online", "Graphics", "World")  # the pages of Launcher.xaml that carry the hint bar
+GRAPHICS_ROWS = [  # (setting, caption, tip) of the GRAPHICS card
+    ("scale", _k("Render resolution"), _k("How many pixels each game renders. Higher is sharper but needs a stronger graphics card.")),
+    ("shadows", _k("Shadows"), _k("Quality of the shadows in the game.")),
+    ("shadow_distance", _k("Shadow draw distance"), _k("How far from the player shadows are drawn.")),
+    ("aa", _k("Anti-aliasing"), _k("Smooths jagged edges."))]
+API_ROW = ("api", _k("Graphics API"), _k("The graphics backend Cemu uses. Vulkan is usually the better choice on modern graphics cards; OpenGL is the older backend, useful if Vulkan crashes or glitches on this device. Auto picks Vulkan when this device supports it and OpenGL otherwise. After changing it, the first start can take longer while shaders compile again."))
+FILTER_ROWS = [("upscale", _k("Upscale filter"), _k("How Cemu stretches the picture when the window is larger than the game's resolution. Bilinear is the softest and fastest; Bicubic and Bicubic Hermite look sharper at a small cost; Nearest neighbor keeps hard pixel edges.")),
+               ("downscale", _k("Downscale filter"), _k("How Cemu shrinks the picture when the window is smaller than the game's resolution, which happens with a render resolution above 100%. Bilinear suits almost everyone; the others are slower and rarely worth it."))]
+VOLUME_ROW = ("volume", _k("Master volume"), _k("The sound level of every game window, for one or two players. Muted silences the games. Applied at the next session start."))
+FPS_TIP = _k("FPS target")
+GFX_WORDS = (_k("Low"), _k("Medium"), _k("High"), _k("Very High"), _k("Ultra"), _k("Extreme"), _k("Normal FXAA"), _k("Default"), _k("Recommended"), _k("Unstable"),
+             _k("Experimental"), _k("(window size)"), _k("(sharper)"), _k("(faster)"), _k("Basic"), _k("Balanced"))  # the words display.label and scale_label pass through tr
+GRAPHICS_TOGGLES = [
+    ("vsync", _k("VSync"), _k("Waits for the display refresh to avoid screen tearing. It can cap the frame rate at the display's refresh rate and adds a little input delay. Off suits most setups.")),
+    ("async", _k("Asynchronous shader compile"), _k("Compiles shaders in the background instead of pausing the game, so there is less stutter when something new appears for the first time. The price: objects may be missing for a moment. Recommended on.")),
+    ("barriers", _k("Accurate barriers (Vulkan)"), _k("Vulkan only. Fixes rare graphical glitches on some graphics cards at a small cost in speed. Leave it off unless you see flickering or missing effects.")),
+    ("showfps", _k("Show FPS"), _k("Shows Cemu's frame counter in a corner of each game window. It only changes what is drawn on screen, not how the game runs. Applied at the next session start.")),
+    ("usage", _k("Show CPU, RAM and VRAM usage"), _k("Adds Cemu's CPU, RAM and VRAM readouts to the counter in each game window, to see how much two games ask of this device. Applied at the next session start.")),
+    ("shader", _k("Show the \"compiling shaders\" notice"), _k("Shows Cemu's \"compiling shaders\" message in each game window while new shaders build. Turn it off for a cleaner picture; the shaders still compile. Applied at the next session start."))]
+RECOMMENDED_TIP = _k("Sets the render resolution, shadows, anti-aliasing, the Cemu options and the FPS target to the values recommended for this device. Applied the next time a session starts. It is a starting point, not a benchmark: adjust it if the game runs badly.")
+GFX_TEXT = {key: (caption, tip) for key, caption, tip in GRAPHICS_ROWS + FILTER_ROWS + [API_ROW, VOLUME_ROW]}
+GFX_TEXT["fps"] = (FPS_TIP, FPS_TIP)
+GFX_PACK = {"shadows": display.SHADOWS, "shadow_distance": display.SHADOW_DISTANCE, "aa": display.ANTI_ALIASING}  # the choices that come from the game's pack
 CHECKLIST = _k("Check the invite, the password, that the host has a session running, and that its firewall allows the port.")
 RULE_TIPS = [_k("Keeps enemies in sync: what one player defeats is defeated for both."), _k("Shares quest progress between the players."),
              _k("Shares the Korok seeds found by each player."), _k("Shares activated towers and the map they reveal."),
@@ -82,6 +106,9 @@ HELP_SECTIONS = [
     _k("ONLINE: Choose how this device takes part. Play on this device keeps the server private. Host a server opens it to friends: set the port, "
        "password and description, then copy the invite. Join a server connects this device to a friend's server with their invite. Changes apply "
        "at the next session start."),
+    _k("GRAPHICS: The launcher detects this device's screen and refresh rate, and each session starts the game at that size and frame rate. "
+       "Render resolution scales the picture sharper or faster, and the FPS target never goes above the refresh rate. Use recommended settings picks "
+       "values that suit this device. Changes apply at the next session start."),
     _k("WORLD: World rules choose what everyone on the server shares (enemies, quests, koroks, towers, shrines, locations, Divine Beasts) and apply "
        "when the server starts. When you join a friend's server their rules apply and these are locked. Use recommended rules selects Game Completion."),
     _k("LANGUAGE: The launcher language changes at once."),
@@ -906,6 +933,8 @@ if tk is not None:
 # ---- window ----
 
 class App:
+    CEMU = os.path.join(HERE, "cemu")  # the Cemu folder whose graphic packs the Graphics page reads
+
     def __init__(self, root, cli=None, conf=None, join_conf=os.path.join(HERE, "join.conf"), size=None, server_log=None):
         self.root, self.cli, self.conf_path = root, cli or Cli(), conf or default_conf_path()
         self.log = server_log or ServerLog()
@@ -917,6 +946,7 @@ class App:
         self.design_w, self.design_h, self.scale = shell_fit(*self.size)
         self.bits, self.dialog, self.note, self.up, self.started, self.started_mode = st["bits"], None, None, False, None, LOCAL
         self.hidden, self.game_seen, self.chord = False, None, {}
+        self.gfx, self.hw, self.screen = display.read_prefs(self.own), None, None
         self.appid = os.environ.get("SteamAppId") if os.environ.get("XDG_CURRENT_DESKTOP") == "gamescope" else None  # only Game Mode needs the launcher to step aside
         self.tab, self.mode = tk.StringVar(root, st["tab"]), tk.StringVar(root, st["mode"])
         self.lang = tk.StringVar(root, LANG)
@@ -1243,6 +1273,51 @@ class App:
                                        size=16, style="", padx=22, pady=6, minh=43)
         self.recommended.grid(row=(len(RULE_NAMES) + 1) // 2, column=0, columnspan=2, sticky="ew", pady=(px(6), 0))
 
+    def build_graphics(self, page):
+        px = self.px
+        page.columnconfigure(0, weight=1, uniform="w")
+        page.columnconfigure(1, weight=1, uniform="w")
+        self.vulkan = display.vulkan_available()
+        self.gfx_btns, self.gfx_vars = {}, {}
+        left = self.panel(page, "GRAPHICS", pad=(24, 12))
+        left.grid(row=0, column=0, sticky="new", padx=(0, px(14)))
+        left.columnconfigure(0, weight=1)
+        self.label(left, tr("Applies at the next session start."), fg=BLURB, size=14, wrap=self.textw, justify="center").grid(row=0, column=0, pady=(0, px(8)))
+        self.screen_info = self.label(left, "", fg=INFO, size=14, wrap=self.textw)
+        self.screen_info.grid(row=1, column=0, sticky="w")
+        self.layout_info = self.label(left, "", fg=INFO, size=13, wrap=self.textw)
+        self.layout_info.grid(row=2, column=0, sticky="w", pady=(0, px(8)))
+        for i, (key, caption, tip) in enumerate(GRAPHICS_ROWS):
+            self.gfx_row(left, 3 + 2 * i, key, caption, tip)
+        self.gfx_row(left, 3 + 2 * len(GRAPHICS_ROWS), "fps", FPS_TIP, FPS_TIP)
+        right = self.panel(page, "ADVANCED (CEMU)", pad=(24, 12))
+        right.grid(row=0, column=1, sticky="new", padx=(px(14), 0))
+        right.columnconfigure((0, 1), weight=1, uniform="a")
+        self.label(right, tr("The defaults suit most devices."), fg=BLURB, size=14, wrap=self.textw, justify="center").grid(row=0, column=0, columnspan=2, pady=(0, px(8)))
+        self.gfx_row(right, 1, API_ROW[0], API_ROW[1], API_ROW[2], span=2)
+        for col, (key, caption, tip) in enumerate(FILTER_ROWS):
+            self.gfx_row(right, 3, key, caption, tip, column=col, pad=px(8) if col == 0 else 0)
+        self.gfx_row(right, 5, VOLUME_ROW[0], VOLUME_ROW[1], VOLUME_ROW[2], span=2)
+        grid = tk.Frame(right, bg=right["bg"])
+        grid.grid(row=7, column=0, columnspan=2, sticky="ew")
+        grid.columnconfigure((0, 1), weight=1, uniform="g")
+        for i, (key, text, tip) in enumerate(GRAPHICS_TOGGLES):
+            var = tk.BooleanVar(self.root)
+            self.gfx_vars[key] = var
+            c = self.button(grid, tr(text), lambda k=key: self.set_gfx({k: self.gfx_vars[k].get()}), tip, kind="Checkbutton", variable=var, look="toggle",
+                            size=14, style="", padx=34, right=10, pady=6, anchor="w", minh=41)
+            c.grid(row=i // 2, column=i % 2, sticky="ew", padx=(0, px(8)), pady=(0, px(8)))
+        self.recommended_gfx = self.button(grid, tr("Use recommended settings"), self.use_recommended_graphics, RECOMMENDED_TIP, size=16, style="", padx=22, pady=6, minh=43)
+        self.recommended_gfx.grid(row=(len(GRAPHICS_TOGGLES) + 1) // 2, column=0, columnspan=2, sticky="ew", pady=(px(6), 0))
+        self.refresh_graphics()
+
+    def gfx_row(self, card, row, key, caption, tip, span=1, column=0, pad=0):
+        """A caption over a choice button on rows `row` and `row + 1` of a card; the button opens the list of choices."""
+        self.caption(card, caption, tip).grid(row=row, column=column, columnspan=span, sticky="w")
+        b = self.combo(card, tip, None, lambda: self.pick_gfx(key))
+        b.grid(row=row + 1, column=column, columnspan=span, sticky="ew", padx=(0, pad), pady=(self.px(4), self.px(8)))
+        self.gfx_btns[key] = b
+
     def build_language(self, page):
         px = self.px
         page.columnconfigure(0, weight=1)
@@ -1307,6 +1382,8 @@ class App:
         for f in self.pages.values():
             f.pack_forget()
         self.pages[name].pack(fill="both", expand=True)
+        if name == "Graphics":
+            self.refresh_graphics()
         if name in HINT_TABS:
             self.hint.pack(side="bottom", fill="x", padx=self.px(14), before=self.host)
         else:
@@ -1472,6 +1549,73 @@ class App:
     def use_recommended(self):
         self.bits = self.presets.get(RECOMMENDED[0], RECOMMENDED[1])[:7] + "0"
         self.refresh_rules()
+
+    # ---- graphics ----
+    def gfx_choices(self, key):
+        """(values, labels, index of the current one) of a Graphics choice; no values means there is nothing to pick."""
+        g, hz = self.gfx, self.screen[2] if self.screen else 0
+        if key == "scale":
+            values = list(display.SCALES)
+            return values, [display.scale_label(s, tr) for s in values], values.index(g["scale"])
+        if key in GFX_PACK:
+            found = display.read_presets(self.CEMU, GFX_PACK[key])
+            presets = [n for n, _ in found]
+            current = display.choose(found, g[key], GFX_PACK[key])
+            return presets, [display.label(n, tr) for n in presets], presets.index(current) if current in presets else 0
+        if key == "fps":
+            options = display.available_fps(display.fps_limits(self.CEMU), hz)
+            best = display.best_fps(options, hz)
+            if not best:
+                return [], [], 0
+            picked = display.pick_fps(options, g["fps"], hz)[0]
+            values = [display.AUTO_FPS] + [n for n, _ in options]
+            return values, [tr("FPS target: Auto · {0} FPS", best[0])] + [f"{n} FPS" for n, _ in options], 0 if g["fps"] == display.AUTO_FPS else values.index(picked)
+        if key == "api":
+            values = [a for a in display.APIS if a != "Vulkan" or self.vulkan]
+            return values, [tr("Auto ({0})", "Vulkan" if self.vulkan else "OpenGL") if a == "Auto" else a for a in values], values.index(g["api"]) if g["api"] in values else 0
+        if key == "volume":
+            values = list(display.VOLUMES)
+            return values, [tr("Muted") if v == 0 else f"{v}%" for v in values], values.index(g["volume"])
+        values = list(range(len(display.FILTERS)))
+        return values, list(display.FILTERS), g[key]
+
+    def refresh_graphics(self):
+        self.screen = display.detect_screen()
+        if self.screen:
+            w, h, hz = self.screen
+            self.screen_info.config(text=f"{w} × {h}  /  {round(hz)} Hz" if hz > 1 else f"{w} × {h}")
+            view, _, fps, _ = display.plan(self.CEMU, self.own, self.screen)
+            self.layout_info.config(text=tr("One player · the whole display") + "\n" + tr("Each game renders {0} × {1}", *view["render"]) + (" " + tr("at {0} FPS", fps[0]) if fps else ""))
+        else:
+            self.screen_info.config(text=tr("The primary display is not ready."))
+            self.layout_info.config(text="")
+        for key, b in self.gfx_btns.items():
+            values, labels, current = self.gfx_choices(key)
+            b.config(text=labels[current] if values else tr("FPS++ is not installed") if key == "fps" else "–", state="normal" if values else "disabled")
+        for key, var in self.gfx_vars.items():
+            var.set(self.gfx[key])
+
+    def pick_gfx(self, key):
+        values, labels, current = self.gfx_choices(key)
+        caption, tip = GFX_TEXT[key]
+
+        def done(i):
+            if i < len(values):
+                self.set_gfx({key: values[i]})
+        self.ask(tr(caption), tr(tip), labels + [tr("Cancel")], done, current)
+
+    def set_gfx(self, updates):
+        """Keeps the choices in launcher.conf (gfx_* keys) for display.py, which writes them to Cemu when a session starts."""
+        self.gfx.update(updates)
+        for key, value in updates.items():
+            self.own["gfx_" + key] = ("1" if value else "0") if isinstance(value, bool) else str(value)
+        save_conf(self.conf_path, self.own)
+        self.refresh_graphics()
+
+    def use_recommended_graphics(self):
+        self.hw = self.hw or display.detect_hardware()
+        self.set_gfx(display.recommended(self.CEMU, self.hw["tier"], self.screen))
+        self.note = ("Recommended graphics settings applied ({0} class).", (tr(display.TIERS[self.hw["tier"]]),))
 
     # ---- session ----
     def form(self):

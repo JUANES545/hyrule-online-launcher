@@ -11,6 +11,7 @@ import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
+from unittest import mock
 import launcher as L
 
 WINDOWS = os.path.join(os.path.dirname(HERE), "src", "Launcher")
@@ -383,7 +384,7 @@ class Prefs(unittest.TestCase):
         saved = L.initial_state({"tab": "World", "mode": "Join"}, {"mode": "host", "host": "h", "port": "6000", "rules": "10000000", "hostpass": "a;b", "name": "Ally"}, presets)
         self.assertEqual((saved["tab"], saved["mode"], saved["bits"]), ("World", L.JOIN, "10000000"))
         self.assertEqual((saved["values"]["invite"], saved["values"]["hostpass"], saved["values"]["name"]), ("h:6000", "ab", "Ally"))
-        self.assertEqual(L.initial_state({"tab": "Graphics"}, {"mode": "host a server"}, presets)["tab"], "Play")
+        self.assertEqual(L.initial_state({"tab": "Help"}, {"mode": "host a server"}, presets)["tab"], "Play")
         self.assertEqual(L.initial_state({}, {"mode": "host a server"}, presets)["mode"], L.HOST)
         self.assertEqual(L.initial_state({}, {"rules": "bad"}, presets)["bits"], "10111100")
 
@@ -588,7 +589,7 @@ class Window(unittest.TestCase):
 
     def test_pages_and_modes(self):
         root, app = self.make(1280, 800)
-        self.assertEqual(L.TABS, ["Play", "Online", "World", "Language", "Details"])
+        self.assertEqual(L.TABS, ["Play", "Online", "Graphics", "World", "Language", "Details"])
         self.assertEqual([m for m, _ in L.MODES], [L.LOCAL, L.HOST, L.JOIN])
         self.assertEqual(set(app.pages), set(L.TABS))
         app.show_page("World")
@@ -601,6 +602,51 @@ class Window(unittest.TestCase):
         root, app = self.make(1280, 800)
         self.assertEqual((app.tab.get(), app.mode.get()), ("Play", L.LOCAL))  # make() starts a fresh conf, so nothing is remembered yet
         root.destroy()
+
+    def fixture_cemu(self):
+        """A Cemu folder with just the two packs the Graphics page reads: the game's presets and the FPS++ limits."""
+        def block(name, category, extra=""):
+            return "\n[Preset]\nname = %s\ncategory = %s\n%s" % (name, category, extra)
+        files = {os.path.join(L.display.STOCK, "rules.txt"): "[Definition]\ntitle = Graphics\n" + block("Low (50%)", "Shadows") + block("Medium (100%, Default)", "Shadows", "default = 1\n")
+                 + block("High (Default)", "Shadow Draw Distance", "default = 1\n") + block("Normal FXAA (Default)", "Anti-Aliasing", "default = 1\n"),
+                 L.display.FPS_PACK: "[Definition]\ntitle = FPS++\n" + "".join(block("%d FPS" % n, "FPS Limit", "$fpsLimitNormal = %d\n" % n) for n in (30, 60, 120, 144))}
+        cemu = os.path.join(self.tmp.name, "cemu")
+        for path, text in files.items():
+            os.makedirs(os.path.dirname(os.path.join(cemu, path)), exist_ok=True)
+            with open(os.path.join(cemu, path), "w", encoding="utf-8", newline="") as f:
+                f.write(text)
+        return cemu
+
+    def test_graphics_page_saves_what_display_py_reads(self):
+        with mock.patch.object(L.display, "detect_screen", return_value=(1920, 1080, 120)), mock.patch.object(L.display, "detect_hardware", return_value={"tier": 1}):
+            root, app = self.make(1280, 800)
+            self.assertEqual(str(app.gfx_btns["fps"].cget("state")), "disabled")  # no FPS++ pack next to the test
+            self.assertEqual(app.gfx_btns["fps"].cget("text"), "FPS++ is not installed")
+            app.CEMU = self.fixture_cemu()
+            app.show_page("Graphics")
+            root.update()
+            self.assertEqual(app.screen_info.cget("text"), "1920 × 1080  /  120 Hz")
+            self.assertEqual(app.layout_info.cget("text"), "One player · the whole display\nEach game renders 1920 × 1080 at 120 FPS")
+            app.set_gfx({"scale": 0.75, "vsync": True})
+            self.assertIn("75%", app.gfx_btns["scale"].cget("text"))
+            self.assertIn("1440 × 810", app.layout_info.cget("text"))
+            app.pick_gfx("fps")
+            app.close_dialog(2)  # Auto, 30, 60, 120 FPS
+            self.assertEqual(app.gfx_btns["fps"].cget("text"), "60 FPS")
+            app.pick_gfx("shadows")
+            app.close_dialog(0)
+            self.assertEqual(app.gfx_btns["shadows"].cget("text"), "Low (50%)")
+            app.pick_gfx("volume")
+            app.close_dialog(len(L.display.VOLUMES))  # the Cancel entry changes nothing
+            saved = L.load_conf(app.conf_path)
+            prefs = L.display.read_prefs(saved)
+            self.assertEqual((prefs["scale"], prefs["fps"], prefs["vsync"], prefs["shadows"], prefs["volume"]), (0.75, 60, True, "Low (50%)", L.display.DEFAULTS["volume"]))
+            app.use_recommended_graphics()
+            self.assertEqual(L.display.read_prefs(L.load_conf(app.conf_path))["scale"], 1.0)
+            self.assertEqual(app.gfx_btns["fps"].cget("text"), "FPS target: Auto · 120 FPS")
+            self.assertTrue(app.gfx_vars["async"].get() and not app.gfx_vars["vsync"].get())
+            self.assertEqual(app.note, ("Recommended graphics settings applied ({0} class).", ("Balanced",)))
+            root.destroy()
 
     def test_world_is_locked_when_joining(self):
         root, app = self.make(1280, 800)
