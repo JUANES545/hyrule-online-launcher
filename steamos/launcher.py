@@ -960,6 +960,8 @@ class App:
         self.appid = os.environ.get("SteamAppId") if os.environ.get("XDG_CURRENT_DESKTOP") == "gamescope" else None  # only Game Mode needs the launcher to step aside
         self.tab, self.mode = tk.StringVar(root, st["tab"]), tk.StringVar(root, st["mode"])
         self.lang = tk.StringVar(root, LANG)
+        self.game_langs = display.game_languages(os.path.dirname(self.CEMU))
+        self.game_lang = tk.StringVar(root, display.pick_language(self.game_langs, self.own.get("game_language"))[0])
         self.v = {k: tk.StringVar(root, x) for k, x in st["values"].items()}
         self.last_addr, self.addr_msg, self.copied_until, self.semicolon_until, self.shown = "", False, 0, 0, None
         for key, var in self.v.items():
@@ -1362,7 +1364,18 @@ class App:
             b = self.button(card, name, lambda c=code: self.pick_language(c), kind="Radiobutton", variable=self.lang, value=code, look="tab", size=18)
             b.grid(row=2, column=i, sticky="ew", padx=(0 if i == 0 else px(4), 0 if i == len(LANGUAGES) - 1 else px(4)))
             self.lang_btns[code] = b
-        self.label(card, tr("The launcher text changes right away."), fg=BLURB, size=14, wrap=640).grid(row=3, column=0, columnspan=3, sticky="w", pady=(px(14), 0))
+        self.label(card, tr("The launcher text changes right away."), fg=BLURB, size=14, wrap=640).grid(row=3, column=0, columnspan=3, sticky="w", pady=(px(14), px(16)))
+        self.label(card, tr("GAME"), fg=SOFT, size=13).grid(row=4, column=0, columnspan=3, sticky="w", padx=px(2), pady=(0, px(6)))
+        games = tk.Frame(card, bg=card["bg"])
+        games.grid(row=5, column=0, columnspan=3, sticky="ew")
+        games.columnconfigure((0, 1), weight=1, uniform="g")
+        self.game_btns = {}
+        for i, (code, name, _) in enumerate(self.game_langs):
+            b = self.button(games, name, lambda c=code: self.pick_game_language(c), kind="Radiobutton", variable=self.game_lang, value=code, look="tab", size=18)
+            b.grid(row=i // 2, column=i % 2, sticky="ew", padx=(0, px(4)) if i % 2 == 0 else (px(4), 0), pady=(0, px(8)))
+            self.game_btns[code] = b
+        self.label(card, tr("The game applies it the next time a session starts. Text added by the mod itself may stay in English."), fg=BLURB, size=14,
+                   wrap=640).grid(row=6, column=0, columnspan=3, sticky="w")
 
     def build_details(self, page):
         px = self.px
@@ -1470,6 +1483,11 @@ class App:
         self.lang.set(code)
         self.build()
         self.lang_btns[code].focus_set()
+
+    def pick_game_language(self, code):
+        self.remember("game_language", code)
+        self.game_lang.set(code)
+        self.game_btns[code].focus_set()
 
     def hide_semicolon(self):
         if self.semicolon.winfo_exists():

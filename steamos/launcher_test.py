@@ -880,6 +880,17 @@ class Window(unittest.TestCase):
         self.assertEqual(app.tab.get(), "Language")
         root.destroy()
 
+    def test_game_language_is_chosen_apart_from_the_launcher_one(self):
+        langs = [("en", "English", 1), ("es", "Español (Latinoamérica)", 5), ("fr", "Français (Canada)", 2)]
+        with mock.patch.object(L.display, "game_languages", return_value=langs):
+            root, app = self.make(1280, 800)
+        app.show_page("Language")
+        self.assertEqual(set(app.game_btns), {"en", "es", "fr"})
+        app.pick_game_language("es")
+        saved = L.load_conf(app.conf_path)
+        self.assertEqual((saved["game_language"], saved.get("language"), app.game_lang.get(), app.lang.get()), ("es", "en", "es", "en"))
+        root.destroy()
+
     def test_start_without_script_says_so(self):
         root, app = self.make(1280, 800)
         app.start()

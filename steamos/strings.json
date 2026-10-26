@@ -511,6 +511,14 @@
   "es": "El texto del launcher cambia al instante.",
   "fr": "Le texte du launcher change immédiatement."
  },
+ "GAME": {
+  "es": "JUEGO",
+  "fr": "JEU"
+ },
+ "The game applies it the next time a session starts. Text added by the mod itself may stay in English.": {
+  "es": "El juego lo aplica la próxima vez que inicies una sesión. El texto que añade el propio mod puede seguir en inglés.",
+  "fr": "Le jeu l'applique au prochain démarrage d'une session. Le texte ajouté par le mod lui-même peut rester en anglais."
+ },
  "Starting": {
   "es": "Iniciando",
   "fr": "Démarrage"

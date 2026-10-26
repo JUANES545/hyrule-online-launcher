@@ -371,6 +371,32 @@ def vulkan_available():
     return any(glob.glob(os.path.join(d, "*.json")) for d in ("/usr/share/vulkan/icd.d", "/etc/vulkan/icd.d", "/usr/local/share/vulkan/icd.d"))
 
 
+# ---- the game language ----
+CONSOLES = {"ja": 0, "en": 1, "fr": 2, "de": 3, "it": 4, "es": 5, "zh": 6, "ko": 7, "nl": 8, "pt": 9, "ru": 10}  # Cemu's console_language numbers
+TRADITIONAL_CHINESE = 11
+LANGUAGE_NAMES = {"en": "English", "es": "Español", "fr": "Français", "de": "Deutsch", "it": "Italiano", "ja": "日本語", "zh": "中文", "ko": "한국어",
+                  "nl": "Nederlands", "pt": "Português", "ru": "Русский"}
+REGION_NAMES = {"USes": "Español (Latinoamérica)", "USfr": "Français (Canada)", "EUes": "Español (España)", "TWzh": "中文 (繁體)"}  # the same language differs by region
+
+
+def game_languages(folder):
+    """The languages the game can show, as (code, name, console number): one Bootup_<region><language>.pack per language in FOLDER/game/content/Pack.
+    English first, then the others by code; without a readable game only English is offered."""
+    found = {}
+    for file in glob.glob(os.path.join(folder, "game", "content", "Pack", "Bootup_*.pack")):
+        match = re.fullmatch(r"Bootup_([A-Z]{2})([a-z]{2})\.pack", os.path.basename(file))
+        if match and match[2] in CONSOLES and match[2] not in found:
+            region, code = match.groups()
+            found[code] = (code, REGION_NAMES.get(region + code, LANGUAGE_NAMES[code]), TRADITIONAL_CHINESE if (region, code) == ("TW", "zh") else CONSOLES[code])
+    if not found:
+        found["en"] = ("en", "English", CONSOLES["en"])
+    return sorted(found.values(), key=lambda item: (item[0] != "en", item[0]))
+
+
+def pick_language(languages, wanted):
+    return next((item for item in languages if item[0] == wanted), languages[0])
+
+
 # ---- settings.xml ----
 def norm(path):
     return re.sub(r"\\+", r"\\", path.replace("/", "\\")).lower()
@@ -402,7 +428,7 @@ def set_preset(entry, category, name):
     ET.SubElement(p, "preset").text = name
 
 
-def write_settings(path, view, prefs, fps_preset, vulkan):
+def write_settings(path, view, prefs, fps_preset, vulkan, console=CONSOLES["en"]):
     tree = ET.parse(path)
     content = tree.getroot()
     packs = child(content, "GraphicPack")
@@ -428,6 +454,7 @@ def write_settings(path, view, prefs, fps_preset, vulkan):
         set_preset(fps, "Mode", "Normal Settings")
         set_preset(fps, "FPS Limit", fps_preset)
     put(content, "fullscreen", "true")
+    put(content, "console_language", console)
     graphic = child(content, "Graphic")
     put(graphic, "FullscreenScaling", 1)
     put(graphic, "api", 0 if prefs["api"] == "OpenGL" or not vulkan else 1)
@@ -471,7 +498,9 @@ def apply(folder, conf=None, screen=None, vulkan=None):
     if not os.path.isfile(settings):
         raise FileNotFoundError(f"Cemu settings are missing from {cemu}.")
     screen = detect_screen() if screen is None else screen
-    view, prefs, fps, summary = plan(cemu, load_own(conf or conf_path()), screen)
+    own = load_own(conf or conf_path())
+    view, prefs, fps, summary = plan(cemu, own, screen)
+    console = pick_language(game_languages(folder), own.get("game_language"))[2]
     pack = os.path.join(cemu, PACK)
     os.makedirs(os.path.dirname(pack), exist_ok=True)
     for name in os.listdir(stock):
@@ -481,7 +510,7 @@ def apply(folder, conf=None, screen=None, vulkan=None):
                 dst.write(src.read())
     with open(pack, "w", encoding="utf-8", newline="") as f:
         f.write(build_rules(read_file(os.path.join(stock, "rules.txt")), view))
-    write_settings(settings, view, prefs, fps[1] if fps else None, vulkan_available() if vulkan is None else vulkan)
+    write_settings(settings, view, prefs, fps[1] if fps else None, vulkan_available() if vulkan is None else vulkan, console)
     return summary
 
 

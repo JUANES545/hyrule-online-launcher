@@ -308,6 +308,30 @@ class Apply(unittest.TestCase):
             with self.assertRaises(FileNotFoundError):
                 D.apply(root, os.path.join(root, "c"), (1920, 1080, 60))
 
+    def with_packs(self, *names):
+        root = tempfile.mkdtemp()
+        self.addCleanup(lambda: __import__("shutil").rmtree(root, True))
+        install(root)
+        packs = os.path.join(root, "game", "content", "Pack")
+        os.makedirs(packs)
+        for name in names:
+            open(os.path.join(packs, name), "wb").close()
+        return root
+
+    def test_game_languages_come_from_the_bootup_packs(self):
+        root = self.with_packs("Bootup.pack", "Bootup_Graphics.pack", "Bootup_USfr.pack", "Bootup_USen.pack", "Bootup_EUes.pack", "Bootup_TWzh.pack")
+        self.assertEqual(D.game_languages(root), [("en", "English", 1), ("es", "Español (España)", 5), ("fr", "Français (Canada)", 2), ("zh", "中文 (繁體)", 11)])
+        self.assertEqual(D.game_languages(os.path.join(root, "nowhere")), [("en", "English", 1)])
+
+    def test_the_game_language_is_written_apart_from_the_launcher_one(self):
+        root = self.with_packs("Bootup_USen.pack", "Bootup_USes.pack")
+        conf = os.path.join(root, "launcher.conf")
+        for saved, wanted in (("es", "5"), ("fr", "1"), (None, "1")):  # a language the game lacks, or none chosen, falls back to English
+            with open(conf, "w") as f:
+                f.write("language=fr\n" + (f"game_language={saved}\n" if saved else ""))
+            D.apply(root, conf, (1920, 1080, 60), vulkan=True)
+            self.assertEqual(ET.parse(os.path.join(root, "cemu", "settings.xml")).getroot().findtext("console_language"), wanted)
+
 
 if __name__ == "__main__":
     unittest.main()

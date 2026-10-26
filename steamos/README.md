@@ -85,7 +85,8 @@ Controls (Steam Input maps the pad to these keys): arrows or D-pad move the focu
 | Player name | same field | only `A-Za-z0-9_-`, 1 to 16 (Windows also allows space and dot) |
 | Second local player (swap, split, P2 name / avatar / motion) | not applicable | one display, one Cemu |
 | Controller assignment, vibration, pad router and cursors, menu shortcut, pad layout | not applicable | Steam Input does it; `hyrule-online.sh` writes Cemu's controller profile (below) |
-| Avatars, game language list | not applicable | the installer applies the Cemu settings |
+| Avatars | not applicable | the installer applies the Cemu settings |
+| Language page: launcher language and, apart, the game language (read from the `Bootup_<region><language>.pack` files of the game) | same | the game language is `game_language` in `launcher.conf`; `display.py` writes it as Cemu's `console_language` at each session start (English when nothing was chosen) |
 | Screen rotation options | not applicable | not added |
 | Firewall rule button | not applicable | not added; detected and warned about only |
 | Display policy (primary display) | not applicable | gamescope owns the display |
