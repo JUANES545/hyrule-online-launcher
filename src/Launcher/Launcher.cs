@@ -1378,6 +1378,7 @@ namespace HyruleOnline {
    SetStatus("Starting...");
    if (shaderProblem != null) SetStatus("Shared shader cache is off for this session: {0}", shaderProblem);
    SetPrompt("");
+   CommitOnline();
    string host, serverPassword;
    int port;
    if (!ServerTarget(out host, out port, out serverPassword)) {
