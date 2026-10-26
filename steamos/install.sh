@@ -36,9 +36,9 @@ UPDATE_ID=0005000E101C9400
 UPDATE_VER=208
 DLC_ID=0005000C101C9400
 DLC_VER=80
-# The CLI waits 750 ms after starting Cemu (bytes 20 EE 02 00 00). Cemu needs about a minute under Wine to
-# reach the connect step, so the working setup raises it to 70 s.
-CLI_WAIT_MS=70000
+# The CLI waits 750 ms after starting Cemu (bytes 20 EE 02 00 00) and that is what works: the mod scans the game
+# and shows the other players. With 70 s it joins the server but never scans (verified on a Ally, 3 players).
+CLI_WAIT_MS=750
 
 DRY=0 YES=0 LINK=0 UNINSTALL=0 DUMP='' MOD='' DIR=''
 NEED_GB=25

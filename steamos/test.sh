@@ -196,6 +196,7 @@ fi
 # patch_cli on a synthetic DLL.
 DIR=$TMP/inst; mkdir -p "$DIR/milkbar"
 printf 'AAAA\x20\xEE\x02\x00\x00BBBB' > "$DIR/milkbar/MilkBar.CLI.dll"
+CLI_WAIT_MS=70000 # any value other than the default, so the rewrite is visible
 check "patch_cli" patch_cli
 equal "patched bytes" 41414141207011010042424242 "$(od -An -tx1 -v < "$DIR/milkbar/MilkBar.CLI.dll" | tr -d ' \n')"
 check "patch keeps .orig" cmp -s "$DIR/milkbar/MilkBar.CLI.dll.orig" <(printf 'AAAA\x20\xEE\x02\x00\x00BBBB')

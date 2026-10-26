@@ -310,7 +310,7 @@ flowchart TB
   S1["1. Preflight<br/>not root, Linux x86_64, curl, python3, sha256sum,<br/>timeout, systemd-run, unzip or 7z, Proton 10.0 or newer"]:::unv
   S2["2. Install folder<br/>default ~/hyrule-online, 25 GB free (8 with --link)"]:::unv
   S3["3. Download<br/>Cemu, graphic packs, Milk Bar Launcher, MilkBar.CLI,<br/>.NET 8 Desktop Runtime, VC++ redist<br/>every file checked by pinned SHA-256"]:::unv
-  S4["4. Extract<br/>verify Cemu.exe and InjectDLL.dll hashes,<br/>patch MilkBar.CLI.dll start delay 750 ms to 70000 ms"]:::unv
+  S4["4. Extract<br/>verify Cemu.exe and InjectDLL.dll hashes,<br/>keep MilkBar.CLI.dll start delay at 750 ms"]:::unv
   S5["5. Wine prefix<br/>Proton wine, wineboot, .NET 8, VC++"]:::unv
   S6["6. Game dump<br/>base game, update v208, DLC v80, save, mod pack"]:::unv
   S7["7. Config<br/>Milk Bar data into prefix appdata,<br/>Cemu settings.xml, mlc01 links"]:::unv
@@ -422,7 +422,8 @@ All items come from `RESEARCH.md` unless marked otherwise.
 - Rotation is not verified with a real pad or gameplay. Rumble in Routed mode is not verified.
 - Real Python and BCML installs, the multi-gigabyte downloads end to end, and the setup wizard on screen are not verified.
 - A Cemu keyboard profile crashes Cemu 1.26.2f.
-- Not covered by `RESEARCH.md`: whether the SteamOS CLI patch (start delay) and the Gaming Mode `zenity` dialogs work on a real device. They come from `steamos\install.sh` and `lib.sh` and are unverified here.
+- On the Ally the mod only syncs with the CLI start delay at 750 ms. With 70 s it joined the server but never scanned the game, so nobody saw the Ally player. This was checked on a real Ally; it was not yet seen on screen with a 3-player session.
+- Not covered by `RESEARCH.md`: whether the Gaming Mode `zenity` dialogs work on a real device. They come from `steamos\install.sh` and `lib.sh` and are unverified here.
 
 ## Where the code and the docs differ
 
