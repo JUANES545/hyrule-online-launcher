@@ -18,7 +18,7 @@ namespace HyruleOnline {
   };
 
   // Text that reads the same in every language.
-  public static readonly string[] Neutral = { "Hyrule Online", "THE LEGEND OF ZELDA", "BREATH OF THE WILD", "LT / RT", "LB", "RB", "Hunter vs Speedrunner", "Death Swap", "NVIDIA FXAA", ".NET Framework 4.8", "Start + LT", "Start + LT + RT", "L3 + R3" };
+  public static readonly string[] Neutral = { "Hyrule Online", "THE LEGEND OF ZELDA", "BREATH OF THE WILD", "LT / RT", "LB", "RB", "Hunter vs Speedrunner", "Death Swap", "NVIDIA FXAA", ".NET Framework 4.8", "Start + LT", "Start + LT + RT", "L3 + R3", "VPN", "Local" };
 
   // English, Spanish, French.
   public static readonly string[][] Table = {
@@ -302,6 +302,17 @@ namespace HyruleOnline {
    new[] { "The server stopped while starting (exit code {0}).", "El servidor se detuvo al arrancar (código de salida {0}).", "Le serveur s'est arrêté au démarrage (code de sortie {0})." },
    new[] { "That address is not valid, so the previous one was kept. Use letters, digits, dots and dashes only.", "Esa dirección no es válida, así que se mantuvo la anterior. Usa solo letras, dígitos, puntos y guiones.", "Cette adresse n'est pas valide, l'ancienne a donc été conservée. Utilisez uniquement des lettres, des chiffres, des points et des tirets." },
    new[] { "JOINING A SERVER", "UNIRSE A UN SERVIDOR", "REJOINDRE UN SERVEUR" },
+   new[] { "SERVERS FOUND", "SERVIDORES ENCONTRADOS", "SERVEURS TROUVÉS" },
+   new[] { "Search", "Buscar", "Rechercher" },
+   new[] { "Test", "Probar", "Tester" },
+   new[] { "Looks for servers on your VPN (Tailscale) and on your local network.", "Busca servidores en tu VPN (Tailscale) y en tu red local.", "Cherche des serveurs sur votre VPN (Tailscale) et sur votre réseau local." },
+   new[] { "Checks that this address answers, without joining.", "Comprueba que esta dirección responde, sin unirse.", "Vérifie que cette adresse répond, sans rejoindre." },
+   new[] { "Searching your VPN and local network…", "Buscando en tu VPN y en la red local…", "Recherche sur votre VPN et votre réseau local…" },
+   new[] { "Servers found: {0}.", "Servidores encontrados: {0}.", "Serveurs trouvés : {0}." },
+   new[] { "No servers found. Check that the host has a session running, or type the address.", "No se encontró ningún servidor. Comprueba que el anfitrión tenga una sesión abierta, o escribe la dirección.", "Aucun serveur trouvé. Vérifiez que l'hôte a une session ouverte, ou saisissez l'adresse." },
+   new[] { "Tailscale was not found or is not connected on this device.", "Tailscale no se encontró o no está conectado en este dispositivo.", "Tailscale est introuvable ou n'est pas connecté sur cet appareil." },
+   new[] { "Reachable in {0} ms.", "Responde en {0} ms.", "Joignable en {0} ms." },
+   new[] { "Cannot reach {0}:{1}. Check the address, that the host has a session running, and its firewall.", "No se puede llegar a {0}:{1}. Comprueba la dirección, que el anfitrión tenga una sesión abierta y su firewall.", "Impossible de joindre {0}:{1}. Vérifiez l'adresse, que l'hôte a une session ouverte, et son pare-feu." },
    new[] { "Ask the host for their invite and paste it here. You play on this PC with one or two players. The host chooses the world rules and runs the server.", "Pide su invitación al anfitrión y pégala aquí. Juegas en este PC con uno o dos jugadores. El anfitrión elige las reglas del mundo y ejecuta el servidor.", "Demandez son invitation à l'hôte et collez-la ici. Vous jouez sur ce PC avec un ou deux joueurs. L'hôte choisit les règles du monde et lance le serveur." },
    new[] { "Remote", "Remoto", "Distant" },
    new[] { "The server address is not valid. Enter an invite link or host:port on the Online page.", "La dirección del servidor no es válida. Escribe un enlace de invitación o host:puerto en la página En línea.", "L'adresse du serveur n'est pas valide. Saisissez un lien d'invitation ou hôte:port sur la page En ligne." },

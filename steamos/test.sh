@@ -41,6 +41,10 @@ if [ -f "$HERE/display.py" ]; then
   check "display.py starts with a python3 shebang" grep -q "^#!/usr/bin/env python3" "$HERE/display.py"
   [ -f "$HERE/display_test.py" ] && check "display.py logic tests" "$PY" "$HERE/display_test.py"
 else echo "display.py not found, skipped"; fi
+if [ -f "$HERE/finder.py" ]; then
+  check "finder.py compiles" "$PY" -m py_compile "$HERE/finder.py"
+  [ -f "$HERE/finder_test.py" ] && check "finder.py logic tests" "$PY" "$HERE/finder_test.py"
+else echo "finder.py not found, skipped"; fi
 STUB=$HERE/../tests/fixtures/steamos/hyrule-online-stub.sh
 if command -v shellcheck >/dev/null 2>&1; then
   for f in "$HERE"/*.sh "$STUB"; do

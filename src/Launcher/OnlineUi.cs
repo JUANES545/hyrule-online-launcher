@@ -2,8 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 
 namespace HyruleOnline {
  // The Online page: play on this PC only, host a server friends can join, or join a friend's server.
@@ -28,6 +30,141 @@ namespace HyruleOnline {
    C<Button>("CopyInvite").Click += (s, e) => CopyInvite();
    C<Button>("PlayCopyInvite").Click += (s, e) => CopyInvite();
    C<Button>("OpenFirewall").Click += (s, e) => AllowFirewall();
+   C<Button>("FindServersButton").Click += (s, e) => FindServers(false);
+   C<Button>("TestServerButton").Click += (s, e) => TestServer();
+   C<UIElement>("OnlineBody").PreviewKeyDown += FinderTab;
+   Window.Closing += (s, e) => { if (finding != null) finding.Cancel(); };
+  }
+
+  System.Threading.CancellationTokenSource finding;
+  List<FoundServer> foundServers = new List<FoundServer>(), shownServers;
+  object shownLanguage;
+  string finderValue = "";
+  Func<string> findLine;
+  bool testing;
+
+  // Tailscale peers and the local network are probed off the UI thread; the best answer fills an empty address box.
+  void FindServers(bool automatic) {
+   if (finding != null || !Joining || (automatic ? sessionLive || script != null : !appearanceEnabled)) return;
+   var source = finding = new System.Threading.CancellationTokenSource();
+   findLine = () => Tr("Searching your VPN and local network…");
+   ShowFinder();
+   string lastHost, secret;
+   int lastPort;
+   if (!ServerConnection.TryParse(joinAddress, out lastHost, out lastPort, out secret)) lastHost = null;
+   System.Threading.ThreadPool.QueueUserWorkItem(state => {
+    List<string> vpn = new List<string>();
+    List<FoundServer> rows = new List<FoundServer>();
+    try {
+     vpn = ServerFinder.TailscaleHosts();
+     rows = ServerFinder.Probe(ServerFinder.Candidates(vpn, ServerFinder.Interfaces(), lastHost, lastPort), source.Token);
+    }
+    catch (Exception) { }
+    Window.Dispatcher.BeginInvoke(new Action(() => FinderDone(source, rows, vpn.Count == 0)));
+   });
+  }
+
+  void FinderDone(System.Threading.CancellationTokenSource source, List<FoundServer> rows, bool noVpn) {
+   if (finding != source) return;
+   finding = null;
+   if (source.IsCancellationRequested) { findLine = null; ShowFinder(); return; }
+   int total = rows.Count;
+   foundServers = rows.Take(ServerFinder.MaxRows).ToList();
+   var box = C<TextBox>("JoinAddressBox");
+   if (Joining && appearanceEnabled && foundServers.Count > 0 && ServerFinder.Fills(box.Text, finderValue)) {
+    box.Text = finderValue = foundServers[0].Address;
+    CommitOnline();
+   }
+   findLine = () => total > 0 ? Tr("Servers found: {0}.", total)
+    : Tr("No servers found. Check that the host has a session running, or type the address.") + (noVpn ? " " + Tr("Tailscale was not found or is not connected on this device.") : "");
+   ShowFinder();
+  }
+
+  // Test only connects and closes; it never joins or starts anything.
+  void TestServer() {
+   if (testing) return;
+   string host, secret;
+   int port;
+   if (!ServerConnection.TryParse(C<TextBox>("JoinAddressBox").Text, out host, out port, out secret)) {
+    findLine = () => Tr("The server address is not valid. Enter an invite link or host:port on the Online page.");
+    ShowFinder();
+    return;
+   }
+   testing = true;
+   findLine = null;
+   ShowFinder();
+   System.Threading.ThreadPool.QueueUserWorkItem(state => {
+    int ms = ServerFinder.Connect(host, port, ServerFinder.TestMs);
+    Window.Dispatcher.BeginInvoke(new Action(() => {
+     testing = false;
+     findLine = () => ms > 0 ? Tr("Reachable in {0} ms.", ms) : Tr("Cannot reach {0}:{1}. Check the address, that the host has a session running, and its firewall.", host, port);
+     ShowFinder();
+    }));
+   });
+  }
+
+  static Brush Soft { get { return new SolidColorBrush(Color.FromRgb(0x9E, 0xB2, 0xBD)); } }
+
+  // Rebuilds the rows only when the results or the language changed, so a focused row keeps focus while other things refresh.
+  void ShowFinder() {
+   bool rows = Joining && foundServers.Count > 0;
+   C<UIElement>("FoundBox").Visibility = rows ? Visibility.Visible : Visibility.Collapsed;
+   var list = C<StackPanel>("FoundList");
+   if (shownServers != foundServers || !object.Equals(shownLanguage, Lang.Current)) {
+    shownServers = foundServers;
+    shownLanguage = Lang.Current;
+    list.Children.Clear();
+    foreach (var found in foundServers) {
+     var row = new Button { FontStyle = FontStyles.Normal, FontSize = 16, Margin = new Thickness(0, 0, 0, 6), HorizontalContentAlignment = HorizontalAlignment.Stretch, Tag = found.Address, ToolTip = Tr("Paste the invite your friend sent you, or type their address and port.") };
+     string badge = Tr(found.Via == ServerFinder.Vpn ? "VPN" : "Local"), speed = found.Ms + " ms";
+     var grid = new Grid();
+     grid.ColumnDefinitions.Add(new ColumnDefinition());
+     grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+     grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+     var name = new TextBlock { Text = found.Address };
+     var kind = new TextBlock { Text = badge, Margin = new Thickness(16, 0, 0, 0) };
+     var time = new TextBlock { Text = speed, Margin = new Thickness(16, 0, 0, 0), Foreground = Soft };
+     Grid.SetColumn(kind, 1);
+     Grid.SetColumn(time, 2);
+     grid.Children.Add(name); grid.Children.Add(kind); grid.Children.Add(time);
+     row.Content = grid;
+     System.Windows.Automation.AutomationProperties.SetName(row, found.Address + ", " + badge + ", " + speed);
+     row.Click += (s, e) => { C<TextBox>("JoinAddressBox").Text = (string)((Button)s).Tag; CommitOnline(); };
+     list.Children.Add(row);
+    }
+   }
+   var line = C<TextBlock>("FindResult");
+   line.Text = findLine == null ? "" : findLine();
+   line.Visibility = line.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+   EnableFinder();
+  }
+
+  void EnableFinder() {
+   C<Button>("FindServersButton").IsEnabled = appearanceEnabled && finding == null;
+   C<Button>("TestServerButton").IsEnabled = !testing;
+   foreach (var row in C<StackPanel>("FoundList").Children.OfType<Button>()) row.IsEnabled = appearanceEnabled;
+  }
+
+  // The rows sit in the right column, so Tab is steered to follow the spec: address, Search, Test, rows, then Password.
+  void FinderTab(object sender, System.Windows.Input.KeyEventArgs e) {
+   if (e.Key != System.Windows.Input.Key.Tab || (System.Windows.Input.Keyboard.Modifiers & ~System.Windows.Input.ModifierKeys.Shift) != 0) return;
+   var rows = C<StackPanel>("FoundList").Children.OfType<Button>().Where(row => row.IsEnabled).ToList();
+   if (rows.Count == 0 || !Joining) return;
+   bool back = (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Shift) != 0;
+   var at = System.Windows.Input.Keyboard.FocusedElement;
+   Action<UIElement> go = target => { target.Focus(); e.Handled = true; };
+   if (!back && at == C<Button>("TestServerButton")) go(rows[0]);
+   else if (!back && at == rows[rows.Count - 1]) go(C<TextBox>("JoinPasswordBox"));
+   else if (!back && at == C<TextBox>("JoinPasswordBox")) { e.Handled = true; rows[rows.Count - 1].MoveFocus(new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.Next)); }
+   else if (back && at == rows[0]) go(C<Button>("TestServerButton"));
+   else if (back && at == C<TextBox>("JoinPasswordBox")) go(rows[rows.Count - 1]);
+   else if (back && at == C<TextBox>("JoinPasswordBox")) go(rows[rows.Count - 1]);
+   else if (back && at is UIElement && !rows.Contains(at as Button)) {
+    // Whatever follows the list steps back to Password, not into the list.
+    e.Handled = true;
+    ((UIElement)at).MoveFocus(new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.Previous));
+    if (System.Windows.Input.Keyboard.FocusedElement == rows[rows.Count - 1]) C<TextBox>("JoinPasswordBox").Focus();
+   }
   }
 
   void CopyInvite() {
@@ -47,7 +184,7 @@ namespace HyruleOnline {
    }
   }
 
-  // Joining failed. The launcher never probes the port: the server crashes on any connection that does not speak its protocol.
+  // Joining failed. The launcher never connects to the host's port on its own when a session starts; only the Search and Test buttons do, with a bare connect that sends nothing.
   void ExplainJoinFailure() {
    if (!Joining) return;
    failure = failure + " " + Tr("Check the invite, the password, that the host has a session running, and that its firewall allows the port.");
@@ -133,6 +270,7 @@ namespace HyruleOnline {
    ShowOnline();
    UpdateStart();
    EnableAppearance(appearanceEnabled);
+   FindServers(true);
   }
 
   // Reads the boxes, writes the cleaned text back and refreshes what depends on it.
@@ -199,6 +337,7 @@ namespace HyruleOnline {
     : Joining ? "One or two players on this PC join a friend's server. The friend sets the rules."
     : "The server only accepts players from this PC.");
    ShowFirewall();
+   ShowFinder();
   }
 
   bool firewallOpen;

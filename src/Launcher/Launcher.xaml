@@ -16,7 +16,7 @@
    <Setter Property="Cursor" Value="Hand"/><Setter Property="FontWeight" Value="Normal"/>
    <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
     <Border x:Name="Chrome" CornerRadius="5" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}">
-     <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+     <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center"/>
     </Border><ControlTemplate.Triggers>
      <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="Background" Value="#B0354549"/></Trigger>
      <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="#E1CFA1"/><Setter TargetName="Chrome" Property="Background" Value="#B0354542"/></Trigger>
@@ -450,6 +450,13 @@
         <TextBox x:Name="JoinAddressBox" Style="{StaticResource NameBox}" HorizontalContentAlignment="Left" MaxLength="200" Height="44" FontStyle="Normal" AutomationProperties.Name="Invite or address"/>
         <TextBlock x:Name="JoinAddressHint" Text="Example: hyrule://100.64.0.5:5050 or 192.168.1.20:5050" IsHitTestVisible="False" Foreground="#6F8590" FontStyle="Italic" FontSize="14" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="16,0,16,0"/>
        </Grid>
+       <StackPanel Margin="0,0,0,12">
+        <StackPanel Orientation="Horizontal">
+         <Button x:Name="FindServersButton" Content="Search" FontStyle="Normal" FontSize="16" Padding="22,9" Margin="0,0,8,0" ToolTip="Looks for servers on your VPN (Tailscale) and on your local network."/>
+         <Button x:Name="TestServerButton" Content="Test" FontStyle="Normal" FontSize="16" Padding="22,9" Margin="0" ToolTip="Checks that this address answers, without joining."/>
+        </StackPanel>
+        <TextBlock x:Name="FindResult" Foreground="#9EB2BD" FontSize="13" TextWrapping="Wrap" Margin="0,8,0,0" Visibility="Collapsed" AutomationProperties.LiveSetting="Polite"/>
+       </StackPanel>
        <StackPanel Orientation="Horizontal"><TextBlock Text="Password" Style="{StaticResource FieldLabel}"/><TextBlock Style="{StaticResource InfoDot}" ToolTip="The server password, if the invite does not carry it."/></StackPanel>
        <TextBox x:Name="JoinPasswordBox" Style="{StaticResource NameBox}" HorizontalContentAlignment="Left" MaxLength="40" Height="44" FontStyle="Normal" Margin="0,4,0,12" AutomationProperties.Name="Server password to join"/>
       </StackPanel>
@@ -476,6 +483,12 @@
      <TextBlock Text="JOINING A SERVER" Style="{StaticResource SectionTitle}" Margin="0,0,0,12"/>
      <Border Background="#A0152027" CornerRadius="8" Padding="24,20" BorderBrush="#3449585A" BorderThickness="1">
       <TextBlock Foreground="#C9D6DB" FontSize="14" TextWrapping="Wrap" Text="Ask the host for their invite and paste it here. You play on this PC with one or two players. The host chooses the world rules and runs the server."/>
+     </Border>
+    </StackPanel>
+    <StackPanel x:Name="FoundBox" Margin="0,18,0,0" Visibility="Collapsed">
+     <TextBlock Text="SERVERS FOUND" Style="{StaticResource SectionTitle}" Margin="0,0,0,12"/>
+     <Border Background="#A0152027" CornerRadius="8" Padding="24,20,24,12" BorderBrush="#3449585A" BorderThickness="1">
+      <StackPanel x:Name="FoundList"/>
      </Border>
     </StackPanel>
    </StackPanel>

@@ -79,9 +79,9 @@
   "es": "Los amigos que usen este launcher pueden unirse a este dispositivo. Las reglas del mundo son las de la página Mundo.",
   "fr": "Les amis qui utilisent ce launcher peuvent rejoindre cet appareil. Les règles du monde sont celles de la page Monde."
  },
- "One player on this device joins a friend's server. The friend sets the rules.": {
-  "es": "Un jugador de este dispositivo entra en el servidor de un amigo. Tu amigo decide las reglas.",
-  "fr": "Un joueur de cet appareil rejoint le serveur d'un ami. Votre ami fixe les règles."
+ "One or two players on this device join a friend's server. The friend sets the rules.": {
+  "es": "Uno o dos jugadores de este dispositivo entran en el servidor de un amigo. Tu amigo decide las reglas.",
+  "fr": "Un ou deux joueurs de cet appareil rejoignent le serveur d'un ami. Votre ami fixe les règles."
  },
  "Keeps enemies in sync: what one player defeats is defeated for both.": {
   "es": "Sincroniza los enemigos: lo que derrota un jugador queda derrotado para ambos.",
@@ -499,9 +499,9 @@
   "es": "LAUNCHER",
   "fr": "LAUNCHER"
  },
- "Ask the host for their invite and paste it here. You play on this device with one player. The host chooses the world rules and runs the server.": {
-  "es": "Pide su invitación al anfitrión y pégala aquí. Juegas en este dispositivo con un jugador. El anfitrión elige las reglas del mundo y ejecuta el servidor.",
-  "fr": "Demandez son invitation à l'hôte et collez-la ici. Vous jouez sur cet appareil avec un joueur. L'hôte choisit les règles du monde et lance le serveur."
+ "Ask the host for their invite and paste it here. You play on this device with one or two players. The host chooses the world rules and runs the server.": {
+  "es": "Pide su invitación al anfitrión y pégala aquí. Juegas en este dispositivo con uno o dos jugadores. El anfitrión elige las reglas del mundo y ejecuta el servidor.",
+  "fr": "Demandez son invitation à l'hôte et collez-la ici. Vous jouez sur cet appareil avec un ou deux joueurs. L'hôte choisit les règles du monde et lance le serveur."
  },
  "What everyone on the server shares. Applied when the next session starts.": {
   "es": "Lo que comparten todos en el servidor. Se aplica al iniciar la próxima sesión.",
@@ -822,5 +822,57 @@
  "FPS target: Auto · {0} FPS": {
   "es": "Objetivo de FPS: Auto · {0} FPS",
   "fr": "Objectif FPS : Auto · {0} FPS"
+ },
+ "SERVERS FOUND": {
+  "es": "SERVIDORES ENCONTRADOS",
+  "fr": "SERVEURS TROUVÉS"
+ },
+ "Search": {
+  "es": "Buscar",
+  "fr": "Rechercher"
+ },
+ "Test": {
+  "es": "Probar",
+  "fr": "Tester"
+ },
+ "Searching your VPN and local network…": {
+  "es": "Buscando en tu VPN y en la red local…",
+  "fr": "Recherche sur votre VPN et votre réseau local…"
+ },
+ "Servers found: {0}.": {
+  "es": "Servidores encontrados: {0}.",
+  "fr": "Serveurs trouvés : {0}."
+ },
+ "No servers found. Check that the host has a session running, or type the address.": {
+  "es": "No se encontró ningún servidor. Comprueba que el anfitrión tenga una sesión abierta, o escribe la dirección.",
+  "fr": "Aucun serveur trouvé. Vérifiez que l'hôte a une session ouverte, ou saisissez l'adresse."
+ },
+ "Tailscale was not found or is not connected on this device.": {
+  "es": "Tailscale no se encontró o no está conectado en este dispositivo.",
+  "fr": "Tailscale est introuvable ou n'est pas connecté sur cet appareil."
+ },
+ "Reachable in {0} ms.": {
+  "es": "Responde en {0} ms.",
+  "fr": "Joignable en {0} ms."
+ },
+ "Cannot reach {0}:{1}. Check the address, that the host has a session running, and its firewall.": {
+  "es": "No se puede llegar a {0}:{1}. Comprueba la dirección, que el anfitrión tenga una sesión abierta y su firewall.",
+  "fr": "Impossible de joindre {0}:{1}. Vérifiez l'adresse, que l'hôte a une session ouverte, et son pare-feu."
+ },
+ "Looks for servers on your VPN (Tailscale) and on your local network.": {
+  "es": "Busca servidores en tu VPN (Tailscale) y en tu red local.",
+  "fr": "Cherche des serveurs sur votre VPN (Tailscale) et sur votre réseau local."
+ },
+ "Checks that this address answers, without joining.": {
+  "es": "Comprueba que esta dirección responde, sin unirse.",
+  "fr": "Vérifie que cette adresse répond, sans rejoindre."
+ },
+ "VPN": {
+  "es": "VPN",
+  "fr": "VPN"
+ },
+ "Local": {
+  "es": "Local",
+  "fr": "Local"
  }
 }

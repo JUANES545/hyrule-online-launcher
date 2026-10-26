@@ -27,7 +27,7 @@ try:
 except ImportError:  # no controller module next to the launcher: keyboard only
     gamepad = None
 import display
-
+import finder
 HERE = os.path.dirname(os.path.realpath(__file__))
 LOCAL, HOST, JOIN = "Local", "Host", "Join"
 TABS = ["Play", "Online", "Graphics", "World", "Language", "Details"]  # the Windows order, without the menu-controls card of its Graphics page
@@ -59,7 +59,7 @@ MODE_WORDS = {LOCAL: _k("Play on this device"), HOST: _k("Host a server"), JOIN:
 MODES = [(LOCAL, "Play on this device"), (HOST, "Host a server"), (JOIN, "Join a server")]
 MODE_INFO = {LOCAL: _k("The server only accepts players from this device."),
              HOST: _k("Friends who run this launcher can join this device. The world rules are the ones on the World page."),
-             JOIN: _k("One player on this device joins a friend's server. The friend sets the rules.")}
+             JOIN: _k("One or two players on this device join a friend's server. The friend sets the rules.")}
 DEFAULT_HINT = _k("Hover an option, or move the focus to it, to see what it does.")
 SHORTCUT_TIP = _k("Hold these controller buttons for 1.5 seconds while a game is in front to bring this launcher over it. Hold them again, or press the back button here, to return to the game. Pick buttons the game does not need together, or turn it off.")
 HINT_TABS = ("Online", "Graphics", "World")  # the pages of Launcher.xaml that carry the hint bar
@@ -904,6 +904,8 @@ class Skin:
             if cls in ("Radiobutton", "Checkbutton"):
                 o["selectcolor"] = fill
         self.set(**o)
+        for part in getattr(self, "parts", ()):  # widgets laid over the button (the server rows' badge and time) take its fill
+            part.configure(bg=fill)
 
     def draw_deco(self, W, H, fill, on, off):
         cv, s = self.cv, self.app.scale
@@ -964,6 +966,8 @@ class App:
         self.game_lang = tk.StringVar(root, display.pick_language(self.game_langs, self.own.get("game_language"))[0])
         self.v = {k: tk.StringVar(root, x) for k, x in st["values"].items()}
         self.last_addr, self.addr_msg, self.copied_until, self.semicolon_until, self.shown = "", False, 0, 0, None
+        self.found, self.finder_value, self.find_line, self.searching, self.testing = [], "", [], False, False  # the server finder's list, last auto-filled value, result line and busy flags
+        self.cancel, self.search_fn, self.check_fn = threading.Event(), finder.search, finder.check
         for key, var in self.v.items():
             var.trace_add("write", lambda *a, k=key: self.typed(k))
         self.fonts()
@@ -1239,6 +1243,14 @@ class App:
         self.field(self.hostf, 3, "Server description", self.v["desc"], _k("The text friends see about this server."))
         self.field(self.joinf, 0, "Invite or address", self.v["invite"], _k("Paste the invite your friend sent you, or type their address and port."))
         self.label(self.joinf, tr("Example: hyrule://100.64.0.5:5050 or 192.168.1.20:5050"), fg=SOFT, size=13, wrap=self.textw).grid(row=2, column=0, sticky="w", pady=(0, px(8)))
+        tools = tk.Frame(self.joinf, bg=self.joinf["bg"])
+        tools.grid(row=3, column=0, sticky="w")
+        self.search_btn = self.button(tools, tr("Search"), self.find, _k("Looks for servers on your VPN (Tailscale) and on your local network."), size=16, style="", padx=22, pady=9)
+        self.test_btn = self.button(tools, tr("Test"), self.try_connect, _k("Checks that this address answers, without joining."), size=16, style="", padx=22, pady=9)
+        self.search_btn.pack(side="left")
+        self.test_btn.pack(side="left", padx=(px(8), 0))
+        self.find_text = self.label(self.joinf, "", fg=SOFT, size=13, wrap=self.textw)
+        self.find_text.grid(row=4, column=0, sticky="w", pady=(px(6), px(8)))
         self.field(self.joinf, 3, "Password", self.v["joinpass"], _k("The server password, if the invite does not carry it."), show="")
         self.share = self.panel(page, "INVITE FRIENDS")
         self.share.columnconfigure(0, weight=1)
@@ -1252,8 +1264,15 @@ class App:
         self.copy_btn.grid(row=4, column=0, sticky="ew")
         self.nethint = self.label(self.share, "", fg=SOFT, size=13, wrap=self.textw)
         self.nethint.grid(row=5, column=0, sticky="w", pady=(px(8), 0))
-        self.joinhelp = self.panel(page, "JOINING A SERVER")
-        self.label(self.joinhelp, tr("Ask the host for their invite and paste it here. You play on this device with one player. The host chooses the world rules and runs the server."), size=16, fg=BLURB, wrap=self.textw).grid(row=0, column=0, sticky="w")
+        self.joincol = tk.Frame(page, bg=BG)
+        self.joincol.columnconfigure(0, weight=1)
+        self.joinhelp = self.panel(self.joincol, "JOINING A SERVER")
+        self.joinhelp.grid(row=0, column=0, sticky="new")
+        self.label(self.joinhelp, tr("Ask the host for their invite and paste it here. You play on this device with one or two players. The host chooses the world rules and runs the server."), size=16, fg=BLURB, wrap=self.textw).grid(row=0, column=0, sticky="w")
+        self.foundbox = self.panel(self.joincol, "SERVERS FOUND")
+        self.foundbox.grid(row=1, column=0, sticky="new", pady=(px(18), 0))
+        self.render_found()
+        self.render_find()
 
     def build_world(self, page):
         px = self.px
@@ -1433,10 +1452,12 @@ class App:
         else:
             self.hint.pack_forget()
         self.remember("tab", name)
+        if name == "Online":
+            self.auto_find()
 
     def show_mode(self):
         m = self.mode.get()
-        for f in (self.hostf, self.joinf, self.share, self.joinhelp):
+        for f in (self.hostf, self.joinf, self.share, self.joincol):
             f.grid_remove()
         gap = {"sticky": "new", "padx": (self.px(13), 0)}
         if m == HOST:
@@ -1444,12 +1465,13 @@ class App:
             self.share.grid(row=0, column=1, **gap)
         elif m == JOIN:
             self.joinf.grid(row=4, column=0, sticky="ew")
-            self.joinhelp.grid(row=0, column=1, **gap)
+            self.joincol.grid(row=0, column=1, **gap)
         self.info.config(text=tr(MODE_INFO[m]))
         self.mode_btn.config(text=tr(MODE_WORDS[m]))
         self.remember("mode", m)
         self.refresh_rules()
         self.refresh_invite()
+        self.auto_find()
 
     def show_page(self, name):
         self.tab.set(name)
@@ -1556,6 +1578,96 @@ class App:
     def set_mode(self, m):
         self.mode.set(m)
         self.show_mode()
+
+    # ---- server finder (finder.py does the probing; the worker threads never touch Tk) ----
+    def background(self, work, done):
+        """Runs work() off the Tk loop; done(result) runs on it. The result is None when work failed."""
+        box = []
+
+        def run():
+            try:
+                box.append(work())
+            except Exception:
+                box.append(None)
+
+        def poll():
+            if box:
+                done(box[0])
+            elif not self.cancel.is_set():
+                self.root.after(60, poll)
+        threading.Thread(target=run, daemon=True).start()
+        self.root.after(60, poll)
+
+    def auto_find(self):
+        if self.tab.get() == "Online" and self.mode.get() == JOIN and not self.up:
+            self.find()
+
+    def find(self):
+        if self.searching:
+            return
+        self.searching = True
+        self.find_line = [(_k("Searching your VPN and local network…"), ())]
+        self.render_find()
+        last = parse_invite(self.v["invite"].get())
+        cancel = self.cancel
+        self.background(lambda: self.search_fn(last[:2] if last else None, cancel), self.found_done)
+
+    def found_done(self, result):
+        rows, vpn = result or ([], 0)
+        self.searching, self.found = False, rows[:finder.MAX_ROWS]
+        fill = finder.autofill(self.v["invite"].get(), self.finder_value, self.found)
+        if fill:
+            self.v["invite"].set(fill)
+            self.finder_value = fill
+        self.find_line = [(_k("Servers found: {0}."), (len(rows),))] if rows else \
+            [(_k("No servers found. Check that the host has a session running, or type the address."), ())] + ([] if vpn else [(_k("Tailscale was not found or is not connected on this device."), ())])
+        self.render_found()
+        self.render_find()
+
+    def try_connect(self):
+        parsed = parse_invite(self.v["invite"].get())
+        if not parsed:
+            self.find_line = [(_k("The server address is not valid. Enter an invite link or host:port on the Online page."), ())]
+            self.render_find()
+        elif not self.testing:
+            self.testing = True
+            self.render_find()
+            self.background(lambda: self.check_fn(parsed[0], parsed[1]), lambda ms: self.connected(parsed[0], parsed[1], ms))
+
+    def connected(self, host, port, ms):
+        self.testing = False
+        self.find_line = [(_k("Reachable in {0} ms."), (ms,))] if ms else \
+            [(_k("Cannot reach {0}:{1}. Check the address, that the host has a session running, and its firewall."), (host, port))]
+        self.render_find()
+
+    def render_find(self):
+        self.search_btn.config(state="disabled" if self.searching else "normal")
+        self.test_btn.config(state="disabled" if self.testing else "normal")
+        self.find_text.config(text=" ".join(tr(text, *args) for text, args in self.find_line))
+        (self.find_text.grid if self.find_line else self.find_text.grid_remove)()
+
+    def pick_found(self, row):
+        self.v["invite"].set("%s:%d" % (row.host, row.port))
+
+    def render_found(self):
+        for w in self.foundbox.winfo_children():
+            w.destroy()
+        for row in self.found:
+            b = self.button(self.foundbox, "%s:%d" % (row.host, row.port), lambda r=row: self.pick_found(r),
+                            _k("Paste the invite your friend sent you, or type their address and port."), size=16, style="", padx=14, pady=7, anchor="w")
+            b.pack(fill="x", pady=(0, self.px(6)))
+            info = tk.Frame(b, bg=b.cget("bg"))
+            badge = tk.Label(info, text=tr("VPN") if row.via == "vpn" else tr("Local"), fg=MUTED, bg=b.cget("bg"), font=self.f(13))
+            ms = tk.Label(info, text="%d ms" % row.ms, fg=SOFT, bg=b.cget("bg"), font=self.f(13), width=7, anchor="e")
+            badge.pack(side="left", padx=(0, self.px(10)))
+            ms.pack(side="left")
+            info.place(relx=1, rely=.5, anchor="e", x=-self.px(14))
+            b.skin.parts = (info, badge, ms)
+            for part in (info, badge, ms):  # they sit over the button, so they pass the pointer on to it
+                part.bind("<Button-1>", b.skin.press)
+                part.bind("<Enter>", lambda e, s=b.skin: s.change(hover=True))
+                part.bind("<Leave>", lambda e, s=b.skin: s.change(hover=False))
+        (self.foundbox.grid if self.found else self.foundbox.grid_remove)()
 
     # ---- world rules ----
     def refresh_rules(self):
@@ -1786,6 +1898,7 @@ class App:
         self.cli.stop()
 
     def stop_timers(self):
+        self.cancel.set()
         for job in self.root.tk.call("after", "info"):
             self.root.after_cancel(job)
 

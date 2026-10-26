@@ -227,6 +227,96 @@
       "en": "Join a server",
       "es": "Unirse a un servidor",
       "fr": "Rejoindre un serveur"
+    },
+    {
+      "en": "Ask the host for their invite and paste it here. You play on this PC with one or two players. The host chooses the world rules and runs the server.",
+      "es": "Pide su invitación al anfitrión y pégala aquí. Juegas en este PC con uno o dos jugadores. El anfitrión elige las reglas del mundo y ejecuta el servidor.",
+      "fr": "Demandez son invitation à l'hôte et collez-la ici. Vous jouez sur ce PC avec un ou deux joueurs. L'hôte choisit les règles du monde et lance le serveur.",
+      "steamos": {
+        "en": "Ask the host for their invite and paste it here. You play on this device with one or two players. The host chooses the world rules and runs the server.",
+        "es": "Pide su invitación al anfitrión y pégala aquí. Juegas en este dispositivo con uno o dos jugadores. El anfitrión elige las reglas del mundo y ejecuta el servidor.",
+        "fr": "Demandez son invitation à l'hôte et collez-la ici. Vous jouez sur cet appareil avec un ou deux joueurs. L'hôte choisit les règles du monde et lance le serveur."
+      }
+    },
+    {
+      "en": "One or two players on this PC join a friend's server. The friend sets the rules.",
+      "es": "Uno o dos jugadores de este PC entran en el servidor de un amigo. Tu amigo decide las reglas.",
+      "fr": "Un ou deux joueurs de ce PC rejoignent le serveur d'un ami. Votre ami fixe les règles.",
+      "steamos": {
+        "en": "One or two players on this device join a friend's server. The friend sets the rules.",
+        "es": "Uno o dos jugadores de este dispositivo entran en el servidor de un amigo. Tu amigo decide las reglas.",
+        "fr": "Un ou deux joueurs de cet appareil rejoignent le serveur d'un ami. Votre ami fixe les règles."
+      }
+    },
+    {
+      "en": "SERVERS FOUND",
+      "es": "SERVIDORES ENCONTRADOS",
+      "fr": "SERVEURS TROUVÉS"
+    },
+    {
+      "en": "Search",
+      "es": "Buscar",
+      "fr": "Rechercher"
+    },
+    {
+      "en": "Test",
+      "es": "Probar",
+      "fr": "Tester"
+    },
+    {
+      "en": "Looks for servers on your VPN (Tailscale) and on your local network.",
+      "es": "Busca servidores en tu VPN (Tailscale) y en tu red local.",
+      "fr": "Cherche des serveurs sur votre VPN (Tailscale) et sur votre réseau local."
+    },
+    {
+      "en": "Checks that this address answers, without joining.",
+      "es": "Comprueba que esta dirección responde, sin unirse.",
+      "fr": "Vérifie que cette adresse répond, sans rejoindre."
+    },
+    {
+      "en": "Searching your VPN and local network…",
+      "es": "Buscando en tu VPN y en la red local…",
+      "fr": "Recherche sur votre VPN et votre réseau local…"
+    },
+    {
+      "en": "Servers found: {0}.",
+      "es": "Servidores encontrados: {0}.",
+      "fr": "Serveurs trouvés : {0}."
+    },
+    {
+      "en": "No servers found. Check that the host has a session running, or type the address.",
+      "es": "No se encontró ningún servidor. Comprueba que el anfitrión tenga una sesión abierta, o escribe la dirección.",
+      "fr": "Aucun serveur trouvé. Vérifiez que l'hôte a une session ouverte, ou saisissez l'adresse."
+    },
+    {
+      "en": "Tailscale was not found or is not connected on this device.",
+      "es": "Tailscale no se encontró o no está conectado en este dispositivo.",
+      "fr": "Tailscale est introuvable ou n'est pas connecté sur cet appareil."
+    },
+    {
+      "en": "The server address is not valid. Enter an invite link or host:port on the Online page.",
+      "es": "La dirección del servidor no es válida. Escribe un enlace de invitación o host:puerto en la página En línea.",
+      "fr": "L'adresse du serveur n'est pas valide. Saisissez un lien d'invitation ou hôte:port sur la page En ligne."
+    },
+    {
+      "en": "Reachable in {0} ms.",
+      "es": "Responde en {0} ms.",
+      "fr": "Joignable en {0} ms."
+    },
+    {
+      "en": "Cannot reach {0}:{1}. Check the address, that the host has a session running, and its firewall.",
+      "es": "No se puede llegar a {0}:{1}. Comprueba la dirección, que el anfitrión tenga una sesión abierta y su firewall.",
+      "fr": "Impossible de joindre {0}:{1}. Vérifiez l'adresse, que l'hôte a une session ouverte, et son pare-feu."
+    },
+    {
+      "en": "VPN",
+      "es": "VPN",
+      "fr": "VPN"
+    },
+    {
+      "en": "Local",
+      "es": "Local",
+      "fr": "Local"
     }
   ],
   "notApplicable": [
@@ -266,7 +356,6 @@
         "The Tailscale or home network address of this PC. Use your public address if you forward the port on your router. Empty it to detect the address again.",
         "Allow through firewall",
         "Adds a Windows Firewall rule for the server port. Windows asks for administrator permission.",
-        "Ask the host for their invite and paste it here. You play on this PC with one or two players. The host chooses the world rules and runs the server.",
         "This is a {0} address. Friends on the same {0} network can join from anywhere.",
         "This is a home network address, so only people on the same network can join. For anyone else, install a VPN such as Tailscale on both PCs, or forward the port on your router and use your public address.",
         "Start failed: {0}",
@@ -282,7 +371,6 @@
         "In the world: {0}",
         "Nobody has joined yet.",
         "Playing on the server at {0}:{1}.",
-        "One or two players on this PC join a friend's server. The friend sets the rules.",
         "Windows Firewall already allows port {0}.",
         "Windows Firewall may block port {0}. Allow it so friends can connect."
       ]
@@ -328,5 +416,51 @@
         "The server only accepts players from this PC."
       ]
     }
-  ]
+  ],
+  "finder": {
+    "about": "Shared vectors for the server finder. tests\\ParityTests.cs checks them against src\\Launcher\\ServerFinder.cs; the SteamOS finder must give the same answers.",
+    "constants": { "port": 5050, "probeMs": 400, "probes": 64, "maxHosts": 1024, "testMs": 1500, "rows": 6 },
+    "classify": {
+      "100.65.234.99": "vpn",
+      "100.64.0.1": "vpn",
+      "100.127.255.254": "vpn",
+      "100.63.255.255": "lan",
+      "100.128.0.0": "lan",
+      "192.168.1.8": "lan",
+      "10.0.0.5": "lan"
+    },
+    "local": {
+      "interfaces": [["192.168.1.43", 24], ["10.1.2.3", 16], ["100.65.1.1", 32], ["169.254.3.4", 16], ["127.0.0.1", 8], ["172.20.5.9", 30]],
+      "hosts": [
+        { "prefix": "192.168.1.", "from": 1, "to": 254, "except": [43] },
+        { "prefix": "10.1.2.", "from": 1, "to": 254, "except": [3] },
+        { "prefix": "172.20.5.", "from": 10, "to": 10, "except": [] }
+      ]
+    },
+    "tailscale": {
+      "json": "{\"Self\":{\"TailscaleIPs\":[\"100.1.1.1\",\"fd7a::1\"],\"Online\":true},\"Peer\":{\"k1\":{\"TailscaleIPs\":[\"100.65.234.99\",\"fd7a::2\"],\"Online\":true},\"k2\":{\"TailscaleIPs\":[\"100.70.0.2\"],\"Online\":false},\"k3\":{\"TailscaleIPs\":[\"fd7a::3\"],\"Online\":true}}}",
+      "hosts": ["100.65.234.99"],
+      "garbage": ["", "not json", "{}", "[]"]
+    },
+    "order": {
+      "in": [["lan", "192.168.1.8", 4], ["vpn", "100.70.0.2", 30], ["vpn", "100.65.0.9", 30], ["vpn", "100.99.0.1", 2], ["lan", "192.168.1.20", 4]],
+      "out": ["100.99.0.1", "100.65.0.9", "100.70.0.2", "192.168.1.8", "192.168.1.20"]
+    },
+    "autofill": [
+      { "field": "", "finder": "", "fills": true },
+      { "field": "192.168.1.8:5050", "finder": "192.168.1.8:5050", "fills": true },
+      { "field": "x:1", "finder": "192.168.1.8:5050", "fills": false },
+      { "field": "x:1", "finder": "", "fills": false },
+      { "field": "  ", "finder": "", "fills": false }
+    ],
+    "lastUsed": {
+      "interfaces": [["192.168.1.43", 24]],
+      "cases": [
+        { "host": "192.168.1.20", "port": 6000, "candidate": true, "via": "lan" },
+        { "host": "100.70.0.2", "port": 5050, "candidate": true, "via": "vpn" },
+        { "host": "my-host.example", "port": 5050, "candidate": false }
+      ]
+    },
+    "cap": { "max": 1024 }
+  }
 }

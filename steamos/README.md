@@ -29,6 +29,7 @@ Start **Hyrule Online** (Gaming Mode: Library, Non-Steam, Hyrule Online, Play; D
 - **Play on this device:** a private server on `127.0.0.1` with one player (you). Nobody else can join; the startup message says so.
 - **Host a server:** the server listens on `0.0.0.0`, shows an invite (copyable in a dialog; LAN address first, Tailscale or another VPN address as an extra line) and you play on it too. Friends paste the invite in the Join mode of their launcher, Windows or SteamOS.
 - **Join a server:** paste an invite (`hyrule://HOST:PORT?pw=PASSWORD`) or type `HOST:PORT`, then the password if the invite has none, and your player name. The last values are remembered.
+- **Server finder (Join mode):** the Online page searches by itself when it opens in Join mode, and the `Search` button repeats it. It probes port 5050 (400 ms per address, 64 at a time) on your Tailscale peers (100.64.0.0/10) and on your local /24 networks, and lists up to 6 servers under SERVERS FOUND with a VPN or Local badge and the answer time. A click puts `host:port` in the address field. The field is filled automatically only when it is empty (whitespace counts as typed text) or still holds a value the finder filled. `Test` checks the typed address (1.5 s) without joining. Tailscale peers come from `tailscale status --json`; without the `tailscale` CLI (or when it fails) there are no VPN candidates. A stock Steam Deck or ROG Ally has no CLI, so there only the local network and the last used address are searched, unless the CLI is installed. The last used address is only probed when it is an IPv4 literal (no DNS lookups). The logic lives in `finder.py`.
 - **Stop:** stops the server and the game of this install.
 
 From a terminal, to skip the menu:
@@ -80,6 +81,7 @@ Controls (Steam Input maps the pad to these keys): arrows or D-pad move the focu
 | Host: port (5 digits, 1024 to 65535, else 5050), password (40), description (80), address (100) | same limits | `;` is removed from the password and the page says so |
 | Invite box, Copy invite, VPN hint, "no network address" hint | same | the invite follows the form and the clipboard works |
 | Join: invite or address (200), password (40), invite parsing, bad invite error | same | `hyrule://host:port?pw=` as on Windows |
+| Join: Search and Test buttons, SERVERS FOUND list (VPN / Local badge, answer time) | same | Tailscale peers need the `tailscale` CLI (see "Server finder") |
 | World: presets, special modes, seven rules, recommended rules, shared / not shared summary | same | locked with a note while joining; rules and presets come from `--presets` |
 | Language page, Details page (session log, server console, host-session info), Help | same | Details shows the logs; no command box |
 | Player name | same field | only `A-Za-z0-9_-`, 1 to 16 (Windows also allows space and dot) |

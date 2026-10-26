@@ -7,6 +7,7 @@ import os
 import re
 import sys
 import tempfile
+import time
 import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -638,7 +639,129 @@ class Window(unittest.TestCase):
         root.update()
         root.focus_force()
         root.update()
+        app.search_fn = lambda last, cancel: ([], 0)  # the tests never scan a real network
+        app.check_fn = lambda host, port: 0
         return root, app
+
+    def settle(self, app, until):
+        for _ in range(100):
+            app.root.update()
+            if until():
+                return
+            time.sleep(0.02)
+        self.fail("the background work did not finish")
+
+    def show_rows(self, app, rows):
+        app.found = rows
+        app.render_found()
+        app.root.update()
+
+    def test_finder_controls_exist_and_the_list_hides_when_empty(self):
+        for width, height in self.SIZES:
+            for language in ("en", "es", "fr"):
+                root, app = self.make(width, height, language)
+                app.set_mode(L.JOIN)
+                app.show_page("Online")
+                self.show_rows(app, [])
+                self.assertFalse(app.foundbox.winfo_ismapped())
+                self.show_rows(app, [L.finder.Found("100.64.0.5", 5050, "vpn", 12), L.finder.Found("192.168.1.20", 5050, "lan", 3)] * 3)
+                where = (width, height, language)
+                self.assertTrue(app.foundbox.winfo_ismapped(), where)
+                self.assertEqual(len(app.foundbox.winfo_children()), 6, where)
+                items = app.focusables()
+                self.assertEqual(len([w for w in items if str(w).startswith(str(app.foundbox) + ".")]), 6, where)
+                for w in (app.search_btn, app.test_btn):
+                    self.assertIn(w, items, where)
+                self.assertEqual(L.unreachable(app.boxes(items), [w in app.chrome for w in items]), [], where)
+                self.assertLessEqual(app.pages["Online"].winfo_reqheight(), app.host.winfo_height(), where)
+                for w in app.foundbox.winfo_children() if (width, height) == (1280, 800) else ():
+                    self.assertGreaterEqual(w.winfo_height(), 30, where)
+                root.destroy()
+
+    def test_search_runs_on_the_online_page_in_join_and_not_while_up_or_busy(self):
+        root, app = self.make(1280, 800)
+        calls = []
+        app.search_fn = lambda last, cancel: calls.append(last) or ([], 0)
+        app.show_page("Online")
+        app.set_mode(L.HOST)
+        root.update()
+        self.assertEqual(calls, [])
+        app.set_mode(L.JOIN)
+        self.settle(app, lambda: not app.searching)
+        self.assertEqual(len(calls), 1)
+        app.up = True
+        app.set_mode(L.JOIN)
+        app.show_page("Play")
+        app.show_page("Online")
+        root.update()
+        self.assertEqual(len(calls), 1)
+        app.up = False
+        app.searching = True
+        app.find()
+        root.update()
+        self.assertEqual(len(calls), 1)
+        root.destroy()
+
+    def test_search_fills_the_address_only_when_it_is_empty_or_was_filled_by_the_finder(self):
+        root, app = self.make(1280, 800)
+        rows = [L.finder.Found("100.64.0.5", 5050, "vpn", 12)]
+        app.search_fn = lambda last, cancel: (rows, 1)
+        app.set_mode(L.JOIN)
+        app.show_page("Online")
+        self.settle(app, lambda: not app.searching)
+        self.assertEqual(app.v["invite"].get(), "100.64.0.5:5050")
+        self.assertEqual(app.find_text.cget("text"), "Servers found: 1.")
+        rows[:] = [L.finder.Found("100.64.0.9", 5050, "vpn", 12)]
+        app.find()
+        self.settle(app, lambda: not app.searching)
+        self.assertEqual(app.v["invite"].get(), "100.64.0.9:5050")
+        app.v["invite"].set("my.host:6000")
+        app.find()
+        self.settle(app, lambda: not app.searching)
+        self.assertEqual(app.v["invite"].get(), "my.host:6000")
+        app.v["invite"].set("  ")
+        app.find()
+        self.settle(app, lambda: not app.searching)
+        self.assertEqual(app.v["invite"].get(), "  ")
+        app.pick_found(rows[0])
+        self.assertEqual(app.v["invite"].get(), "100.64.0.9:5050")
+        root.destroy()
+
+    def test_empty_search_says_so(self):
+        root, app = self.make(1280, 800)
+        app.set_mode(L.JOIN)
+        app.show_page("Online")
+        self.settle(app, lambda: not app.searching)
+        self.assertIn("No servers found.", app.find_text.cget("text"))
+        self.assertIn("Tailscale was not found", app.find_text.cget("text"))
+        self.assertFalse(app.foundbox.winfo_ismapped())
+        root.destroy()
+
+    def test_test_button_reports_the_result_and_rejects_a_bad_address(self):
+        root, app = self.make(1280, 800)
+        app.set_mode(L.JOIN)
+        app.show_page("Online")
+        app.v["invite"].set("")
+        app.try_connect()
+        self.assertIn("not valid", app.find_text.cget("text"))
+        app.v["invite"].set("10.0.0.2:5050")
+        app.check_fn = lambda host, port: 42
+        app.try_connect()
+        self.assertEqual(str(app.test_btn.cget("state")), "disabled")
+        self.settle(app, lambda: not app.testing)
+        self.assertEqual(str(app.test_btn.cget("state")), "normal")
+        self.assertEqual(app.find_text.cget("text"), "Reachable in 42 ms.")
+        app.check_fn = lambda host, port: 0
+        app.try_connect()
+        self.settle(app, lambda: not app.testing)
+        self.assertTrue(app.find_text.cget("text").startswith("Cannot reach 10.0.0.2:5050."))
+        root.destroy()
+
+    def test_closing_cancels_the_search(self):
+        root, app = self.make(1280, 800)
+        app.stop_timers()
+        self.assertTrue(app.cancel.is_set())
+        root.destroy()
 
     def pages(self, app):
         for mode in (L.LOCAL, L.HOST, L.JOIN):

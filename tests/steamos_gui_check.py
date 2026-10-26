@@ -88,6 +88,7 @@ def audit(app, name, top=None):
         app.nav("Tab")
         settle(root)
         seen.add(root.focus_get())
+        remember_texts(root)  # the hint line shows the tooltip of the focused control
     check(mine <= seen, f"{name}: Tab never reached {sorted(describe(w) for w in mine - seen)}.")
     screenshot(name)
 
@@ -174,6 +175,8 @@ def main():
     app = launcher.App(root, cli=launcher.Cli(script=STUB), conf=os.path.join(OUT, "launcher.conf"), join_conf=os.path.join(OUT, "join.conf"),
                        size=(1280, 800), server_log=launcher.ServerLog(os.path.join(OUT, "server.log")))
     settle(root, 0.3)
+    app.search_fn = lambda last, cancel: ([launcher.finder.Found("100.64.0.5", 5050, "vpn", 12), launcher.finder.Found("192.168.1.20", 5050, "lan", 3)], 1)  # no real network scan
+    app.check_fn = lambda host, port: 7
 
     for tab in launcher.TABS:
         show(app, tab)
@@ -181,9 +184,28 @@ def main():
         if tab == "Online":
             for mode, _ in launcher.MODES:
                 show(app, tab, mode)
+                if mode == launcher.JOIN:
+                    check(wait_for(root, lambda: len(app.found) == 2), "the server finder did not list the servers it found when the Join page opened.")
                 audit(app, f"online-{mode}")
         else:
             audit(app, f"page-{tab}")
+
+    app.try_connect()
+    check(wait_for(root, lambda: not app.testing), "Test never finished.")
+    remember_texts(root)
+    app.check_fn = lambda host, port: 0
+    app.try_connect()
+    check(wait_for(root, lambda: not app.testing), "Test never finished.")
+    remember_texts(root)
+    app.search_fn = lambda last, cancel: ([], 0)
+    app.find()
+    remember_texts(root)  # the searching line is on screen until the worker returns
+    check(wait_for(root, lambda: not app.searching), "Search never finished.")
+    check(not app.foundbox.winfo_ismapped(), "the SERVERS FOUND card stays visible with no servers.")
+    remember_texts(root)
+    app.v["invite"].set("")
+    app.try_connect()
+    remember_texts(root)
 
     show(app, "Online", launcher.LOCAL)
     with_dialog(app, "dialog-mode", app.pick_mode)
@@ -233,7 +255,9 @@ def main():
     missing = []
     for item in manifest["mirrored"]:
         text = item.get("steamos", item)["en"]
-        if not any(text in s for s in shown_texts):
+        pattern = re.escape(text)
+        pattern = re.sub(r"\\\{\d+\\\}", ".+", pattern)  # a text with {0} shows up with its values filled in
+        if not any(re.search(pattern, s) for s in shown_texts):
             missing.append(text)
     check(not missing, f"steamos\\parity.json lists these texts as mirrored but no window shows them: {missing}.")
 

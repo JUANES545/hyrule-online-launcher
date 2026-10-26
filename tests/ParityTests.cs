@@ -270,6 +270,53 @@ namespace HyruleOnline {
    Console.WriteLine("parity: " + checkedTexts + " mirrored texts, " + sorted.Count(t => !mirrored.Any(m => Str(m["en"]) == t)) + " not applicable.");
   }
 
+  // The finder vectors in the manifest must give the same answers from the real ServerFinder, so the SteamOS finder can be tested against the same file.
+  static void CheckFinder(Dictionary<string, object> manifest) {
+   if (!manifest.ContainsKey("finder")) { Fail(ManifestFile + " has no \"finder\" vectors. Add the shared server finder vectors (classify, local, tailscale, order, autofill, cap)."); return; }
+   var finder = Obj(manifest["finder"]);
+   var constants = Obj(finder["constants"]);
+   var actualConstants = new Dictionary<string, int> { { "port", ServerFinder.Port }, { "probeMs", ServerFinder.ProbeMs }, { "probes", ServerFinder.Probes }, { "maxHosts", ServerFinder.MaxHosts }, { "testMs", ServerFinder.TestMs }, { "rows", ServerFinder.MaxRows } };
+   foreach (var pair in actualConstants) if (!constants.ContainsKey(pair.Key) || Convert.ToInt32(constants[pair.Key]) != pair.Value) Fail(ManifestFile + " finder.constants." + pair.Key + " must be " + pair.Value + " like ServerFinder.cs.");
+   if (ServerFinder.Port != ServerConnection.DefaultPort) Fail("ServerFinder.Port is " + ServerFinder.Port + " but ServerConnection.DefaultPort is " + ServerConnection.DefaultPort + ".");
+
+   foreach (var pair in Obj(finder["classify"])) if (ServerFinder.Classify(pair.Key) != Str(pair.Value)) Fail("ServerFinder.Classify(" + pair.Key + ") is " + ServerFinder.Classify(pair.Key) + " but " + ManifestFile + " says " + Str(pair.Value) + ".");
+
+   var local = Obj(finder["local"]);
+   var interfaces = ((IEnumerable)local["interfaces"]).Cast<object>().Select(o => { var item = ((IEnumerable)o).Cast<object>().ToList(); return new KeyValuePair<string, int>(Str(item[0]), Convert.ToInt32(item[1])); }).ToList();
+   var expectedHosts = new List<string>();
+   foreach (var range in ((IEnumerable)local["hosts"]).Cast<object>().Select(Obj)) {
+    var except = ((IEnumerable)range["except"]).Cast<object>().Select(Convert.ToInt32).ToList();
+    for (int i = Convert.ToInt32(range["from"]); i <= Convert.ToInt32(range["to"]); i++) if (!except.Contains(i)) expectedHosts.Add(Str(range["prefix"]) + i);
+   }
+   if (!ServerFinder.LocalHosts(interfaces).SequenceEqual(expectedHosts)) Fail("ServerFinder.LocalHosts gives " + ServerFinder.LocalHosts(interfaces).Count + " hosts for the finder.local interfaces but " + ManifestFile + " lists " + expectedHosts.Count + ".");
+
+   var tailscale = Obj(finder["tailscale"]);
+   if (!ServerFinder.TailscaleHosts(Str(tailscale["json"])).SequenceEqual(Items(tailscale["hosts"]))) Fail("ServerFinder.TailscaleHosts does not return " + string.Join(",", Items(tailscale["hosts"]).ToArray()) + " for the finder.tailscale JSON.");
+   foreach (string garbage in Items(tailscale["garbage"])) if (ServerFinder.TailscaleHosts(garbage).Count != 0) Fail("ServerFinder.TailscaleHosts must give nothing for " + Quote(garbage) + ".");
+
+   var order = Obj(finder["order"]);
+   var found = ((IEnumerable)order["in"]).Cast<object>().Select(o => { var item = ((IEnumerable)o).Cast<object>().ToList(); return new FoundServer { Via = Str(item[0]), Host = Str(item[1]), Port = ServerFinder.Port, Ms = Convert.ToInt32(item[2]) }; }).ToList();
+   if (!ServerFinder.Order(found).Select(f => f.Host).SequenceEqual(Items(order["out"]))) Fail("ServerFinder.Order does not give " + string.Join(", ", Items(order["out"]).ToArray()) + " for the finder.order input.");
+
+   foreach (var item in ((IEnumerable)finder["autofill"]).Cast<object>().Select(Obj))
+    if (ServerFinder.Fills(Str(item["field"]), Str(item["finder"])) != (bool)item["fills"]) Fail("ServerFinder.Fills(" + Quote(Str(item["field"])) + ", " + Quote(Str(item["finder"])) + ") must be " + item["fills"] + ".");
+
+   var last = Obj(finder["lastUsed"]);
+   var lastFaces = ((IEnumerable)last["interfaces"]).Cast<object>().Select(o => { var item = ((IEnumerable)o).Cast<object>().ToList(); return new KeyValuePair<string, int>(Str(item[0]), Convert.ToInt32(item[1])); }).ToList();
+   foreach (var item in ((IEnumerable)last["cases"]).Cast<object>().Select(Obj)) {
+    string host = Str(item["host"]);
+    int port = Convert.ToInt32(item["port"]);
+    var match = ServerFinder.Candidates(new string[0], lastFaces, host, port).FirstOrDefault(f => f.Host == host && f.Port == port);
+    if ((match != null) != (bool)item["candidate"]) Fail("ServerFinder.Candidates " + ((bool)item["candidate"] ? "must" : "must not") + " probe the last used address " + host + ":" + port + " (finder.lastUsed).");
+    else if (match != null && match.Via != Str(item["via"])) Fail("The last used address " + host + " must be classed " + Str(item["via"]) + " (finder.lastUsed).");
+   }
+
+   int max = Convert.ToInt32(Obj(finder["cap"])["max"]);
+   var many = Enumerable.Range(1, 6).Select(i => new KeyValuePair<string, int>("192.168." + i + ".1", 24)).ToList();
+   var capped = ServerFinder.Candidates(new[] { "100.65.0.1" }, many, null, 0);
+   if (capped.Count != max || capped[0].Via != ServerFinder.Vpn) Fail("ServerFinder.Candidates must cut to " + max + " keeping the VPN hosts first (it gave " + capped.Count + ").");
+  }
+
   static void Collect(object node, HashSet<string> into) {
    var dict = node as Dictionary<string, object>;
    if (dict != null) { foreach (var pair in dict) { into.Add(pair.Key); Collect(pair.Value, into); } }
@@ -300,7 +347,7 @@ namespace HyruleOnline {
     string stringsFile = Path.Combine(root, "steamos", "strings.json");
     CheckPresets(manifest, script, launcher);
     CheckSteamos(manifest, script, launcher);
-    CheckTexts(manifest, online, launcher, File.Exists(stringsFile) ? File.ReadAllText(stringsFile, Encoding.UTF8) : null);
+    CheckFinder(manifest);    CheckTexts(manifest, online, launcher, File.Exists(stringsFile) ? File.ReadAllText(stringsFile, Encoding.UTF8) : null);
    }
    catch (Exception error) {
     Problems.Add("the parity test could not run: " + error.GetType().Name + ": " + error.Message);

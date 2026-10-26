@@ -333,6 +333,7 @@ namespace HyruleOnline {
     tab.BorderBrush = Paint(current ? "#D5C396" : "#364E5659");
    }
    Window.UpdateLayout();
+   if (page != before && PageNames[page] == "Online") Window.Dispatcher.BeginInvoke(new Action(() => FindServers(true)));
   }
 
   void PressStart() {
@@ -1554,7 +1555,7 @@ namespace HyruleOnline {
    // A friend's server sets the world rules, so they are locked while joining.
    foreach (var name in new[] { "RulesBox", "SpecialBox" }) C<ComboBox>(name).IsEnabled = enabled && !Joining;
    C<ComboBox>("OnlineModeBox").IsEnabled = enabled;
-   foreach (var name in new[] { "P1AvatarButton",    "P2AvatarButton" }) C<Button>(name).IsEnabled = enabled;
+   EnableFinder();   foreach (var name in new[] { "P1AvatarButton",    "P2AvatarButton" }) C<Button>(name).IsEnabled = enabled;
    C<Button>("UseRecommendedRules").IsEnabled = enabled && !Joining;
    C<Button>("Mode").IsEnabled = enabled;
    foreach (var name in new[] { "View1", "View2" }) C<Button>(name).IsEnabled = enabled && playerCount == 2;
