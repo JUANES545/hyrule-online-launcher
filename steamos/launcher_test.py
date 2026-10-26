@@ -482,30 +482,125 @@ class TagGame(unittest.TestCase):
             L.subprocess.run = real
 
 
-class Chord(unittest.TestCase):
-    def test_start_and_select_together_return(self):
-        me = type("Me", (), {"chord": {}, "toggled": float("-inf")})()
-        self.assertFalse(L.App.chord_done(me, "menu", 10.0))
-        self.assertTrue(L.App.chord_done(me, "view", 10.0 + L.CHORD_S))
+class FakePad:
+    def __init__(self):
+        self.down, self.pulses = set(), 0
 
-    def test_a_slow_second_press_does_not(self):
-        me = type("Me", (), {"chord": {}, "toggled": float("-inf")})()
-        L.App.chord_done(me, "view", 10.0)
-        self.assertFalse(L.App.chord_done(me, "menu", 10.0 + L.CHORD_S + .5))
+    def held(self):
+        return set(self.down)
 
-    def test_the_same_button_twice_does_not(self):
-        me = type("Me", (), {"chord": {}, "toggled": float("-inf")})()
-        L.App.chord_done(me, "menu", 10.0)
-        self.assertFalse(L.App.chord_done(me, "menu", 10.2))
+    def rumble(self, ms=180):
+        self.pulses += 1
 
-    def test_a_repeat_right_after_a_toggle_is_ignored(self):
-        me = type("Me", (), {"chord": {}, "toggled": float("-inf")})()
-        L.App.chord_done(me, "menu", 10.0)
-        self.assertTrue(L.App.chord_done(me, "view", 10.1))
-        L.App.chord_done(me, "menu", 10.5)
-        self.assertFalse(L.App.chord_done(me, "view", 10.6))
-        L.App.chord_done(me, "menu", 12.5)
-        self.assertTrue(L.App.chord_done(me, "view", 12.6))
+
+class MenuShortcut(unittest.TestCase):
+    """The hold shortcut and its capture, on a stand-in for App: no Tk needed."""
+
+    def app(self, saved=None):
+        class Me:
+            shortcut, shortcut_choices, capture_step, pad_hold, set_shortcut = (L.App.shortcut, L.App.shortcut_choices, L.App.capture_step,
+                                                                                 L.App.pad_hold, L.App.set_shortcut)
+
+            def remember(self, key, value):
+                self.own[key] = value
+
+            def refresh_shortcut(self):
+                pass
+
+            def bring_back(self):
+                self.calls.append("back")
+
+            def step_aside(self):
+                self.calls.append("aside")
+        me = Me()
+        me.own, me.calls, me.capture, me.note = {"shortcut": saved} if saved else {}, [], None, None
+        me.tracker, me.tap = L.gamepad.Tracker(), L.gamepad.Tap()
+        me.hidden, me.dialog, me.help_open, me.up, me.appid, me.game_seen = False, None, False, False, "123", True
+        me.start_btn = type("B", (), {"invoke": lambda s: me.calls.append("start")})()
+        return me
+
+    def run_for(self, me, pad, names, start, end):
+        pad.down = set(names)
+        now = start
+        while now <= end:
+            L.time.monotonic = lambda n=now: n
+            me.pad_hold(pad)
+            now += .1
+
+    def setUp(self):
+        self.real = L.time.monotonic
+        self.addCleanup(setattr, L.time, "monotonic", self.real)
+
+    def test_default_is_start_and_lt(self):
+        self.assertEqual(self.app().shortcut(), {"Start", "LT"})
+        self.assertIsNone(self.app("Off").shortcut())
+        self.assertEqual(self.app("L3+R3").shortcut(), {"L3", "R3"})
+
+    def test_hold_steps_aside_with_a_pulse_and_does_not_press_start(self):
+        me, pad = self.app(), FakePad()
+        self.run_for(me, pad, {"Start", "LT"}, 0, 3)
+        self.assertEqual((me.calls, pad.pulses), (["aside"], 1))
+        self.run_for(me, pad, set(), 3.1, 3.2)
+        self.assertEqual(me.calls, ["aside"])  # letting go of Start does not press Start session
+
+    def test_hold_brings_it_back_when_hidden(self):
+        me, pad = self.app("L3+R3"), FakePad()
+        me.hidden = True
+        self.run_for(me, pad, {"Start", "LT"}, 0, 2)
+        self.assertEqual(me.calls, [])  # not the saved shortcut
+        self.run_for(me, pad, set(), 2.1, 2.2)
+        self.run_for(me, pad, {"L3", "R3"}, 3, 5)
+        self.assertEqual(me.calls, ["back"])
+
+    def test_too_short_a_hold_does_nothing(self):
+        me, pad = self.app(), FakePad()
+        self.run_for(me, pad, {"Start", "LT"}, 0, 1.2)
+        self.assertEqual((me.calls, pad.pulses), ([], 0))
+
+    def test_start_alone_presses_start_session_only_off_the_shortcut(self):
+        me, pad = self.app("L3+R3"), FakePad()
+        self.run_for(me, pad, {"Start"}, 0, .2)
+        self.assertEqual(me.calls, ["start"])
+        me, pad = self.app(), FakePad()  # Start is part of the shortcut: the press counts when it is let go
+        self.run_for(me, pad, {"Start"}, 0, .2)
+        self.assertEqual(me.calls, [])
+        self.run_for(me, pad, set(), .3, .4)
+        self.assertEqual(me.calls, ["start"])
+
+    def test_capture_saves_the_released_combination(self):
+        me, pad = self.app(), FakePad()
+        me.capture = {"armed": False, "seen": set(), "end": 10}
+        self.run_for(me, pad, set(), 0, .2)
+        self.run_for(me, pad, {"L3"}, .3, .5)
+        self.run_for(me, pad, {"L3", "RB"}, .6, .8)
+        self.run_for(me, pad, set(), .9, 1)
+        self.assertEqual((me.own["shortcut"], me.capture, me.calls), ("L3+RB", None, []))
+
+    def test_capture_waits_for_the_button_that_started_it(self):
+        me, pad = self.app(), FakePad()
+        me.capture = {"armed": False, "seen": set(), "end": 10}
+        self.run_for(me, pad, {"A"}, 0, .5)  # the confirm press that opened it
+        self.assertEqual(me.capture["seen"], set())
+
+    def test_capture_rejects_one_input_and_the_two_centre_buttons_and_b_cancels(self):
+        me, pad = self.app(), FakePad()
+        me.capture = {"armed": False, "seen": set(), "end": 10}
+        for names in ({"X"}, {"Start", "Back", "LB"}):
+            self.run_for(me, pad, set(), 0, .1)
+            self.run_for(me, pad, names, .2, .3)
+            self.run_for(me, pad, set(), .4, .5)
+            self.assertIsNotNone(me.capture)
+            self.assertNotIn("shortcut", me.own)
+        self.run_for(me, pad, {"B"}, .6, .7)
+        self.run_for(me, pad, set(), .8, .9)
+        self.assertIsNone(me.capture)
+        self.assertNotIn("shortcut", me.own)
+
+    def test_capture_gives_up_after_ten_seconds(self):
+        me, pad = self.app(), FakePad()
+        me.capture = {"armed": False, "seen": set(), "end": L.CAPTURE_S}
+        self.run_for(me, pad, set(), 0, L.CAPTURE_S + .5)
+        self.assertIsNone(me.capture)
 
 
 class Window(unittest.TestCase):

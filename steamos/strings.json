@@ -167,9 +167,49 @@
   "es": "DESPLAZARSE: La cruceta, las flechas o Tab mueven el foco. Confirmar o Intro pulsa; atrás o Esc vuelve y cierra esta ayuda. LB y RB (o Ctrl+Tab) cambian de página. Esc en la primera página cierra el launcher.",
   "fr": "SE DÉPLACER : La croix directionnelle, les flèches ou Tab déplacent le focus. Confirmer ou Entrée appuie ; retour ou Échap revient en arrière et ferme cette aide. LB et RB (ou Ctrl+Tab) changent de page. Échap sur la première page ferme le launcher."
  },
- "THE GAME: When the game starts the launcher steps aside so you can see it. Press Start and Select together to come back to the launcher, and again to go back to the game (or use Return to game). Start presses Start session when no session is running.": {
-  "es": "EL JUEGO: Cuando el juego arranca, el launcher se aparta para que lo veas. Pulsa Start y Select a la vez para volver al launcher, y otra vez para volver al juego (o usa Volver al juego). Start pulsa Iniciar sesión cuando no hay una sesión en marcha.",
-  "fr": "LE JEU : Quand le jeu démarre, le launcher s'efface pour que vous le voyiez. Appuyez sur Start et Select ensemble pour revenir au launcher, et de nouveau pour retourner au jeu (ou utilisez Retourner au jeu). Start appuie sur Démarrer la session quand aucune session n'est en cours."
+ "THE GAME: When the game starts the launcher steps aside so you can see it. Hold the menu shortcut (set on the Graphics page) to bring the launcher back, and again to go back to the game (or use Return to game). Start presses Start session when no session is running.": {
+  "es": "EL JUEGO: Cuando el juego arranca, el launcher se aparta para que lo veas. Mantén el atajo del menú (se elige en la página Gráficos) para volver al launcher, y otra vez para volver al juego (o usa Volver al juego). Start pulsa Iniciar sesión cuando no hay una sesión en marcha.",
+  "fr": "LE JEU : Quand le jeu démarre, le launcher s'efface pour que vous le voyiez. Maintenez le raccourci du menu (réglé sur la page Graphismes) pour revenir au launcher, et de nouveau pour retourner au jeu (ou utilisez Retourner au jeu). Start appuie sur Démarrer la session quand aucune session n'est en cours."
+ },
+ "MENU CONTROLS": {
+  "es": "CONTROL DE MENÚS",
+  "fr": "COMMANDES DES MENUS"
+ },
+ "Open this menu from a game": {
+  "es": "Abrir este menú desde un juego",
+  "fr": "Ouvrir ce menu depuis un jeu"
+ },
+ "Hold these controller buttons for 1.5 seconds while a game is in front to bring this launcher over it. Hold them again, or press the back button here, to return to the game. Pick buttons the game does not need together, or turn it off.": {
+  "es": "Mantén estos botones del mando durante 1,5 segundos con un juego delante para traer este launcher encima. Vuelve a mantenerlos, o pulsa el botón de volver aquí, para regresar al juego. Elige botones que el juego no use a la vez, o desactívalo.",
+  "fr": "Maintenez ces boutons de la manette pendant 1,5 seconde quand un jeu est au premier plan pour afficher ce launcher par-dessus. Maintenez-les à nouveau, ou appuyez sur le bouton retour ici, pour revenir au jeu. Choisissez des boutons que le jeu n'utilise pas ensemble, ou désactivez-le."
+ },
+ "Change shortcut": {
+  "es": "Cambiar atajo",
+  "fr": "Changer le raccourci"
+ },
+ "Off": {
+  "es": "Desactivado",
+  "fr": "Désactivé"
+ },
+ "Hold {0} for 1.5 seconds to bring this menu over the game. Hold it again, or press {1}, to go back.": {
+  "es": "Mantén {0} durante 1,5 segundos para traer este menú sobre el juego. Vuelve a mantenerlo, o pulsa {1}, para regresar.",
+  "fr": "Maintenez {0} pendant 1,5 seconde pour afficher ce menu par-dessus le jeu. Maintenez-le à nouveau, ou appuyez sur {1}, pour revenir."
+ },
+ "The menu shortcut is off.": {
+  "es": "El atajo del menú está desactivado.",
+  "fr": "Le raccourci du menu est désactivé."
+ },
+ "Hold the new shortcut on a controller (2 to 4 inputs), then let go. Tap {0} alone, or press nothing for 10 seconds, to cancel.": {
+  "es": "Mantén el nuevo atajo en un mando (de 2 a 4 botones) y suéltalo. Pulsa {0} solo, o no pulses nada durante 10 segundos, para cancelar.",
+  "fr": "Maintenez le nouveau raccourci sur une manette (2 à 4 touches), puis relâchez. Appuyez seul sur {0}, ou n'appuyez sur rien pendant 10 secondes, pour annuler."
+ },
+ "That combination cannot be used: pick 2 to 4 inputs, and not both small centre buttons.": {
+  "es": "Esa combinación no sirve: elige de 2 a 4 botones, y no los dos botones pequeños del centro a la vez.",
+  "fr": "Cette combinaison est impossible : choisissez 2 à 4 touches, pas les deux petits boutons centraux ensemble."
+ },
+ "Shortcut saved: {0}.": {
+  "es": "Atajo guardado: {0}.",
+  "fr": "Raccourci enregistré : {0}."
  },
  "Return to game": {
   "es": "Volver al juego",

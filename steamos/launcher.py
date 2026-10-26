@@ -34,8 +34,8 @@ TABS = ["Play", "Online", "Graphics", "World", "Language", "Details"]  # the Win
 LANGUAGES = [("en", "English"), ("es", "Español"), ("fr", "Français")]
 GAME_DELAY_MS = 4000  # the Cemu window needs a moment to exist before the launcher steps aside
 TAG_MS = 2000  # how often new Cemu windows get the shortcut's STEAM_GAME while the launcher is hidden
-TOGGLE_COOLDOWN_S = 2.0  # after the chord shows or hides the launcher, ignore it for this long
-CHORD_S = 1.0  # Start and Select within this many seconds bring the launcher back from the game
+CAPTURE_S = 10  # seconds the launcher waits for a new menu shortcut before it gives up
+SHORTCUT_PRESETS = ("Start+LT", "Start+LT+RT", "L3+R3")  # the Windows picker's presets; "Off" and a saved custom one are added to them
 NEUTRAL = ("Hyrule Online", "THE LEGEND OF ZELDA", "BREATH OF THE WILD", "LB", "RB", "Hunter vs Speedrunner", "Death Swap")  # read the same everywhere
 DEFAULT_PORT, DEFAULT_DESC = 5050, "Explore Hyrule with Friends!"
 # The limits of ServerRules.cs and OnlineUi.cs; the script enforces the same ones.
@@ -61,6 +61,7 @@ MODE_INFO = {LOCAL: _k("The server only accepts players from this device."),
              HOST: _k("Friends who run this launcher can join this device. The world rules are the ones on the World page."),
              JOIN: _k("One player on this device joins a friend's server. The friend sets the rules.")}
 DEFAULT_HINT = _k("Hover an option, or move the focus to it, to see what it does.")
+SHORTCUT_TIP = _k("Hold these controller buttons for 1.5 seconds while a game is in front to bring this launcher over it. Hold them again, or press the back button here, to return to the game. Pick buttons the game does not need together, or turn it off.")
 HINT_TABS = ("Online", "Graphics", "World")  # the pages of Launcher.xaml that carry the hint bar
 GRAPHICS_ROWS = [  # (setting, caption, tip) of the GRAPHICS card
     ("scale", _k("Render resolution"), _k("How many pixels each game renders. Higher is sharper but needs a stronger graphics card.")),
@@ -116,7 +117,7 @@ HELP_SECTIONS = [
     _k("LANGUAGE: The launcher language changes at once."),
     _k("MOVING AROUND: The D-pad, the arrow keys or Tab move the focus. Confirm or Enter presses; back or Esc goes back and closes this help. "
        "LB and RB (or Ctrl+Tab) change page. Esc on the first page closes the launcher."),
-    _k("THE GAME: When the game starts the launcher steps aside so you can see it. Press Start and Select together to come back to the launcher, "
+    _k("THE GAME: When the game starts the launcher steps aside so you can see it. Hold the menu shortcut (set on the Graphics page) to bring the launcher back, "
        "and again to go back to the game (or use Return to game). Start presses Start session when no session is running.")]
 
 def start_icon_png(scale, color=(0xEA, 0xF2, 0xF2), gap=16):
@@ -951,7 +952,8 @@ class App:
         self.size = size or (root.winfo_screenwidth(), root.winfo_screenheight())
         self.design_w, self.design_h, self.scale = shell_fit(*self.size)
         self.bits, self.dialog, self.note, self.up, self.started, self.started_mode = st["bits"], None, None, False, None, LOCAL
-        self.hidden, self.game_seen, self.chord, self.toggled = False, None, {}, float("-inf")
+        self.hidden, self.game_seen, self.capture = False, None, None
+        self.tracker, self.tap = (gamepad.Tracker(), gamepad.Tap()) if gamepad else (None, None)
         self.pointer, self.hovered, self.memory = True, set(), {}  # pointer: False while the pad drives; memory: the focus kept per page
         root.bind_all("<Motion>", self.pointer_moved, add="+")
         self.gfx, self.hw, self.screen = display.read_prefs(self.own), None, None
@@ -1294,8 +1296,11 @@ class App:
         page.columnconfigure(0, weight=1, uniform="w")
         page.columnconfigure(1, weight=1, uniform="w")
         self.vulkan = display.vulkan_available()
-        left = self.panel(page, "GRAPHICS", pad=(24, 12))
-        left.grid(row=0, column=0, sticky="new", padx=(0, px(14)))
+        lcol = tk.Frame(page, bg=BG)  # the GRAPHICS and MENU CONTROLS cards stack in the left column, as in the Windows launcher
+        lcol.grid(row=0, column=0, sticky="new", padx=(0, px(14)))
+        lcol.columnconfigure(0, weight=1)
+        left = self.panel(lcol, "GRAPHICS", pad=(24, 12))
+        left.grid(row=0, column=0, sticky="new")
         left.columnconfigure(0, weight=1)
         self.label(left, tr("Applies at the next session start."), fg=BLURB, size=14, wrap=self.textw, justify="center").grid(row=0, column=0, pady=(0, px(8)))
         for i, (key, caption, tip) in enumerate(GRAPHICS_ROWS):
@@ -1323,6 +1328,18 @@ class App:
             self.gfx_toggles[key] = c
         self.recommended_gfx = self.button(side, tr("Use recommended settings"), self.use_recommended_graphics, RECOMMENDED_TIP, size=16, style="", padx=22, pady=7, minh=43)
         self.recommended_gfx.grid(row=1, column=0, sticky="w", pady=(px(12), 0))  # below the card and left-aligned, as in the Windows launcher
+        if gamepad:
+            menu = self.panel(lcol, "MENU CONTROLS", pad=(24, 6))
+            menu.grid(row=1, column=0, sticky="new", pady=(px(8), 0))
+            menu.columnconfigure(0, weight=1)
+            self.caption(menu, "Open this menu from a game", SHORTCUT_TIP).grid(row=0, column=0, sticky="w")
+            self.shortcut_btn = self.combo(menu, None, None, self.pick_shortcut)
+            self.shortcut_btn.grid(row=1, column=0, sticky="ew", pady=(px(4), px(4)))
+            self.shortcut_change = self.button(menu, tr("Change shortcut"), self.begin_capture, SHORTCUT_TIP, size=16, style="", padx=22, pady=7, minh=43)
+            self.shortcut_change.grid(row=2, column=0, sticky="w")
+            self.shortcut_info = self.label(menu, "", fg=INFO, size=13, wrap=self.textw)
+            self.shortcut_info.grid(row=3, column=0, sticky="w", pady=(px(2), 0))
+            self.refresh_shortcut()
         self.refresh_graphics()
 
     def gfx_row(self, card, row, key, caption, tip, span=1, column=0, pad=0):
@@ -1648,6 +1665,78 @@ class App:
         self.set_gfx(display.recommended(self.CEMU, self.hw["tier"], self.screen))
         self.note = (_k("Recommended graphics settings applied ({0} class)."), (tr(display.TIERS[self.hw["tier"]]),))
 
+    # ---- the menu shortcut: hold it on the pad to bring this launcher over the game (the Windows launcher's MenuShortcut) ----
+    def shortcut(self):
+        """The saved shortcut as a set of input names, or None when it is off."""
+        return gamepad.parse_shortcut(self.own.get("shortcut", gamepad.SHORTCUT_DEFAULT))
+
+    def shortcut_choices(self):
+        saved = gamepad.format_shortcut(self.shortcut() or ())
+        values = list(SHORTCUT_PRESETS) + ([saved] if saved and saved not in SHORTCUT_PRESETS else []) + ["Off"]
+        return values, [tr("Off") if v == "Off" else v.replace("+", " + ") for v in values], (values.index(saved) if saved else len(values) - 1)
+
+    def refresh_shortcut(self):
+        if not gamepad:
+            return
+        values, labels, current = self.shortcut_choices()
+        self.shortcut_btn.config(text=labels[current])
+        names = self.shortcut()
+        self.shortcut_info.config(text=tr("Hold {0} for 1.5 seconds to bring this menu over the game. Hold it again, or press {1}, to go back.",
+                                          labels[current], "B") if names else tr("The menu shortcut is off."))
+
+    def set_shortcut(self, value):
+        self.remember("shortcut", value)
+        self.tracker.update(set(), set(), 0)
+        self.refresh_shortcut()
+
+    def pick_shortcut(self):
+        values, labels, current = self.shortcut_choices()
+
+        def done(i):
+            if i < len(values):
+                self.set_shortcut(values[i])
+        self.ask(tr("Open this menu from a game"), tr(SHORTCUT_TIP), labels + [tr("Cancel")], done, current)
+
+    def begin_capture(self):
+        self.capture = {"armed": False, "seen": set(), "end": time.monotonic() + CAPTURE_S}
+        self.note = (_k("Hold the new shortcut on a controller (2 to 4 inputs), then let go. Tap {0} alone, or press nothing for 10 seconds, to cancel."), ("B",))
+
+    def capture_step(self, held, now):
+        """Windows CaptureStep: wait until every input is up, take the union of what is held next, and judge it when it is all released."""
+        c = self.capture
+        if now > c["end"]:
+            self.capture, self.note = None, None
+        elif not c["armed"]:
+            c["armed"] = not held
+        elif held:
+            c["seen"] |= held
+        elif c["seen"]:
+            names = gamepad.parse_shortcut("+".join(c["seen"]))
+            if c["seen"] == {"B"}:
+                self.capture, self.note = None, None
+            elif names:
+                text = gamepad.format_shortcut(names)
+                self.capture, self.note = None, (_k("Shortcut saved: {0}."), (text.replace("+", " + "),))
+                self.set_shortcut(text)
+            else:
+                c["seen"], c["end"] = set(), now + CAPTURE_S
+                self.note = (_k("That combination cannot be used: pick 2 to 4 inputs, and not both small centre buttons."), ())
+
+    def pad_hold(self, pad):
+        held, now = pad.held(), time.monotonic()
+        if self.capture is not None:
+            self.capture_step(held, now)
+            return
+        names = self.shortcut()
+        if self.tracker.update(names or set(), held, now):
+            pad.rumble()
+            if self.hidden:
+                self.bring_back()
+            elif self.appid and self.game_seen:
+                self.step_aside()
+        if self.tap.update(held, "Start", bool(names and "Start" in names)) and not self.hidden and not self.dialog and not self.help_open and not self.up:
+            self.start_btn.invoke()  # Windows: the Start button presses Start session; with a session running it would restart it, so only the button does
+
     # ---- session ----
     def form(self):
         return {k: v.get() for k, v in self.v.items()}
@@ -1963,7 +2052,6 @@ class App:
             return
         if not self.dialog and tag_game_windows(self.appid):  # hide only once gamescope can focus the game, or the screen would stay black
             self.hidden = True
-            self.chord = {}
             try:
                 self.root.grab_release()
             except tk.TclError:
@@ -1979,7 +2067,7 @@ class App:
             self.root.after(TAG_MS, self.keep_tagged)
 
     def bring_back(self):
-        self.hidden, self.chord = False, {}
+        self.hidden = False
         self.root.deiconify()
         self.root.lift()
         self.root.focus_force()
@@ -1990,23 +2078,9 @@ class App:
         items = self.focusables()
         (self.start_btn if self.start_btn in items else items[0] if items else self.root).focus_set()
 
-    def chord_done(self, name, now):
-        """True when Start and Select were both pressed within CHORD_S seconds: the way back to the launcher from the game."""
-        self.chord[name] = now
-        other = self.chord.get("view" if name == "menu" else "menu")
-        if other is None or now - other > CHORD_S or now - self.toggled < TOGGLE_COOLDOWN_S:  # repeated presses must not flip the window while gamescope switches
-            return False
-        self.toggled = now
-        return True
-
     # ---- game controller (gamepad.py reads the device; this maps its events onto the keyboard actions above) ----
     def pad_event(self, name):
-        if self.hidden:
-            if name in ("menu", "view") and self.chord_done(name, time.monotonic()):
-                self.bring_back()
-            return
-        if name in ("menu", "view") and self.chord_done(name, time.monotonic()) and self.appid and self.game_seen:
-            self.step_aside()  # the same chord that brought the launcher up sends it back to the game
+        if self.hidden or self.capture is not None:
             return
         self.pad_drives()
         if name in ("up", "down", "left", "right"):
@@ -2014,16 +2088,18 @@ class App:
         elif name == "accept":
             self.activate()
         elif name == "back":
-            self.escape()
+            if self.appid and self.game_seen and not self.dialog and not self.help_open:
+                self.step_aside()  # Windows: back on the menu returns to the game
+            else:
+                self.escape()
         elif name in ("lb", "rb"):
             self.cycle(-1 if name == "lb" else 1)
-        elif name == "menu" and not self.dialog and not self.help_open and not self.up:
-            self.start_btn.invoke()  # Windows: the Start button presses Start session; with a session running it would restart it, so only the button does
 
     def poll_pad(self, pad):
         try:
             for name in pad.poll():
                 self.pad_event(name)
+            self.pad_hold(pad)
         except Exception:  # a failing controller must never stop the window
             pass
         self.pad_job = self.root.after(16, self.poll_pad, pad)

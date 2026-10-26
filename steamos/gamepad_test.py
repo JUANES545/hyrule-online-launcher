@@ -276,6 +276,104 @@ class Safety(unittest.TestCase):
         self.assertTrue(problem)
 
 
+class Shortcut(unittest.TestCase):
+    def test_parse_and_format(self):
+        self.assertEqual(G.parse_shortcut("Start+LT"), {"Start", "LT"})
+        self.assertEqual(G.format_shortcut({"LT", "Start"}), "Start+LT")
+        for bad in ("", "Off", "Start", "Start+Nope", "Start+Back", "Start+Back+LB+RB", "A+B+X+Y+LB", None):
+            self.assertIsNone(G.parse_shortcut(bad), bad)
+        self.assertEqual(G.parse_shortcut("L3+R3"), {"L3", "R3"})
+
+    def test_held_buttons_triggers_and_dpad(self):
+        d = Fake()
+        pad, _, _ = make([d])
+        pad.poll()
+        d.put((G.EV_KEY, 0x13B, 1), (G.EV_ABS, G.ABS_Z, 255), (G.EV_ABS, G.ABS_HAT0Y, -1), (G.EV_KEY, 0x13D, 1))
+        pad.poll()
+        self.assertEqual(pad.held(), {"Start", "LT", "Up", "L3"})
+        d.put((G.EV_KEY, 0x13B, 0), (G.EV_ABS, G.ABS_Z, 0), (G.EV_ABS, G.ABS_HAT0Y, 0), (G.EV_KEY, 0x13D, 0))
+        pad.poll()
+        self.assertEqual(pad.held(), set())
+
+    def test_trigger_has_hysteresis(self):
+        d = Fake()
+        pad, _, _ = make([d])
+        pad.poll()
+        for value, want in ((100, set()), (210, {"RT"}), (150, {"RT"}), (120, set())):
+            d.put((G.EV_ABS, G.ABS_RZ, value))
+            pad.poll()
+            self.assertEqual(pad.held(), want, value)
+
+    def test_tracker_fires_once_after_the_hold_and_rearms_on_release(self):
+        t, combo = G.Tracker(), {"Start", "LT"}
+        self.assertFalse(t.update(combo, {"Start"}, 0))
+        self.assertFalse(t.update(combo, combo, 1))
+        self.assertFalse(t.update(combo, combo, 1 + G.HOLD_S - .1))
+        self.assertTrue(t.update(combo, combo, 1 + G.HOLD_S))
+        self.assertFalse(t.update(combo, combo, 10))
+        self.assertFalse(t.update(combo, {"Start"}, 11))
+        self.assertFalse(t.update(combo, combo, 12))
+        self.assertTrue(t.update(combo, combo, 12 + G.HOLD_S))
+
+    def test_tracker_needs_the_whole_combo_and_a_shortcut(self):
+        t = G.Tracker()
+        self.assertFalse(t.update({"Start", "LT"}, {"Start", "RT"}, 0) or t.update({"Start", "LT"}, {"Start", "RT"}, 5))
+        self.assertFalse(t.update(set(), {"Start", "LT"}, 0) or t.update(set(), {"Start", "LT"}, 5))
+
+    def test_tap_without_a_shortcut_fires_on_press(self):
+        tap = G.Tap()
+        self.assertTrue(tap.update({"Start"}, "Start", False))
+        self.assertFalse(tap.update({"Start"}, "Start", False))
+        self.assertFalse(tap.update(set(), "Start", False))
+
+    def test_tap_in_the_shortcut_fires_on_a_clean_release_only(self):
+        tap = G.Tap()
+        self.assertFalse(tap.update({"Start"}, "Start", True))
+        self.assertTrue(tap.update(set(), "Start", True))
+        tap.update({"Start"}, "Start", True)
+        tap.update({"Start", "LT"}, "Start", True)
+        self.assertFalse(tap.update({"LT"}, "Start", True))
+        self.assertFalse(tap.update(set(), "Start", True))
+        tap.update({"LT", "Start"}, "Start", True)  # Start pressed while LT was already held
+        self.assertFalse(tap.update(set(), "Start", True))
+
+    @unittest.skipUnless(os.name == "posix", "needs a POSIX file")
+    def test_rumble_uploads_and_plays_an_effect(self):
+        import tempfile
+        calls = []
+
+        class Fcntl:
+            @staticmethod
+            def ioctl(fd, request, arg, mutate=False):
+                calls.append((request, arg if isinstance(arg, int) else bytes(arg)))
+                if isinstance(arg, bytearray):
+                    struct.pack_into("h", arg, 2, 7)
+                return 0
+        real, G.fcntl = G.fcntl, Fcntl
+        with tempfile.NamedTemporaryFile() as f:
+            d = Fake(path=f.name)
+            try:
+                self.assertTrue(d.rumble(180))
+                self.assertTrue(d.rumble(180))
+            finally:
+                G.fcntl = real
+                d.close()
+            f.seek(0)
+            written = f.read()
+        upload = G._ioc(0x80, 48, write=True)
+        sent = [c for c in calls if c[0] == upload]
+        self.assertEqual(len(sent), 2)
+        self.assertEqual(struct.unpack_from("HH", sent[0][1], 10), (180, 0))
+        self.assertEqual(struct.unpack_from("HH", sent[0][1], 16), (0xA000, 0xA000))
+        self.assertEqual([c[0] for c in calls], [upload, G._ioc(0x81, 4, write=True), upload])  # the first pulse is erased before the second
+        self.assertEqual(calls[1][1], 7)
+        self.assertEqual(len(written), 2 * struct.calcsize("llHHi"))
+        self.assertEqual(struct.unpack_from("HHi", written, 16), (G.EV_FF, 7, 1))
+
+    def test_rumble_never_raises(self):
+        self.assertFalse(Fake(path="/nonexistent/event99").rumble(180))
+
+
 @unittest.skipUnless(os.name == "posix", "needs a POSIX pipe")
 class RealRead(unittest.TestCase):
     def test_pipe_with_the_real_read_path(self):
