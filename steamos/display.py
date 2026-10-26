@@ -402,12 +402,6 @@ def set_preset(entry, category, name):
     ET.SubElement(p, "preset").text = name
 
 
-def drop_preset(entry, category):
-    for p in entry.findall("Preset"):
-        if p.findtext("category") == category:
-            entry.remove(p)
-
-
 def write_settings(path, view, prefs, fps_preset, vulkan):
     tree = ET.parse(path)
     content = tree.getroot()
@@ -418,17 +412,19 @@ def write_settings(path, view, prefs, fps_preset, vulkan):
         if norm(e.get("filename", "")).endswith("breathofthewild\\graphics\\rules.txt"):
             packs.remove(e)
     entry = entry_for(packs, ours)
+    for p in entry.findall("Preset"):  # rebuilt from scratch, as the Windows launcher does, so no stale preset survives
+        entry.remove(p)
     set_preset(entry, "Aspect Ratio", DISPLAY_PRESET)
     set_preset(entry, "Resolution", RESOLUTION_PRESET)
     if view["square"]:
         set_preset(entry, *SQUARE_HUD)
-    else:
-        drop_preset(entry, SQUARE_HUD[0])
     for category, key in ((SHADOWS, "shadows"), (SHADOW_DISTANCE, "shadow_distance"), (ANTI_ALIASING, "aa")):
         if prefs[key]:
             set_preset(entry, category, prefs[key])
     if fps_preset:
         fps = entry_for(packs, FPS_PACK.replace(os.sep, "\\"))
+        for p in fps.findall("Preset"):
+            fps.remove(p)
         set_preset(fps, "Mode", "Normal Settings")
         set_preset(fps, "FPS Limit", fps_preset)
     put(content, "fullscreen", "true")
@@ -495,7 +491,7 @@ def main(argv):
     if command == "apply":
         try:
             print(apply(folder))
-        except (OSError, ValueError, ET.ParseError) as error:
+        except Exception as error:  # the hook is best effort: whatever goes wrong must not stop the session
             print(f"Display settings were not applied: {error}")
             return 1
         return 0

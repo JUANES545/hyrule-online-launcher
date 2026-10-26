@@ -106,9 +106,10 @@ HELP_SECTIONS = [
     _k("ONLINE: Choose how this device takes part. Play on this device keeps the server private. Host a server opens it to friends: set the port, "
        "password and description, then copy the invite. Join a server connects this device to a friend's server with their invite. Changes apply "
        "at the next session start."),
-    _k("GRAPHICS: The launcher detects this device's screen and refresh rate, and each session starts the game at that size and frame rate. "
-       "Render resolution scales the picture sharper or faster, and the FPS target never goes above the refresh rate. Use recommended settings picks "
-       "values that suit this device. Changes apply at the next session start."),
+    _k("DISPLAY: The launcher detects this device's screen and refresh rate, and each session starts the game at that size and frame rate. "
+       "The FPS target never goes above the refresh rate. The preview shows the display, not a game screenshot."),
+    _k("GRAPHICS: Render resolution scales the picture sharper or faster. Use recommended settings picks values that suit this device. "
+       "Changes apply at the next session start."),
     _k("WORLD: World rules choose what everyone on the server shares (enemies, quests, koroks, towers, shrines, locations, Divine Beasts) and apply "
        "when the server starts. When you join a friend's server their rules apply and these are locked. Use recommended rules selects Game Completion."),
     _k("LANGUAGE: The launcher language changes at once."),
@@ -815,6 +816,10 @@ class Skin:
         return result
 
     def change(self, **kw):
+        if "hover" in kw:
+            if kw["hover"] and not self.app.pointer:
+                return  # the pad moves the cursor now; a pointer parked on a control must not light it as a second selection
+            (self.app.hovered.add if kw["hover"] else self.app.hovered.discard)(self)
         self.__dict__.update(kw)
         self.paint()
 
@@ -946,6 +951,8 @@ class App:
         self.design_w, self.design_h, self.scale = shell_fit(*self.size)
         self.bits, self.dialog, self.note, self.up, self.started, self.started_mode = st["bits"], None, None, False, None, LOCAL
         self.hidden, self.game_seen, self.chord = False, None, {}
+        self.pointer, self.hovered, self.memory = True, set(), {}  # pointer: False while the pad drives; memory: the focus kept per page
+        root.bind_all("<Motion>", self.pointer_moved, add="+")
         self.gfx, self.hw, self.screen = display.read_prefs(self.own), None, None
         self.appid = os.environ.get("SteamAppId") if os.environ.get("XDG_CURRENT_DESKTOP") == "gamescope" else None  # only Game Mode needs the launcher to step aside
         self.tab, self.mode = tk.StringVar(root, st["tab"]), tk.StringVar(root, st["mode"])
@@ -1134,6 +1141,7 @@ class App:
         self.host = tk.Frame(shell, bg=BG)
         self.host.pack(fill="both", expand=True, padx=px(14), pady=(0, px(6)))
         self.pages = {n: tk.Frame(self.host, bg=BG) for n in TABS}
+        self.gfx_btns, self.gfx_vars, self.gfx_toggles = {}, {}, {}  # the FPS box sits on Play, the rest on Graphics
         for name in TABS:
             getattr(self, "build_" + name.lower())(self.pages[name])
         self.help_open = False
@@ -1165,8 +1173,20 @@ class App:
         right = tk.Frame(page, bg=BG)
         right.grid(row=0, column=1, sticky="new")
         right.columnconfigure(0, weight=1)
+        disp = self.panel(right, "DISPLAY", pad=(18, 12))
+        disp.grid(row=0, column=0, sticky="ew")
+        disp.columnconfigure(0, weight=1)
+        self.screen_info = self.label(disp, "", size=23, anchor="center", justify="center", wrap=inner)
+        self.screen_info.grid(row=0, column=0, sticky="ew", pady=(0, px(15)))
+        self.preview = tk.Canvas(disp, bg=disp["bg"], bd=0, highlightthickness=0, width=px(360), height=px(202))
+        self.preview.grid(row=1, column=0)
+        self.layout_info = self.label(disp, "", fg=MUTED, size=18, anchor="center", justify="center", wrap=inner)
+        self.layout_info.grid(row=2, column=0, sticky="ew", pady=(px(10), px(12)))
+        fps = self.button(disp, "", lambda: self.pick_gfx("fps"), FPS_TIP, look="combo", padx=44, right=44, minw=380, anchor="center")
+        fps.grid(row=3, column=0, pady=(0, px(4)))
+        self.gfx_btns["fps"] = fps
         card = self.panel(right, "SESSION", pad=(18, 14))
-        card.grid(row=0, column=0, sticky="ew")
+        card.grid(row=1, column=0, sticky="ew", pady=(px(14), 0))
         card.columnconfigure(3, weight=1)
         self.dots = {}
         for i, (key, name) in enumerate((("server", _k("Dedicated server")), ("client", _k("Player 1 (Cemu A)")))):
@@ -1178,23 +1198,18 @@ class App:
             self.dots[key] = (dot, word)
         self.promptbox = tk.Frame(card, bg=card["bg"])
         tk.Frame(self.promptbox, bg=AMBER, width=px(3)).pack(side="left", fill="y")
-        self.prompt = self.label(self.promptbox, tr("Cemu A: wait for the main menu, then press Continue within about a minute."), fg=AMBER, size=14,
+        self.prompt = self.label(self.promptbox, tr("Cemu A: wait for the main menu, then press Continue within about a minute."), fg=AMBER, size=15,
                                  wrap=inner * 45 // 100)
         self.prompt.pack(side="left", padx=(px(10), 0))
         self.promptbox.grid(row=0, column=3, rowspan=2, sticky="nsw", padx=(px(16), 0))
-        box = self.panel(right, "ONLINE", pad=(18, 14))
-        box.grid(row=1, column=0, sticky="ew", pady=(px(12), 0))
-        box.columnconfigure(0, weight=1)
-        wrap = inner - 170
-        self.modeline = self.label(box, "", size=16, wrap=wrap)
-        self.modeline.grid(row=0, column=0, sticky="w")
-        self.world = self.label(box, "", fg=BLURB, size=14, wrap=wrap)
-        self.world.grid(row=1, column=0, sticky="w")
-        self.event = self.label(box, "", fg=BLURB, size=14, wrap=wrap)
-        self.event.grid(row=2, column=0, sticky="w")
-        self.copy_play = self.button(box, tr("Copy invite"), self.copy_invite, _k("Copies the invite. Your friends paste it in the Join a server mode of their launcher."),
+        self.online_box = self.panel(right, None, pad=(18, 10), titled=False)
+        self.online_box.grid(row=2, column=0, sticky="ew", pady=(px(8), 0))
+        self.online_box.columnconfigure(0, weight=1)
+        self.online_text = self.label(self.online_box, "", fg=INFO, size=14, wrap=inner - 170)
+        self.online_text.grid(row=0, column=0, sticky="w")
+        self.copy_play = self.button(self.online_box, tr("Copy invite"), self.copy_invite, _k("Copies the invite. Your friends paste it in the Join a server mode of their launcher."),
                                      size=16, style="", padx=22, pady=9)
-        self.copy_play.grid(row=0, column=1, rowspan=3, sticky="e", padx=(px(12), 0))
+        self.copy_play.grid(row=0, column=1, sticky="e", padx=(px(18), 0))
 
     def build_online(self, page):
         px = self.px
@@ -1278,20 +1293,17 @@ class App:
         page.columnconfigure(0, weight=1, uniform="w")
         page.columnconfigure(1, weight=1, uniform="w")
         self.vulkan = display.vulkan_available()
-        self.gfx_btns, self.gfx_vars = {}, {}
         left = self.panel(page, "GRAPHICS", pad=(24, 12))
         left.grid(row=0, column=0, sticky="new", padx=(0, px(14)))
         left.columnconfigure(0, weight=1)
         self.label(left, tr("Applies at the next session start."), fg=BLURB, size=14, wrap=self.textw, justify="center").grid(row=0, column=0, pady=(0, px(8)))
-        self.screen_info = self.label(left, "", fg=INFO, size=14, wrap=self.textw)
-        self.screen_info.grid(row=1, column=0, sticky="w")
-        self.layout_info = self.label(left, "", fg=INFO, size=13, wrap=self.textw)
-        self.layout_info.grid(row=2, column=0, sticky="w", pady=(0, px(8)))
         for i, (key, caption, tip) in enumerate(GRAPHICS_ROWS):
-            self.gfx_row(left, 3 + 2 * i, key, caption, tip)
-        self.gfx_row(left, 3 + 2 * len(GRAPHICS_ROWS), "fps", FPS_TIP, FPS_TIP)
-        right = self.panel(page, "ADVANCED (CEMU)", pad=(24, 12))
-        right.grid(row=0, column=1, sticky="new", padx=(px(14), 0))
+            self.gfx_row(left, 1 + 2 * i, key, caption, tip)
+        side = tk.Frame(page, bg=BG)
+        side.grid(row=0, column=1, sticky="new", padx=(px(14), 0))
+        side.columnconfigure(0, weight=1)
+        right = self.panel(side, "ADVANCED (CEMU)", pad=(24, 12))
+        right.grid(row=0, column=0, sticky="ew")
         right.columnconfigure((0, 1), weight=1, uniform="a")
         self.label(right, tr("The defaults suit most devices."), fg=BLURB, size=14, wrap=self.textw, justify="center").grid(row=0, column=0, columnspan=2, pady=(0, px(8)))
         self.gfx_row(right, 1, API_ROW[0], API_ROW[1], API_ROW[2], span=2)
@@ -1307,8 +1319,9 @@ class App:
             c = self.button(grid, tr(text), lambda k=key: self.set_gfx({k: self.gfx_vars[k].get()}), tip, kind="Checkbutton", variable=var, look="toggle",
                             size=14, style="", padx=34, right=10, pady=6, anchor="w", minh=41)
             c.grid(row=i // 2, column=i % 2, sticky="ew", padx=(0, px(8)), pady=(0, px(8)))
-        self.recommended_gfx = self.button(grid, tr("Use recommended settings"), self.use_recommended_graphics, RECOMMENDED_TIP, size=16, style="", padx=22, pady=6, minh=43)
-        self.recommended_gfx.grid(row=(len(GRAPHICS_TOGGLES) + 1) // 2, column=0, columnspan=2, sticky="ew", pady=(px(6), 0))
+            self.gfx_toggles[key] = c
+        self.recommended_gfx = self.button(side, tr("Use recommended settings"), self.use_recommended_graphics, RECOMMENDED_TIP, size=16, style="", padx=22, pady=7, minh=43)
+        self.recommended_gfx.grid(row=1, column=0, sticky="w", pady=(px(12), 0))  # below the card and left-aligned, as in the Windows launcher
         self.refresh_graphics()
 
     def gfx_row(self, card, row, key, caption, tip, span=1, column=0, pad=0):
@@ -1382,7 +1395,7 @@ class App:
         for f in self.pages.values():
             f.pack_forget()
         self.pages[name].pack(fill="both", expand=True)
-        if name == "Graphics":
+        if name in ("Play", "Graphics"):
             self.refresh_graphics()
         if name in HINT_TABS:
             self.hint.pack(side="bottom", fill="x", padx=self.px(14), before=self.host)
@@ -1410,6 +1423,8 @@ class App:
     def show_page(self, name):
         self.tab.set(name)
         self.show_tab()
+        self.root.update_idletasks()  # the page must be laid out before the cursor can be seated on it
+        self.seat()
 
     def toggle_help(self):
         self.close_help() if self.help_open else self.open_help()
@@ -1581,19 +1596,34 @@ class App:
 
     def refresh_graphics(self):
         self.screen = display.detect_screen()
-        if self.screen:
-            w, h, hz = self.screen
-            self.screen_info.config(text=f"{w} × {h}  /  {round(hz)} Hz" if hz > 1 else f"{w} × {h}")
+        w, h, hz = self.screen or (1920, 1080, 0)
+        self.screen_info.config(text=f"{w} × {h}  /  {round(hz)} Hz" if hz > 1 else f"{w} × {h}")
+        if w < 320 or h < 240 or not self.screen:
+            self.layout_info.config(text=tr("The primary display is not ready."))
+        else:
             view, _, fps, _ = display.plan(self.CEMU, self.own, self.screen)
             self.layout_info.config(text=tr("One player · the whole display") + "\n" + tr("Each game renders {0} × {1}", *view["render"]) + (" " + tr("at {0} FPS", fps[0]) if fps else ""))
-        else:
-            self.screen_info.config(text=tr("The primary display is not ready."))
-            self.layout_info.config(text="")
+        self.draw_preview(w / h)
         for key, b in self.gfx_btns.items():
             values, labels, current = self.gfx_choices(key)
             b.config(text=labels[current] if values else tr("FPS++ is not installed") if key == "fps" else "–", state="normal" if values else "disabled")
         for key, var in self.gfx_vars.items():
             var.set(self.gfx[key])
+        values, _, current = self.gfx_choices("api")
+        on_vulkan = values[current] == "Vulkan" or (values[current] == "Auto" and self.vulkan)
+        self.gfx_toggles["barriers"].config(state="normal" if on_vulkan else "disabled")  # Vulkan only, as in the Windows launcher
+
+    def draw_preview(self, ratio):
+        """The one-player preview of Launcher.xaml: a dark frame in the display's shape with the game filling it."""
+        px = self.px
+        width = 118 if ratio < 1 else min(360, 210 * ratio)
+        fw, fh = px(width), px(width / ratio)
+        cv = self.preview
+        cv.config(width=fw, height=fh)
+        cv.delete("all")
+        cv.create_polygon(rounded(0, 0, fw, fh, (px(6),) * 4), fill="#080E13", outline="")
+        inset = px(9)  # the frame's padding of 6 and the cell's margin of 3
+        cv.create_polygon(rounded(inset, inset, fw - inset, fh - inset, (px(3),) * 4), fill="#1E3C38", outline="")
 
     def pick_gfx(self, key):
         values, labels, current = self.gfx_choices(key)
@@ -1615,7 +1645,7 @@ class App:
     def use_recommended_graphics(self):
         self.hw = self.hw or display.detect_hardware()
         self.set_gfx(display.recommended(self.CEMU, self.hw["tier"], self.screen))
-        self.note = ("Recommended graphics settings applied ({0} class).", (tr(display.TIERS[self.hw["tier"]]),))
+        self.note = (_k("Recommended graphics settings applied ({0} class)."), (tr(display.TIERS[self.hw["tier"]]),))
 
     # ---- session ----
     def form(self):
@@ -1717,10 +1747,16 @@ class App:
                 tr("Friends will join at {0}:{1} once the session starts.", invite[0] if invite else "…", clean_port(f["port"]))
         else:
             line = tr("Playing on the server at {0}:{1}.", parsed[0], parsed[1]) if parsed else tr("Enter an invite on the Online page.")
-        self.modeline.config(text=line)
         names = self.log.roster.names() if srv and m != JOIN else []
-        self.world.config(text=(tr("In the world: {0}", ", ".join(names)) if names else tr("Nobody has joined yet.")) if srv and m == HOST else "")
-        self.event.config(text=event_text(self.log.events[-1]) if srv and m == HOST and self.log.events else "")
+        lines = [line]
+        if m == HOST and names:
+            lines.append(tr("In the world: {0}", ", ".join(names)))
+        elif m == HOST and srv:
+            lines.append(tr("Nobody has joined yet."))
+        if srv and m == HOST and self.log.events:
+            lines.append(event_text(self.log.events[-1]))
+        self.online_text.config(text="\n".join(lines))
+        (self.online_box.grid_remove if m == LOCAL else self.online_box.grid)()  # Windows hides the card when the server is private
         host_mode = m == HOST and bool(self.invite_text())
         (self.copy_play.grid if host_mode else self.copy_play.grid_remove)()
         if self.shown != self.cli.addresses:  # a new address list refreshes the detected address
@@ -1829,22 +1865,60 @@ class App:
         boxes = [getattr(w, "box", w) for w in items]
         return [(w.winfo_rootx(), w.winfo_rooty(), w.winfo_width(), w.winfo_height()) for w in boxes]
 
+    def pointer_moved(self, event):
+        self.pointer = True
+
+    def pad_drives(self):
+        self.pointer = False
+        for skin in list(self.hovered):
+            try:
+                skin.change(hover=False)
+            except tk.TclError:  # destroyed by a rebuild
+                self.hovered.discard(skin)
+
+    def pad_items(self):
+        """What the D-pad can reach: like the Windows launcher's cursor, never the tabs (LB and RB change page)."""
+        tabs = set(self.tab_btns.values())
+        return [w for w in self.focusables() if w not in tabs]
+
+    def seat(self):
+        """Where the cursor lands on a page (Windows: PadCursors.Seat): the spot it left last time, else the first control (the Start button
+        on Play), so the focus mark never stays on a tab or a control of another page."""
+        items = self.pad_items()
+        if not items:
+            return
+        page = self.tab.get()
+        pick = self.memory.get(page)
+        if pick not in items:
+            if page == TABS[0] and self.start_btn in items:
+                pick = self.start_btn
+            else:
+                content = [w for w in items if w not in self.chrome] or items
+                boxes = self.boxes(content)
+                pick = content[min(range(len(content)), key=lambda i: (round(boxes[i][1] / 12), boxes[i][0]))]
+        pick.focus_set()
+
     def nav(self, key):
-        items = self.focusables()
         w = self.root.focus_get()
+        tabs = set(self.tab_btns.values())
+        items = self.focusables() if key in ("Tab", "BackTab") or w in tabs else self.pad_items()
         if not items:
             return "break"
         if w not in items:
-            items[0].focus_set()
-        elif key in ("Tab", "BackTab"):
-            items[(items.index(w) + (1 if key == "Tab" else -1)) % len(items)].focus_set()
+            self.seat()
+            return "break"
+        if key in ("Tab", "BackTab"):
+            pick = items[(items.index(w) + (1 if key == "Tab" else -1)) % len(items)]
         else:
             d = {"Up": 0, "Down": 1, "Left": 2, "Right": 3}.get(key, key)
             boxes = self.boxes(items)
             i = items.index(w)
-            pick = spatial_next(boxes[i], boxes, [x in self.chrome for x in items], w in self.chrome, d)
-            if pick >= 0:
-                items[pick].focus_set()
+            found = spatial_next(boxes[i], boxes, [x in self.chrome for x in items], w in self.chrome, d)
+            pick = items[found] if found >= 0 else None
+        if pick is not None:
+            pick.focus_set()
+            if pick not in tabs:
+                self.memory[self.tab.get()] = pick
         return "break"
 
     def activate(self, event=None):
@@ -1930,6 +2004,7 @@ class App:
         if name in ("menu", "view") and self.chord_done(name, time.monotonic()) and self.appid and self.game_seen:
             self.step_aside()  # the same chord that brought the launcher up sends it back to the game
             return
+        self.pad_drives()
         if name in ("up", "down", "left", "right"):
             self.nav(("Up", "Down", "Left", "Right")[("up", "down", "left", "right").index(name)])
         elif name == "accept":
@@ -1977,7 +2052,8 @@ def main():
             root.grab_set()
         except tk.TclError:  # not viewable yet
             pass
-        app.tab_btns[app.tab.get()].focus_set()
+        if root.focus_get() not in app.pad_items():
+            app.seat()
     root.after(200, take_focus)
     root.after(800, take_focus)
     root.mainloop()

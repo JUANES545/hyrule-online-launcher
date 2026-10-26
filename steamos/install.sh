@@ -572,7 +572,7 @@ Gaming Mode: Library > Non-Steam > $APP_NAME > Play (start Steam again if you cl
 Desktop Mode: run $DIR/hyrule-online.sh or the \"$APP_NAME\" menu entry.
 
 The menu offers Play on this device, Host a server, Join a server and Stop. To join you need the invite (or address, port and password) from the host.
-Controller setup is not automated: if the controller does nothing in game, set it up in Cemu (Options > Input settings)."
+Controller: Hyrule Online gives Cemu a Wii U Pro Controller profile on the first pad. In Gaming Mode the Steam shortcut needs a gamepad layout (Controller Settings > pick a gamepad template, not Disabled or a keyboard one)."
   else
     text="Almost done. Still to do: $DEFERRED
 Run $DIR/install.sh again to finish. Steps that are already done are skipped."

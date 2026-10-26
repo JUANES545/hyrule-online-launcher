@@ -587,6 +587,10 @@
   "es": "Recomendado",
   "fr": "Recommandé"
  },
+ "Recommended graphics settings applied ({0} class).": {
+  "es": "Ajustes gráficos recomendados aplicados (clase {0}).",
+  "fr": "Réglages graphiques recommandés appliqués (classe {0})."
+ },
  "Unstable": {
   "es": "Inestable",
   "fr": "Instable"
@@ -755,9 +759,17 @@
   "es": "a {0} FPS",
   "fr": "à {0} FPS"
  },
- "GRAPHICS: The launcher detects this device's screen and refresh rate, and each session starts the game at that size and frame rate. Render resolution scales the picture sharper or faster, and the FPS target never goes above the refresh rate. Use recommended settings picks values that suit this device. Changes apply at the next session start.": {
-  "es": "GRÁFICOS: El launcher detecta la pantalla de este dispositivo y su frecuencia de actualización, y cada sesión inicia el juego con ese tamaño y esa tasa de fotogramas. La resolución de renderizado hace la imagen más nítida o más rápida, y el objetivo de FPS nunca supera la frecuencia de la pantalla. Usar la configuración recomendada elige valores que encajan con este dispositivo. Los cambios se aplican al iniciar la próxima sesión.",
-  "fr": "GRAPHISMES : Le launcher détecte l'écran de cet appareil et sa fréquence de rafraîchissement, et chaque session lance le jeu à cette taille et à cette cadence. La résolution de rendu rend l'image plus nette ou plus rapide, et l'objectif FPS ne dépasse jamais la fréquence de l'écran. Utiliser les paramètres recommandés choisit des valeurs adaptées à cet appareil. Les changements s'appliquent au prochain démarrage d'une session."
+ "DISPLAY: The launcher detects this device's screen and refresh rate, and each session starts the game at that size and frame rate. The FPS target never goes above the refresh rate. The preview shows the display, not a game screenshot.": {
+  "es": "PANTALLA: El launcher detecta la pantalla de este dispositivo y su frecuencia de actualización, y cada sesión inicia el juego con ese tamaño y esa tasa de fotogramas. El objetivo de FPS nunca supera la frecuencia de la pantalla. La vista previa muestra la pantalla, no una captura del juego.",
+  "fr": "ÉCRAN : Le launcher détecte l'écran de cet appareil et sa fréquence de rafraîchissement, et chaque session lance le jeu à cette taille et à cette cadence. L'objectif FPS ne dépasse jamais la fréquence de l'écran. L'aperçu montre l'écran, pas une capture du jeu."
+ },
+ "GRAPHICS: Render resolution scales the picture sharper or faster. Use recommended settings picks values that suit this device. Changes apply at the next session start.": {
+  "es": "GRÁFICOS: La resolución de renderizado hace la imagen más nítida o más rápida. Usar la configuración recomendada elige valores que encajan con este dispositivo. Los cambios se aplican al iniciar la próxima sesión.",
+  "fr": "GRAPHISMES : La résolution de rendu rend l'image plus nette ou plus rapide. Utiliser les paramètres recommandés choisit des valeurs adaptées à cet appareil. Les changements s'appliquent au prochain démarrage d'une session."
+ },
+ "DISPLAY": {
+  "es": "PANTALLA",
+  "fr": "ÉCRAN"
  },
  "FPS target: Auto · {0} FPS": {
   "es": "Objetivo de FPS: Auto · {0} FPS",

@@ -130,6 +130,27 @@ run_unit() {
 
 # No TCP pre-check on purpose: the Milk Bar dedicated server crashes on a connection that sends nothing.
 
+# Cemu has no controller until a profile exists. This one is the Windows launcher's Wii U Pro Controller on XInput pad 0, which under
+# Wine is Steam Input's virtual X-Box 360 pad in Gaming Mode. A profile that is already there (the user's own) is never replaced.
+ensure_pad_profile() {
+  local f=$HERE/cemu/controllerProfiles/controller0.xml
+  [ -e "$f" ] && return 0
+  mkdir -p "${f%/*}" && cat > "$f.tmp" <<'EOF' && mv "$f.tmp" "$f"
+<?xml version="1.0" encoding="UTF-8"?>
+<emulated_controller>
+  <type>Wii U Pro Controller</type><profile>Online P1</profile>
+  <controller>
+    <api>XInput</api><uuid>0</uuid><display_name>Controller 1</display_name>
+    <rumble>0.65</rumble>
+    <axis><deadzone>0.15</deadzone><range>1</range></axis>
+    <rotation><deadzone>0.15</deadzone><range>1</range></rotation>
+    <trigger><deadzone>0.05</deadzone><range>1</range></trigger>
+    <mappings><entry><mapping>1</mapping><button>13</button></entry><entry><mapping>2</mapping><button>12</button></entry><entry><mapping>3</mapping><button>15</button></entry><entry><mapping>4</mapping><button>14</button></entry><entry><mapping>5</mapping><button>8</button></entry><entry><mapping>6</mapping><button>9</button></entry><entry><mapping>7</mapping><button>42</button></entry><entry><mapping>8</mapping><button>43</button></entry><entry><mapping>9</mapping><button>4</button></entry><entry><mapping>10</mapping><button>5</button></entry><entry><mapping>12</mapping><button>0</button></entry><entry><mapping>13</mapping><button>1</button></entry><entry><mapping>14</mapping><button>2</button></entry><entry><mapping>15</mapping><button>3</button></entry><entry><mapping>16</mapping><button>6</button></entry><entry><mapping>17</mapping><button>7</button></entry><entry><mapping>18</mapping><button>39</button></entry><entry><mapping>19</mapping><button>45</button></entry><entry><mapping>20</mapping><button>44</button></entry><entry><mapping>21</mapping><button>38</button></entry><entry><mapping>22</mapping><button>41</button></entry><entry><mapping>23</mapping><button>47</button></entry><entry><mapping>24</mapping><button>46</button></entry><entry><mapping>25</mapping><button>40</button></entry></mappings>
+  </controller>
+</emulated_controller>
+EOF
+}
+
 start_session() {
   # Same as the working setup: every join starts from an empty shader cache.
   rm -f "$HERE"/cemu/shaderCache/transferable/*.bin "$HERE"/cemu/shaderCache/precompiled/*.bin "$HERE"/cemu/shaderCache/driver/vk/*.bin
@@ -137,6 +158,7 @@ start_session() {
   rm -f "$HERE/cemu/log.txt" "$LOG" "$HERE/logs/client.err"
   # Best effort: a failure keeps the last Cemu settings and never blocks the start.
   [ -f "$HERE/display.py" ] && { python3 "$HERE/display.py" apply "$HERE" || echo "Display settings were not applied; Cemu keeps its last ones."; }
+  ensure_pad_profile || echo "Could not write the Cemu controller profile; the pad may do nothing in game."
   write_client_run
   run_unit "$UNIT" "$HERE/run/client-run.sh" "$LOG" "$HERE/logs/client.err"
 }

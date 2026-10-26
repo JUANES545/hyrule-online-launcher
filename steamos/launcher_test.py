@@ -548,9 +548,13 @@ class Window(unittest.TestCase):
         for width, height in self.SIZES:
             for language in ("en", "es", "fr"):
                 root, app = self.make(width, height, language)
+                app.v["invite"].set("hyrule://100.64.0.5:5050")  # the Play page's online card shows the invite in Host and Join
+                app.v["addr"].set("100.64.0.5")
                 for mode, tab in self.pages(app):
                     if tab == "Details":
                         continue  # the logs scroll by design
+                    app.render()
+                    root.update()
                     where = (width, height, language, mode, tab)
                     self.assertLessEqual(app.pages[tab].winfo_reqheight(), app.host.winfo_height(), where)
                     self.assertLessEqual(app.pages[tab].winfo_reqwidth(), app.host.winfo_width() + 2, where)
@@ -623,7 +627,8 @@ class Window(unittest.TestCase):
             self.assertEqual(str(app.gfx_btns["fps"].cget("state")), "disabled")  # no FPS++ pack next to the test
             self.assertEqual(app.gfx_btns["fps"].cget("text"), "FPS++ is not installed")
             app.CEMU = self.fixture_cemu()
-            app.show_page("Graphics")
+            self.assertTrue(str(app.gfx_btns["fps"]).startswith(str(app.pages["Play"])) and str(app.screen_info).startswith(str(app.pages["Play"])))  # as in Windows, not on Graphics
+            app.show_page("Play")
             root.update()
             self.assertEqual(app.screen_info.cget("text"), "1920 × 1080  /  120 Hz")
             self.assertEqual(app.layout_info.cget("text"), "One player · the whole display\nEach game renders 1920 × 1080 at 120 FPS")
@@ -721,6 +726,35 @@ class Window(unittest.TestCase):
         app.escape()  # the first page with nothing running closes the launcher
         with self.assertRaises(L.tk.TclError):
             root.tk.call("winfo", "exists", ".")
+
+    def test_the_pad_shows_one_cursor(self):
+        root, app = self.make(1280, 800)
+        root.update()
+        app.show_page("Play")
+        self.assertIs(root.focus_get(), app.start_btn)
+        app.cycle(1)
+        root.update()
+        self.assertNotIn(root.focus_get(), app.tab_btns.values())  # LB and RB change the page, the cursor stays on its content
+        app.show_page("Graphics")
+        root.update()
+        first = root.focus_get()
+        self.assertNotIn(first, app.chrome)
+        app.pad_event("down")
+        moved = root.focus_get()
+        self.assertIsNot(moved, first)
+        app.show_page("Online")
+        app.show_page("Graphics")
+        self.assertIs(root.focus_get(), moved)  # a page remembers where the cursor was
+        skin = app.help_btn.skin
+        skin.change(hover=True)
+        app.pad_event("up")
+        self.assertFalse(skin.hover)  # a pointer parked on a control is not a second selection
+        skin.change(hover=True)
+        self.assertFalse(skin.hover)
+        app.pointer_moved(None)
+        skin.change(hover=True)
+        self.assertTrue(skin.hover)
+        root.destroy()
 
     def test_choice_lists_pick_with_enter(self):
         root, app = self.make(1280, 800)

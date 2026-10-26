@@ -368,6 +368,13 @@ equal "lan ip without 192.168" 10.0.0.7 "$(pick_ip lan <<<"$(grep -v wlan0 <<<"$
 equal "no lan ip" "" "$(pick_ip lan <<<"$(grep -E 'lo |docker|tailscale' <<<"$IPS")")"
 equal "100.63 is not a VPN address" "" "$(pick_ip vpn <<<'2: eth0    inet 100.63.0.1/24 scope global eth0')"
 equal "172.32 is not private but still usable" 172.32.0.5 "$(pick_ip lan <<<'2: eth0    inet 172.32.0.5/24 scope global eth0')"
+HERE=$TMP/pad; mkdir -p "$HERE"
+ensure_pad_profile
+P=$HERE/cemu/controllerProfiles/controller0.xml
+check "pad profile is written (XInput pad 0)" grep -q '<api>XInput</api><uuid>0</uuid>' "$P"
+check "pad profile is well formed" "$PY" -c 'import sys,xml.dom.minidom as m; m.parse(sys.argv[1])' "$P"
+echo mine > "$P"; ensure_pad_profile
+equal "an existing pad profile is kept" mine "$(cat "$P")"
 check "Cemu stays pinned to 1.26.2" grep -q 'cemu_1.26.2.zip' "$TDIR/install.sh"
 HERE_CONF=$TMP/conf; HERE=$TMP; CONF=$HERE_CONF
 HOST=10.0.0.5 PORT=5050 NAME=Link PASS='p w'; conf_save

@@ -273,7 +273,7 @@ class Apply(unittest.TestCase):
         got = {p.findtext("category"): p.findtext("preset") for p in ours.findall("Preset")}
         self.assertEqual(got["Aspect Ratio"], "Online Display")
         self.assertEqual(got["Resolution"], "Online Resolution")
-        self.assertEqual(got["Extra"], "Kept")
+        self.assertNotIn("Extra", got)  # the entry is rebuilt, so a stale preset does not survive
         self.assertNotIn("Square HUD Mode", got)
         self.assertEqual(got["Shadows"], "High (200%)")
         fps = {p.findtext("category"): p.findtext("preset") for p in packs.findall("Entry")[1].findall("Preset")}
