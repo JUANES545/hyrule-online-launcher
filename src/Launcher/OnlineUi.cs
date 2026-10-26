@@ -345,23 +345,17 @@ namespace HyruleOnline {
 
   void ShowFirewall() {
    if (onlineMode != ServerConnection.Host) return;
-   firewallOpen = RunNetsh("advfirewall firewall show rule name=\"" + FirewallRule(hostPort) + "\"", false) && RunNetsh("advfirewall firewall show rule name=\"" + FinderRule + "\"", false);
+   // A rule without the VPN range in its output is missing or an older one open to every address.
+   firewallOpen = IsScoped(FirewallRule(hostPort)) && IsScoped(FinderRule);
    C<TextBlock>("FirewallInfo").Text = Tr(firewallOpen ? "Windows Firewall already allows port {0}." : "Windows Firewall may block port {0}. Allow it so friends can connect.", hostPort);
    C<Button>("OpenFirewall").IsEnabled = !firewallOpen;
   }
 
-  static bool RunNetsh(string arguments, bool elevated) {
-   try {
-    var info = new ProcessStartInfo("netsh.exe", arguments) { CreateNoWindow = true, WindowStyle = ProcessWindowStyle.Hidden };
-    if (elevated) { info.UseShellExecute = true; info.Verb = "runas"; }
-    else { info.UseShellExecute = false; info.RedirectStandardOutput = true; }
-    using (var process = Process.Start(info)) {
-     if (!elevated) process.StandardOutput.ReadToEnd();
-     if (!process.WaitForExit(20000)) return false;
-     return process.ExitCode == 0;
-    }
-   }
-   catch (Exception) { return false; }
+  // Only the home network and Tailscale may reach the game: the server dies on any stray TCP connection.
+  const string RuleScope = " remoteip=LocalSubnet,100.64.0.0/10";
+
+  static bool IsScoped(string rule) {
+   return NetshOutput("advfirewall firewall show rule name=\"" + rule + "\"").Contains("100.64.0.0");
   }
 
   // Windows asks for administrator permission once; the launcher itself keeps running without it. Rules left over from other ports are removed in the same step.
@@ -371,9 +365,10 @@ namespace HyruleOnline {
    System.Threading.ThreadPool.QueueUserWorkItem(state => {
     var commands = new List<string>();
     foreach (int old in ServerConnection.StaleRulePorts(NetshOutput("advfirewall firewall show rule name=all"), port)) commands.Add("netsh advfirewall firewall delete rule name=\"" + FirewallRule(old) + "\"");
+    commands.Add("netsh advfirewall firewall delete rule name=\"" + FirewallRule(port) + "\"");
     commands.Add("netsh advfirewall firewall delete rule name=\"" + FinderRule + "\"");
-    commands.Add("netsh advfirewall firewall add rule name=\"" + FirewallRule(port) + "\" dir=in action=allow protocol=TCP localport=" + port
-     + " && netsh advfirewall firewall add rule name=\"" + FinderRule + "\" dir=in action=allow protocol=UDP localport=" + ServerFinder.BeaconPort);
+    commands.Add("netsh advfirewall firewall add rule name=\"" + FirewallRule(port) + "\" dir=in action=allow protocol=TCP localport=" + port + RuleScope
+     + " && netsh advfirewall firewall add rule name=\"" + FinderRule + "\" dir=in action=allow protocol=UDP localport=" + ServerFinder.BeaconPort + RuleScope);
     bool added = RunElevated("cmd.exe", "/c " + string.Join(" & ", commands.ToArray()));
     Window.Dispatcher.BeginInvoke(new Action(() => {
      Write(added ? "Firewall rules added for TCP port " + port + " and the server finder (UDP " + ServerFinder.BeaconPort + ")." : "The firewall rule was not added.");
