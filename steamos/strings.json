@@ -167,6 +167,10 @@
   "es": "DESPLAZARSE: La cruceta, las flechas o Tab mueven el foco. Confirmar o Intro pulsa; atrás o Esc vuelve y cierra esta ayuda. LB y RB (o Ctrl+Tab) cambian de página. Esc en la primera página cierra el launcher.",
   "fr": "SE DÉPLACER : La croix directionnelle, les flèches ou Tab déplacent le focus. Confirmer ou Entrée appuie ; retour ou Échap revient en arrière et ferme cette aide. LB et RB (ou Ctrl+Tab) changent de page. Échap sur la première page ferme le launcher."
  },
+ "THE GAME: When the game starts the launcher steps aside so you can see it. Press Start and Select together to come back to the launcher; Start presses Start session.": {
+  "es": "EL JUEGO: Cuando el juego arranca, el launcher se aparta para que lo veas. Pulsa Start y Select a la vez para volver al launcher; Start pulsa Iniciar sesión.",
+  "fr": "LE JEU : Quand le jeu démarre, le launcher s'efface pour que vous le voyiez. Appuyez sur Start et Select ensemble pour revenir au launcher ; Start appuie sur Démarrer la session."
+ },
  "Friends can join from anywhere if the port is forwarded on your router.": {
   "es": "Los amigos pueden entrar desde cualquier sitio si el puerto está redirigido en tu router.",
   "fr": "Les amis peuvent rejoindre de n'importe où si le port est redirigé sur votre routeur."

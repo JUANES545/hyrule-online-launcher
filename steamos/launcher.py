@@ -3,14 +3,18 @@
 It never talks to a game server: everything goes through hyrule-online.sh (see Cli); join.conf (written only by that script)
 is read to prefill the forms and launcher.conf keeps the launcher's own choices (language, last page, last mode).
 Texts are the English ones of Lang.cs; strings.json carries the Spanish and French rows, keyed by the English text (see tr)."""
+import base64
 import json
 import math
 import os
 import re
+import struct
 import subprocess
 import sys
 import threading
+import time
 import unicodedata
+import zlib
 from urllib.parse import quote, unquote
 
 try:
@@ -27,6 +31,8 @@ HERE = os.path.dirname(os.path.realpath(__file__))
 LOCAL, HOST, JOIN = "Local", "Host", "Join"
 TABS = ["Play", "Online", "World", "Language", "Details"]  # the Windows order without Graphics (nothing to set on the Ally)
 LANGUAGES = [("en", "English"), ("es", "Español"), ("fr", "Français")]
+GAME_DELAY_MS = 4000  # the Cemu window needs a moment to exist before the launcher steps aside
+CHORD_S = 1.0  # Start and Select within this many seconds bring the launcher back from the game
 NEUTRAL = ("Hyrule Online", "THE LEGEND OF ZELDA", "BREATH OF THE WILD", "LB", "RB", "Hunter vs Speedrunner", "Death Swap")  # read the same everywhere
 DEFAULT_PORT, DEFAULT_DESC = 5050, "Explore Hyrule with Friends!"
 # The limits of ServerRules.cs and OnlineUi.cs; the script enforces the same ones.
@@ -79,7 +85,40 @@ HELP_SECTIONS = [
        "when the server starts. When you join a friend's server their rules apply and these are locked. Use recommended rules selects Game Completion."),
     _k("LANGUAGE: The launcher language changes at once."),
     _k("MOVING AROUND: The D-pad, the arrow keys or Tab move the focus. Confirm or Enter presses; back or Esc goes back and closes this help. "
-       "LB and RB (or Ctrl+Tab) change page. Esc on the first page closes the launcher.")]
+       "LB and RB (or Ctrl+Tab) change page. Esc on the first page closes the launcher."),
+    _k("THE GAME: When the game starts the launcher steps aside so you can see it. Press Start and Select together to come back to the launcher; "
+       "Start presses Start session.")]
+
+def start_icon_png(scale, color=(0xEA, 0xF2, 0xF2), gap=16):
+    """Base64 PNG of the Start button mark drawn by PadIcons.Start in Windows (a round outline with three bars), `gap` px of clear space on its left.
+    Tk 8.6 shows the alpha of a PNG, so the mark sits on whatever fill the button has."""
+    def seg(x, y, x1, y1, x2, y2):
+        dx, dy = x2 - x1, y2 - y1
+        t = max(0.0, min(1.0, ((x - x1) * dx + (y - y1) * dy) / (dx * dx + dy * dy)))
+        return math.hypot(x - x1 - t * dx, y - y1 - t * dy)
+    s, ss = max(1, round(24 * scale)), 4
+    g = round(gap * scale)
+    w, rows = s + g, []
+    for py in range(s):
+        row = bytearray([0])
+        for pxl in range(w):
+            hit = 0
+            for sy in range(ss):
+                for sx in range(ss):
+                    x, y = ((pxl - g + (sx + .5) / ss) / s) * 24, ((py + (sy + .5) / ss) / s) * 24
+                    ring = abs(math.hypot(x - 12, y - 12) - 11) <= .9
+                    bars = any(seg(x, y, 7, by, 17, by) <= .9 for by in (8, 12, 16))
+                    hit += 1 if pxl >= g and (ring or bars) else 0
+            row += bytes(color) + bytes([round(255 * hit / (ss * ss))])
+        rows.append(bytes(row))
+    raw = b"".join(rows)
+
+    def chunk(tag, data):
+        body = tag + data
+        return struct.pack(">I", len(data)) + body + struct.pack(">I", zlib.crc32(body) & 0xFFFFFFFF)
+    png = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, s, 8, 6, 0, 0, 0)) + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b"")
+    return base64.b64encode(png).decode("ascii")
+
 
 def blend(argb, under):
     """A '#AARRGGBB' brush of Launcher.xaml laid over the '#RRGGBB' it sits on (Tk has no alpha); '#RRGGBB' comes back as it is."""
@@ -864,6 +903,7 @@ class App:
         self.size = size or (root.winfo_screenwidth(), root.winfo_screenheight())
         self.design_w, self.design_h, self.scale = shell_fit(*self.size)
         self.bits, self.dialog, self.note, self.up, self.started, self.started_mode = st["bits"], None, None, False, None, LOCAL
+        self.hidden, self.game_seen, self.chord = False, None, {}
         self.tab, self.mode = tk.StringVar(root, st["tab"]), tk.StringVar(root, st["mode"])
         self.lang = tk.StringVar(root, LANG)
         self.v = {k: tk.StringVar(root, x) for k, x in st["values"].items()}
@@ -1035,6 +1075,8 @@ class App:
         foot = tk.Frame(shell, bg=BG)
         foot.pack(side="bottom", padx=px(14), pady=(0, px(16)))
         self.start_btn = self.button(foot, tr("START SESSION"), self.start, look="start", size=20, style="", fk="title", padx=40, pady=6, minw=300, minh=63)
+        self.start_mark = tk.PhotoImage(data=start_icon_png(self.scale))  # the controller's Start button presses this one
+        self.start_btn.config(image=self.start_mark, compound="right")
         self.stop_btn = self.button(foot, tr("Stop session"), self.stop, padx=20, pady=6, minw=180, minh=63)
         self.exit_btn = self.button(foot, tr("Exit"), self.quit, padx=20, pady=6, minw=150, minh=63)
         for b in (self.start_btn, self.stop_btn, self.exit_btn):
@@ -1465,6 +1507,7 @@ class App:
         alive = c.alive()
         srv, cli = s.get("server") == "up", s.get("client") == "up"
         self.up = srv or cli
+        self.follow_game(cli)
         joined = s.get("joined") == "yes"
         words = {"server": tr("Running") if srv else tr("Starting") if alive else tr("Stopped"),
                  "client": tr("Joined the server") if cli and joined else tr("Waiting for Continue") if cli else tr("Waiting") if alive and srv else tr("Starting") if alive else tr("Stopped")}
@@ -1661,8 +1704,52 @@ class App:
             self.quit()
         return "break"
 
+    # ---- the game window: gamescope shows the active window, so this one steps aside while Cemu runs ----
+    def follow_game(self, cli):
+        if self.game_seen is None:  # opened over a game that already runs: stay in front, the user came here on purpose
+            self.game_seen = cli
+        elif cli and not self.game_seen:
+            self.game_seen = True
+            self.root.after(GAME_DELAY_MS, self.step_aside)
+        elif not cli:
+            self.game_seen = False
+            if self.hidden:
+                self.bring_back()
+
+    def step_aside(self):
+        if self.game_seen and not self.hidden and not self.dialog and self.cli.stat and self.cli.stat.get("client") == "up":
+            self.hidden = True
+            self.chord = {}
+            try:
+                self.root.grab_release()
+            except tk.TclError:
+                pass
+            self.root.withdraw()
+
+    def bring_back(self):
+        self.hidden = False
+        self.root.deiconify()
+        self.root.lift()
+        self.root.focus_force()
+        try:
+            self.root.grab_set()
+        except tk.TclError:  # not viewable yet
+            pass
+        items = self.focusables()
+        (self.start_btn if self.start_btn in items else items[0] if items else self.root).focus_set()
+
+    def chord_done(self, name, now):
+        """True when Start and Select were both pressed within CHORD_S seconds: the way back to the launcher from the game."""
+        self.chord[name] = now
+        other = self.chord.get("view" if name == "menu" else "menu")
+        return other is not None and now - other <= CHORD_S
+
     # ---- game controller (gamepad.py reads the device; this maps its events onto the keyboard actions above) ----
     def pad_event(self, name):
+        if self.hidden:
+            if name in ("menu", "view") and self.chord_done(name, time.monotonic()):
+                self.bring_back()
+            return
         if name in ("up", "down", "left", "right"):
             self.nav(("Up", "Down", "Left", "Right")[("up", "down", "left", "right").index(name)])
         elif name == "accept":
@@ -1671,6 +1758,8 @@ class App:
             self.escape()
         elif name in ("lb", "rb"):
             self.cycle(-1 if name == "lb" else 1)
+        elif name == "menu" and not self.dialog and not self.help_open:
+            self.start_btn.invoke()  # Windows: the Start button presses Start session
 
     def poll_pad(self, pad):
         try:

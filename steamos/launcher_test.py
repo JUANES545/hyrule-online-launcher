@@ -440,6 +440,39 @@ class Navigation(unittest.TestCase):
         self.assertEqual(L.spatial_next(items[0], items, [False] * 3, False, 3), 2)
 
 
+class StartIcon(unittest.TestCase):
+    def test_png_is_valid_and_leaves_the_gap(self):
+        import base64
+        import struct
+        import zlib
+        raw = base64.b64decode(L.start_icon_png(1.0))
+        self.assertEqual(raw[:8], b"\x89PNG\r\n\x1a\n")
+        w, h = struct.unpack(">II", raw[16:24])
+        self.assertEqual((w, h), (24 + 16, 24))
+        idat = raw[raw.index(b"IDAT") + 4:raw.index(b"IEND") - 8]
+        rows = zlib.decompress(idat)
+        self.assertEqual(len(rows), h * (1 + w * 4))
+        self.assertTrue(any(rows[1 + x * 4 + 3] for x in range(16, w)) or any(rows[(1 + w * 4) * 12 + 1 + x * 4 + 3] for x in range(16, w)))
+        self.assertTrue(all(rows[(1 + w * 4) * 12 + 1 + x * 4 + 3] == 0 for x in range(16)))
+
+
+class Chord(unittest.TestCase):
+    def test_start_and_select_together_return(self):
+        me = type("Me", (), {"chord": {}})()
+        self.assertFalse(L.App.chord_done(me, "menu", 10.0))
+        self.assertTrue(L.App.chord_done(me, "view", 10.0 + L.CHORD_S))
+
+    def test_a_slow_second_press_does_not(self):
+        me = type("Me", (), {"chord": {}})()
+        L.App.chord_done(me, "view", 10.0)
+        self.assertFalse(L.App.chord_done(me, "menu", 10.0 + L.CHORD_S + .5))
+
+    def test_the_same_button_twice_does_not(self):
+        me = type("Me", (), {"chord": {}})()
+        L.App.chord_done(me, "menu", 10.0)
+        self.assertFalse(L.App.chord_done(me, "menu", 10.2))
+
+
 class Window(unittest.TestCase):
     SIZES = ((1280, 800), (1024, 600), (1920, 1080))
 
