@@ -456,6 +456,31 @@ class StartIcon(unittest.TestCase):
         self.assertTrue(all(rows[(1 + w * 4) * 12 + 1 + x * 4 + 3] == 0 for x in range(16)))
 
 
+class TagGame(unittest.TestCase):
+    def test_every_cemu_window_gets_the_shortcut_id(self):
+        calls = []
+
+        def run(cmd, **kw):
+            calls.append(cmd)
+            return type("R", (), {"stdout": "10 11\n" if cmd[0] == "xdotool" else ""})()
+        real, L.subprocess.run = L.subprocess.run, run
+        try:
+            self.assertEqual(L.tag_game_windows("4253636849"), 2)
+        finally:
+            L.subprocess.run = real
+        self.assertEqual([c[2] for c in calls[1:]], ["10", "11"])
+        self.assertTrue(all(c[-1] == "4253636849" for c in calls[1:]))
+
+    def test_missing_tools_find_no_window(self):
+        def run(cmd, **kw):
+            raise FileNotFoundError(cmd[0])
+        real, L.subprocess.run = L.subprocess.run, run
+        try:
+            self.assertEqual(L.tag_game_windows("1"), 0)
+        finally:
+            L.subprocess.run = real
+
+
 class Chord(unittest.TestCase):
     def test_start_and_select_together_return(self):
         me = type("Me", (), {"chord": {}})()

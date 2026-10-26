@@ -32,6 +32,7 @@ LOCAL, HOST, JOIN = "Local", "Host", "Join"
 TABS = ["Play", "Online", "World", "Language", "Details"]  # the Windows order without Graphics (nothing to set on the Ally)
 LANGUAGES = [("en", "English"), ("es", "Español"), ("fr", "Français")]
 GAME_DELAY_MS = 4000  # the Cemu window needs a moment to exist before the launcher steps aside
+TAG_MS = 2000  # how often new Cemu windows get the shortcut's STEAM_GAME while the launcher is hidden
 CHORD_S = 1.0  # Start and Select within this many seconds bring the launcher back from the game
 NEUTRAL = ("Hyrule Online", "THE LEGEND OF ZELDA", "BREATH OF THE WILD", "LB", "RB", "Hunter vs Speedrunner", "Death Swap")  # read the same everywhere
 DEFAULT_PORT, DEFAULT_DESC = 5050, "Explore Hyrule with Friends!"
@@ -86,8 +87,8 @@ HELP_SECTIONS = [
     _k("LANGUAGE: The launcher language changes at once."),
     _k("MOVING AROUND: The D-pad, the arrow keys or Tab move the focus. Confirm or Enter presses; back or Esc goes back and closes this help. "
        "LB and RB (or Ctrl+Tab) change page. Esc on the first page closes the launcher."),
-    _k("THE GAME: When the game starts the launcher steps aside so you can see it. Press Start and Select together to come back to the launcher; "
-       "Start presses Start session.")]
+    _k("THE GAME: When the game starts the launcher steps aside so you can see it. Press Start and Select together to come back to the launcher, "
+       "and again to go back to the game (or use Return to game). Start presses Start session when no session is running.")]
 
 def start_icon_png(scale, color=(0xEA, 0xF2, 0xF2), gap=16):
     """Base64 PNG of the Start button mark drawn by PadIcons.Start in Windows (a round outline with three bars), `gap` px of clear space on its left.
@@ -296,6 +297,18 @@ def parse_invite(text):
             return None
         port = int(p)
     return (t, port, password) if valid_host(t) else None
+
+
+def tag_game_windows(appid):
+    """Mark the Cemu windows (Wine's steam_proton class) with the shortcut's STEAM_GAME. Gamescope only focuses a window it ties to the Steam
+    shortcut, by the process tree or by this property, and Cemu runs under systemd, outside the tree. Returns how many windows were found."""
+    try:
+        ids = subprocess.run(["xdotool", "search", "--class", "steam_proton"], capture_output=True, text=True, timeout=5).stdout.split()
+        for w in ids:
+            subprocess.run(["xprop", "-id", w, "-f", "STEAM_GAME", "32c", "-set", "STEAM_GAME", appid], capture_output=True, timeout=5)
+    except (OSError, subprocess.SubprocessError):
+        return 0
+    return len(ids)
 
 
 def parse_status(text):
@@ -904,6 +917,7 @@ class App:
         self.design_w, self.design_h, self.scale = shell_fit(*self.size)
         self.bits, self.dialog, self.note, self.up, self.started, self.started_mode = st["bits"], None, None, False, None, LOCAL
         self.hidden, self.game_seen, self.chord = False, None, {}
+        self.appid = os.environ.get("SteamAppId") if os.environ.get("XDG_CURRENT_DESKTOP") == "gamescope" else None  # only Game Mode needs the launcher to step aside
         self.tab, self.mode = tk.StringVar(root, st["tab"]), tk.StringVar(root, st["mode"])
         self.lang = tk.StringVar(root, LANG)
         self.v = {k: tk.StringVar(root, x) for k, x in st["values"].items()}
@@ -1078,9 +1092,11 @@ class App:
         self.start_mark = tk.PhotoImage(data=start_icon_png(self.scale))  # the controller's Start button presses this one
         self.start_btn.config(image=self.start_mark, compound="right")
         self.stop_btn = self.button(foot, tr("Stop session"), self.stop, padx=20, pady=6, minw=180, minh=63)
+        self.return_btn = self.button(foot, tr("Return to game"), self.step_aside, padx=20, pady=6, minw=180, minh=63)
         self.exit_btn = self.button(foot, tr("Exit"), self.quit, padx=20, pady=6, minw=150, minh=63)
         for b in (self.start_btn, self.stop_btn, self.exit_btn):
             b.pack(side="left", padx=px(6))
+        self.return_shown = False  # the "Return to game" button is packed only while a game runs behind the launcher
         self.status = self.plate(shell, "bar", 18, STATUS_FG, minh=44, wraplength=px(self.pagew - 60))
         self.status.pack(side="bottom", fill="x", padx=px(14), pady=(px(6), px(10)))
         self.hint = self.plate(shell, "hint", 14, MUTED, tr(DEFAULT_HINT), minh=36, pad=16, wraplength=px(self.pagew - 60))
@@ -1093,7 +1109,7 @@ class App:
         self.help_open = False
         self.build_help()
         self.zones = [head, bar, self.host, foot]
-        self.chrome = {self.help_btn, *self.tab_btns.values(), self.start_btn, self.stop_btn, self.exit_btn}
+        self.chrome = {self.help_btn, *self.tab_btns.values(), self.start_btn, self.stop_btn, self.return_btn, self.exit_btn}
         self.shown = None
         self.show_tab()
         self.show_mode()
@@ -1508,6 +1524,13 @@ class App:
         srv, cli = s.get("server") == "up", s.get("client") == "up"
         self.up = srv or cli
         self.follow_game(cli)
+        show = bool(self.appid and self.game_seen and not self.hidden)
+        if show != self.return_shown:
+            self.return_shown = show
+            if show:
+                self.return_btn.pack(side="left", padx=self.px(6), before=self.exit_btn.box)
+            else:
+                self.return_btn.pack_forget()
         joined = s.get("joined") == "yes"
         words = {"server": tr("Running") if srv else tr("Starting") if alive else tr("Stopped"),
                  "client": tr("Joined the server") if cli and joined else tr("Waiting for Continue") if cli else tr("Waiting") if alive and srv else tr("Starting") if alive else tr("Stopped")}
@@ -1717,7 +1740,9 @@ class App:
                 self.bring_back()
 
     def step_aside(self):
-        if self.game_seen and not self.hidden and not self.dialog and self.cli.stat and self.cli.stat.get("client") == "up":
+        if not self.game_seen or self.hidden or not self.appid:
+            return
+        if not self.dialog and tag_game_windows(self.appid):  # hide only once gamescope can focus the game, or the screen would stay black
             self.hidden = True
             self.chord = {}
             try:
@@ -1725,9 +1750,17 @@ class App:
             except tk.TclError:
                 pass
             self.root.withdraw()
+            self.root.after(TAG_MS, self.keep_tagged)
+        else:
+            self.root.after(1000, self.step_aside)
+
+    def keep_tagged(self):
+        if self.hidden:
+            tag_game_windows(self.appid)  # Cemu opens more windows as it goes
+            self.root.after(TAG_MS, self.keep_tagged)
 
     def bring_back(self):
-        self.hidden = False
+        self.hidden, self.chord = False, {}
         self.root.deiconify()
         self.root.lift()
         self.root.focus_force()
@@ -1750,6 +1783,9 @@ class App:
             if name in ("menu", "view") and self.chord_done(name, time.monotonic()):
                 self.bring_back()
             return
+        if name in ("menu", "view") and self.chord_done(name, time.monotonic()) and self.appid and self.game_seen:
+            self.step_aside()  # the same chord that brought the launcher up sends it back to the game
+            return
         if name in ("up", "down", "left", "right"):
             self.nav(("Up", "Down", "Left", "Right")[("up", "down", "left", "right").index(name)])
         elif name == "accept":
@@ -1758,8 +1794,8 @@ class App:
             self.escape()
         elif name in ("lb", "rb"):
             self.cycle(-1 if name == "lb" else 1)
-        elif name == "menu" and not self.dialog and not self.help_open:
-            self.start_btn.invoke()  # Windows: the Start button presses Start session
+        elif name == "menu" and not self.dialog and not self.help_open and not self.up:
+            self.start_btn.invoke()  # Windows: the Start button presses Start session; with a session running it would restart it, so only the button does
 
     def poll_pad(self, pad):
         try:
