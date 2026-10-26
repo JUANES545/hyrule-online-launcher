@@ -504,10 +504,13 @@ EOF
 step_launcher() {
   local f
   if [ "$DRY" = 1 ]; then echo "    [dry-run] would install hyrule-online.sh into $DIR and write $DESKTOP_FILE"; return 0; fi
-  for f in install.sh hyrule-online.sh lib.sh steam_shortcut.py launcher.py strings.json; do
-    [ -f "$SELF_DIR/$f" ] || { case "$f" in launcher.py|strings.json) continue ;; esac; return 1; }
+  for f in install.sh hyrule-online.sh lib.sh steam_shortcut.py launcher.py gamepad.py strings.json; do
+    [ -f "$SELF_DIR/$f" ] || { case "$f" in launcher.py|gamepad.py|strings.json) continue ;; esac; return 1; }
     [ "$SELF_DIR/$f" -ef "$DIR/$f" ] || install -m 755 "$SELF_DIR/$f" "$DIR/$f" || return 1
   done
+  if [ -d "$SELF_DIR/fonts" ] && ! [ "$SELF_DIR/fonts" -ef "$DIR/fonts" ]; then
+    mkdir -p "$DIR/fonts" && install -m 644 "$SELF_DIR"/fonts/* "$DIR/fonts/" || return 1
+  fi
   [ "$(app_version)" = unknown ] || printf '%s\n' "$(app_version)" > "$DIR/VERSION" || return 1
   mkdir -p "$DIR/logs" "$DIR/run" "$(dirname "$DESKTOP_FILE")" || return 1
   cat > "$DESKTOP_FILE" <<EOF

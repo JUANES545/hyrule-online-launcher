@@ -435,6 +435,22 @@
   "es": "Invitación",
   "fr": "Invitation"
  },
+ "ONLINE MULTIPLAYER": {
+  "es": "MULTIJUGADOR EN LÍNEA",
+  "fr": "MULTIJOUEUR EN LIGNE"
+ },
+ "Player 1": {
+  "es": "Jugador 1",
+  "fr": "Joueur 1"
+ },
+ "NAME": {
+  "es": "NOMBRE",
+  "fr": "NOM"
+ },
+ "LAUNCHER": {
+  "es": "LAUNCHER",
+  "fr": "LAUNCHER"
+ },
  "Ask the host for their invite and paste it here. You play on this device with one player. The host chooses the world rules and runs the server.": {
   "es": "Pide su invitación al anfitrión y pégala aquí. Juegas en este dispositivo con un jugador. El anfitrión elige las reglas del mundo y ejecuta el servidor.",
   "fr": "Demandez son invitation à l'hôte et collez-la ici. Vous jouez sur cet appareil avec un joueur. L'hôte choisit les règles du monde et lance le serveur."

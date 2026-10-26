@@ -4,6 +4,7 @@ It never talks to a game server: everything goes through hyrule-online.sh (see C
 is read to prefill the forms and launcher.conf keeps the launcher's own choices (language, last page, last mode).
 Texts are the English ones of Lang.cs; strings.json carries the Spanish and French rows, keyed by the English text (see tr)."""
 import json
+import math
 import os
 import re
 import subprocess
@@ -17,6 +18,10 @@ try:
     import tkinter.font as tkfont
 except ImportError:  # the logic below stays importable (tests) without Tk
     tk = tkfont = None
+try:
+    import gamepad
+except ImportError:  # no controller module next to the launcher: keyboard only
+    gamepad = None
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 LOCAL, HOST, JOIN = "Local", "Host", "Join"
@@ -47,6 +52,7 @@ MODE_INFO = {LOCAL: _k("The server only accepts players from this device."),
              HOST: _k("Friends who run this launcher can join this device. The world rules are the ones on the World page."),
              JOIN: _k("One player on this device joins a friend's server. The friend sets the rules.")}
 DEFAULT_HINT = _k("Hover an option, or move the focus to it, to see what it does.")
+HINT_TABS = ("Online", "World")  # the pages of Launcher.xaml that carry the hint bar
 CHECKLIST = _k("Check the invite, the password, that the host has a session running, and that its firewall allows the port.")
 RULE_TIPS = [_k("Keeps enemies in sync: what one player defeats is defeated for both."), _k("Shares quest progress between the players."),
              _k("Shares the Korok seeds found by each player."), _k("Shares activated towers and the map they reveal."),
@@ -75,10 +81,69 @@ HELP_SECTIONS = [
     _k("MOVING AROUND: The D-pad, the arrow keys or Tab move the focus. Confirm or Enter presses; back or Esc goes back and closes this help. "
        "LB and RB (or Ctrl+Tab) change page. Esc on the first page closes the launcher.")]
 
-# Windows launcher palette (Launcher.xaml)
-BG, PANEL, FIELD, LINE, FG, MUTED = "#0B1015", "#152027", "#1B252B", "#2E3F44", "#EAF2F2", "#8FA7B1"
-GOLD, SECTION, GREEN, HOVER, AMBER, TEAL, OFF = "#E1CFA1", "#CBBF9F", "#3C554B", "#354549", "#E0BE75", "#63E0BD", "#4B5A60"
-STATUS_FG, LOGBG, LOGFG = "#AEE2D2", "#0F171C", "#A5BAC5"
+def blend(argb, under):
+    """A '#AARRGGBB' brush of Launcher.xaml laid over the '#RRGGBB' it sits on (Tk has no alpha); '#RRGGBB' comes back as it is."""
+    if len(argb) == 7:
+        return argb
+    a = int(argb[1:3], 16) / 255
+    top = [int(argb[i:i + 2], 16) for i in (3, 5, 7)]
+    low = [int(under[i:i + 2], 16) for i in (1, 3, 5)]
+    return "#%02X%02X%02X" % tuple(round(t * a + b * (1 - a)) for t, b in zip(top, low))
+
+
+# Windows launcher palette (Launcher.xaml); the translucent brushes are blended in App.skin over the surface they sit on.
+BG, FG = "#0B1015", "#EAF2F2"
+GOLD, SECTION, AMBER, TEAL, OFF = "#E1CFA1", "#CBBF9F", "#E0BE75", "#63E0BD", "#4B5A60"
+LABEL, INFO, SOFT, MUTED = "#8FA7B1", "#C9D6DB", "#78939F", "#A5BAC5"  # field labels, hints, captions, status words
+STATUS_FG, LOGBG, LOGFG, BUTTON_FG, SUN = "#AEE2D2", "#0F171C", "#A5BAC5", "#ECF5F4", "#E5C384"
+BRUSH = {"panel": "#A0152027", "edge": "#3449585A", "field": "#801B252B", "hover": "#B0354549", "focus": "#B0354542", "line": "#364E5659",
+         "pick": "#B03C554B", "pick_line": "#D5C396", "on_line": "#6A8F83", "bar": "#80212E2D", "hint": "#80111A20", "help": "#FC193039",
+         "p1_line": "#557EE9C9", "p2_line": "#55E5C384", "badge": "#801B252B", "popup": "#F01B252B", "deep": "#E0152027"}
+BLURB, BADGE_FG, PLAYER1 = "#9EB2BD", "#CFE3E4", "#7EE9C9"
+PANEL = blend(BRUSH["panel"], BG)
+
+# The fonts the Windows launcher bundles (src/Launcher/Fonts) are copied to fonts/ and used by name; every other family is only a fallback.
+FONT_DIR = os.path.join(HERE, "fonts")
+FONT_FILES = ("RobotoCondensed-Regular.ttf", "RobotoCondensed-Italic.ttf", "Cinzel-Regular.ttf", "CinzelDecorative-Regular.ttf")
+MENU_FONT, TITLE_FONT, LOGO_FONT = "Roboto Condensed", "Cinzel", "Cinzel Decorative"
+FALLBACK_FONTS = {"menu": ("Segoe UI", "Noto Sans", "DejaVu Sans", "Liberation Sans"), "title": ("Georgia", "Noto Serif", "DejaVu Serif", "Liberation Serif"),
+                  "mono": ("Consolas", "DejaVu Sans Mono", "Liberation Mono"), "symbol": ("Segoe UI Symbol", "DejaVu Sans", "Noto Sans Symbols")}
+
+
+_REGISTERED = {}
+
+
+def register_fonts(folder=FONT_DIR):
+    """Makes the bundled fonts known to this process only (no root, nothing installed): GDI private fonts on Windows, fontconfig's
+    application fonts on Linux. False when a file is missing or the system refuses; the window then uses the fallback families."""
+    if folder not in _REGISTERED:
+        _REGISTERED[folder] = _register(folder)
+    return _REGISTERED[folder]
+
+
+def _register(folder):
+    paths = [os.path.join(folder, name) for name in FONT_FILES]
+    if not all(os.path.isfile(p) for p in paths):
+        return False
+    try:
+        import ctypes
+        import ctypes.util
+        if os.name == "nt":
+            return all(ctypes.windll.gdi32.AddFontResourceExW(p, 0x10, 0) for p in paths)  # FR_PRIVATE
+        lib = ctypes.CDLL(ctypes.util.find_library("fontconfig") or "libfontconfig.so.1")
+        lib.FcConfigAppFontAddDir.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
+        return bool(lib.FcConfigAppFontAddDir(None, os.fsencode(folder)))
+    except (OSError, AttributeError):
+        return False
+
+
+def shell_fit(width, height):
+    """ShellFit.cs: the design canvas the Windows launcher draws on for a window of this size, and the scale that fits it
+    (its Viewbox keeps a 20x16 margin)."""
+    natural = max(1, width) / max(1, height) * 1030
+    design_w = min(1760, max(1280, natural))
+    design_h = 1030 if natural >= 1280 else 1280 * max(1, height) / max(1, width)
+    return design_w, design_h, max(0.3, min((width - 40) / design_w, (height - 32) / design_h))
 
 
 # ---- texts ----
@@ -402,11 +467,6 @@ def mask(line):
     return re.sub(r"pw=\S*", "pw=…", line)
 
 
-def ui_scale(width, height):
-    """The layout is drawn for 1280x800; other screens scale it (never below what stays readable)."""
-    return max(0.7, min(1.6, width / 1280, height / 800))
-
-
 # ---- keyboard / D-pad navigation: Navigation.cs Spatial, on (x, y, width, height) boxes ----
 
 def _gap(start, length, other_start, other_length):
@@ -599,6 +659,198 @@ class ServerLog:
             self.events = (self.events + [event])[-6:]
 
 
+# ---- rounded look: Tk draws no rounded corners, so a Canvas is painted behind each widget ----
+
+# Fill, edge (a BRUSH key or a colour) and edge width in design px of the boxes that only decorate; the others follow the state of their widget.
+STATIC = {"card": ("panel", "edge", 1), "p1": ("panel", "p1_line", 2), "deep": ("deep", "deep", 0), "bar": ("bar", "bar", 0), "hint": ("hint", "hint", 0),
+          "help": ("help", "edge", 1), "popup": ("popup", GOLD, 1), "badge": ("badge", MUTED, 2)}
+
+
+def rounded(x0, y0, x1, y1, radii, steps=5):
+    """Outline of a rectangle with its own radius per corner (top left, top right, bottom right, bottom left) for Canvas.create_polygon."""
+    pts = []
+    for (cx, cy, r, start) in ((x0 + radii[0], y0 + radii[0], radii[0], 180), (x1 - radii[1], y0 + radii[1], radii[1], 270),
+                               (x1 - radii[2], y1 - radii[2], radii[2], 0), (x0 + radii[3], y1 - radii[3], radii[3], 90)):
+        for i in range(steps + 1):
+            a = math.radians(start + 90 * i / steps)
+            pts += [cx + r * math.cos(a), cy + r * math.sin(a)]
+    return pts
+
+
+def forward(inner, outer):
+    """Layout calls on a skinned widget go to the frame that holds it."""
+    for name in ("grid", "pack", "place", "grid_remove", "grid_forget", "pack_forget", "place_forget", "grid_info"):
+        setattr(inner, name, getattr(outer, name))
+
+
+class Skin:
+    """Rounded, bordered look for one Tk widget: a frame takes the widget's place in the layout and a Canvas painted behind the widget draws
+    the fill and the border. The widget keeps its class, focus and key handling; Skin only recolours it from hover, focus, selection and
+    the disabled state. The widget is `.skin.w`; its frame is `.box` (for sizes) and receives the layout calls."""
+
+    def __init__(self, app, parent, make, kind, radius=5, left=None, right=None, minw=0, minh=0, fg=FG, deco=None, var=None, sticky="nsew"):
+        self.app, self.kind, self.fg, self.deco, self.sig = app, kind, fg, deco, None
+        self.hover = self.focus = False
+        self.surface = parent["bg"]
+        px = app.px
+        edge = STATIC[kind][2] if kind in STATIC else 2
+        self.edge = max(1, math.ceil(edge * app.scale - 0.01)) if edge else 0
+        self.radii = [px(r) if r else 0 for r in (radius if isinstance(radius, tuple) else (radius,) * 4)]
+        o = self.outer = tk.Frame(parent, bg=self.surface)
+        self.cv = tk.Canvas(o, bg=self.surface, bd=0, highlightthickness=0)
+        self.cv.place(x=0, y=0, relwidth=1, relheight=1)
+        w = self.w = make(o)
+        w.grid(row=0, column=1, sticky=sticky, pady=self.edge)
+        pad_l = self.edge + (px(left) if left else 0)
+        pad_r = self.edge + (px(right) if right else 0)
+        o.columnconfigure(0, minsize=pad_l)
+        o.columnconfigure(1, weight=1, minsize=max(0, px(minw) - pad_l - pad_r) if minw else 0)
+        o.columnconfigure(2, minsize=pad_r)
+        o.rowconfigure(0, weight=1, minsize=px(minh) if minh else 0)
+        self.set = w.configure
+        w.configure = w.config = self.reconfigure
+        w.skin, w.box = self, o
+        forward(w, o)
+        for part in (self.cv, w):
+            part.bind("<Enter>", lambda e: self.change(hover=True), add="+")
+            part.bind("<Leave>", lambda e: self.change(hover=False), add="+")
+        w.bind("<FocusIn>", lambda e: self.change(focus=True), add="+")
+        w.bind("<FocusOut>", lambda e: self.change(focus=False), add="+")
+        self.cv.bind("<Configure>", self.paint)
+        self.cv.bind("<Button-1>", self.press)
+        if var is not None:
+            tid = var.trace_add("write", lambda *a: self.paint())
+            w.bind("<Destroy>", lambda e: e.widget is w and self.untrace(var, tid), add="+")
+        look = self.look()
+        self.tint(look[0], look[2])
+
+    def untrace(self, var, tid):
+        try:
+            var.trace_remove("write", tid)
+        except tk.TclError:
+            pass
+
+    def reconfigure(self, cnf=None, **kw):
+        result = self.set(cnf, **kw)
+        self.paint()
+        return result
+
+    def change(self, **kw):
+        self.__dict__.update(kw)
+        self.paint()
+
+    def press(self, event):
+        w = self.w
+        if self.kind in STATIC or str(w.cget("state")) == "disabled":
+            return
+        w.focus_set()
+        if hasattr(w, "invoke"):
+            w.invoke()
+
+    def selected(self):
+        w, cls = self.w, self.w.winfo_class()
+        if cls not in ("Radiobutton", "Checkbutton"):
+            return False
+        try:
+            value = w.getvar(str(w.cget("variable")))
+            return str(value) == str(w.cget("value")) if cls == "Radiobutton" else bool(self.app.root.tk.getboolean(value))
+        except tk.TclError:
+            return False
+
+    def look(self):
+        """(fill, edge, text colour, selected, disabled) of the widget now, with the translucent brushes laid over the surface it sits on."""
+        S, k = self.surface, self.kind
+        if k in STATIC:
+            fill, edge = (blend(BRUSH.get(x, x), S) for x in STATIC[k][:2])
+            return fill, edge, self.fg, False, False
+        off = str(self.w.cget("state")) == "disabled"
+        on = self.selected()
+        picked = k == "start" or (k == "tab" and on)
+        fill = blend(BRUSH["pick" if picked else "field"], S)
+        edge = blend(BRUSH["pick_line"] if picked else BRUSH["on_line"] if on and k == "toggle" else BRUSH["line"], S)
+        if self.hover and not off and k != "entry":
+            fill = blend("#18FFFFFF", fill) if picked else blend(BRUSH["hover"], S)
+        if self.focus and not off:
+            edge = GOLD
+            if k != "entry" and not picked:
+                fill = blend(BRUSH["focus"], S)
+        fg = self.fg
+        if off:  # Windows draws a disabled control at 40% opacity
+            fill, edge, fg = (blend("#66" + c[1:], S) for c in (fill, edge, fg))
+        return fill, edge, fg, on, off
+
+    def alive(self):
+        try:
+            return bool(self.cv.winfo_exists())
+        except tk.TclError:
+            return False
+
+    def paint(self, *_):
+        if not self.alive():
+            return
+        cv, e = self.cv, self.edge
+        W, H = cv.winfo_width(), cv.winfo_height()
+        if W < 4 or H < 4:
+            return
+        fill, edge, fg, on, off = self.look()
+        sig = (W, H, fill, edge, fg, on, off)
+        if sig == self.sig:
+            return
+        self.sig = sig
+        cv.delete("all")
+        radii = [min(r, H // 2, W // 2) for r in self.radii]
+        cv.create_polygon(rounded(0, 0, W - 1, H - 1, radii), fill=edge, outline=edge)
+        if e:
+            cv.create_polygon(rounded(e, e, W - 1 - e, H - 1 - e, [max(0, r - e) for r in radii]), fill=fill, outline=fill)
+        if self.deco:
+            self.draw_deco(W, H, fill, on, off)
+        self.tint(fill, fg)
+
+    def tint(self, fill, fg):
+        cls = self.w.winfo_class()
+        o = {"bg": fill}
+        if cls == "Label":
+            o["fg"] = fg
+        elif cls == "Entry":
+            o.update(fg=fg, readonlybackground=fill, disabledbackground=fill, disabledforeground=fg, insertbackground=GOLD)
+        elif cls not in ("Frame", "Text"):
+            o.update(fg=fg, activebackground=fill, activeforeground=fg, disabledforeground=fg)
+            if cls in ("Radiobutton", "Checkbutton"):
+                o["selectcolor"] = fill
+        self.set(**o)
+
+    def draw_deco(self, W, H, fill, on, off):
+        cv, s = self.cv, self.app.scale
+        dim = (lambda c: blend("#66" + c[1:], self.surface)) if off else (lambda c: c)
+        if self.deco == "chevron":  # the combo box arrow of Launcher.xaml: M0,0 L5,5 L10,0
+            cx, cy, a = W - self.app.px(26), H / 2, 5 * s
+            cv.create_line(cx - a, cy - a / 2, cx, cy + a / 2, cx + a, cy - a / 2, fill=dim(MUTED), width=max(1, round(2 * s)), capstyle="round", joinstyle="round")
+        elif self.deco == "box":  # the rule toggle: a 20x20 box with a tick (M3,9 L7,13 L15,4)
+            size, x, r, b = self.app.px(20), self.app.px(12), self.app.px(3), max(1, round(2 * s))
+            y = (H - size) // 2
+            cv.create_polygon(rounded(x, y, x + size, y + size, (r,) * 4), fill=dim(MUTED), outline=dim(MUTED))
+            cv.create_polygon(rounded(x + b, y + b, x + size - b, y + size - b, (max(0, r - b),) * 4), fill=fill, outline=fill)
+            if on:
+                pts = [v for dx, dy in ((3, 9), (7, 13), (15, 4)) for v in (x + dx * s, y + dy * s)]
+                cv.create_line(*pts, fill=dim(TEAL), width=max(1, round(2 * s)), capstyle="round", joinstyle="round")
+
+
+if tk is not None:
+    class Dot(tk.Canvas):
+        """A round status light; configure(fg=...) recolours it like a Label's text."""
+
+        def __init__(self, parent, size, color):
+            super().__init__(parent, width=size, height=size, bg=parent["bg"], bd=0, highlightthickness=0)
+            self.item = self.create_oval(0, 0, size - 1, size - 1, fill=color, outline=color)
+
+        def configure(self, cnf=None, **kw):
+            if "fg" in kw:
+                self.itemconfigure(self.item, fill=kw["fg"], outline=kw.pop("fg"))
+            return super().configure(cnf, **kw) if cnf or kw else None
+
+        config = configure
+
+
 # ---- window ----
 
 class App:
@@ -610,7 +862,7 @@ class App:
         self.presets = self.cli.presets()
         st = initial_state(self.own, load_conf(join_conf), self.presets)
         self.size = size or (root.winfo_screenwidth(), root.winfo_screenheight())
-        self.scale = ui_scale(*self.size)
+        self.design_w, self.design_h, self.scale = shell_fit(*self.size)
         self.bits, self.dialog, self.note, self.up, self.started, self.started_mode = st["bits"], None, None, False, None, LOCAL
         self.tab, self.mode = tk.StringVar(root, st["tab"]), tk.StringVar(root, st["mode"])
         self.lang = tk.StringVar(root, LANG)
@@ -622,7 +874,6 @@ class App:
         self.build()
         self.bind_keys()
         root.protocol("WM_DELETE_WINDOW", self.quit)
-        root.bind("<Configure>", self.resize)
         root.bind("<Destroy>", lambda e: e.widget is root and self.stop_timers())
         threading.Thread(target=self.cli.check, daemon=True).start() if self.cli.available() else None
         self.tick()
@@ -633,38 +884,53 @@ class App:
 
     # ---- look ----
     def fonts(self):
+        register_fonts()
         have = set(tkfont.families(self.root)) if tkfont else set()
-        sans = next((f for f in ("Segoe UI", "Noto Sans", "DejaVu Sans", "Liberation Sans") if f in have), "TkDefaultFont")
-        serif = next((f for f in ("Georgia", "Noto Serif", "DejaVu Serif", "Liberation Serif") if f in have), sans)
-        mono = next((f for f in ("Consolas", "DejaVu Sans Mono", "Liberation Mono") if f in have), "TkFixedFont")
-        sizes = {"body": 18, "small": 14, "section": 16, "tab": 18, "logo": 30, "title": 14, "start": 20}
-        self.font = {k: ((serif if k in ("logo", "title") else sans), -max(10, round(v * self.scale)), "bold" if k in ("section", "start") else "normal")
-                     for k, v in sizes.items()}
-        self.font["mono"] = (mono, -max(10, round(14 * self.scale)))
+
+        def pick(want, kind):
+            return want if want in have else next((f for f in FALLBACK_FONTS[kind] if f in have), "TkDefaultFont")
+        self.fam = {"menu": pick(MENU_FONT, "menu"), "title": pick(TITLE_FONT, "title"), "logo": pick(LOGO_FONT, "title"),
+                    "mono": pick("", "mono"), "symbol": pick("", "symbol")}
+
+    def f(self, size, kind="menu", style=""):
+        """A Tk font for a size of Launcher.xaml (design px, so Windows sizes read the same here); kind is menu, title, logo, mono or symbol."""
+        spec = (self.fam[kind], -max(8, round(size * self.scale)))
+        return spec + (style,) if style else spec
 
     def px(self, n):
         return max(1, round(n * self.scale))
 
-    def label(self, p, text="", fg=FG, font="body", wrap=0, **kw):
-        o = dict(bg=p["bg"], anchor="w")
+    def label(self, p, text="", fg=FG, size=18, kind="menu", style="", wrap=0, **kw):
+        o = dict(bg=p["bg"], anchor="w", justify="left", wraplength=self.px(wrap) if wrap else 0)
         o.update(kw)
-        lab = tk.Label(p, text=text, fg=fg, font=self.font[font], justify="left", **o)
-        if wrap:
-            self.wraps.append((lab, wrap))
-        return lab
+        return tk.Label(p, text=text, fg=fg, font=self.f(size, kind, style), **o)
 
-    def button(self, p, text, cmd, tip=None, kind="Button", **kw):
-        o = dict(bg=FIELD, fg=FG, activebackground=HOVER, activeforeground=FG, disabledforeground=OFF, relief="flat", bd=0, font=self.font["body"],
-                 highlightthickness=3, highlightbackground=p["bg"], highlightcolor=GOLD, padx=self.px(18), pady=self.px(7), cursor="hand2")
+    def button(self, p, text, cmd, tip=None, kind="Button", look="button", size=19, style="italic", fk="menu", padx=20, pady=10,
+               left=None, right=None, **kw):
+        """The default button of Launcher.xaml (italic 19, padding 20x10); look is the Skin kind: button, tab, start, toggle or combo."""
+        cls = {"Button": tk.Button, "Radiobutton": tk.Radiobutton, "Checkbutton": tk.Checkbutton}[kind]
+        minw, minh = kw.pop("minw", 0), kw.pop("minh", 0)
+        o = dict(relief="flat", bd=0, highlightthickness=0, font=self.f(size, fk, style), padx=0, cursor="hand2", command=cmd)
+        if kind != "Button":
+            o["indicatoron"] = False
         o.update(kw)
-        w = (tk.Button if kind == "Button" else tk.Radiobutton if kind == "Radiobutton" else tk.Checkbutton)(p, text=text, command=cmd, **o)
-        return self.tip(w, tip)
 
-    def entry(self, p, var, tip=None, **kw):
-        o = dict(textvariable=var, bg=FIELD, fg=FG, insertbackground=GOLD, relief="flat", bd=0, font=self.font["body"], disabledbackground=PANEL,
-                 readonlybackground=FIELD, highlightthickness=3, highlightbackground=p["bg"], highlightcolor=GOLD)
+        def make(parent):
+            w = cls(parent, text=text, pady=0, **o)
+            ref = tk.Label(parent, text=text, font=o["font"], bd=0, highlightthickness=0, padx=0, pady=0)
+            w.update_idletasks()
+            extra = max(0, w.winfo_reqheight() - ref.winfo_reqheight()) // 2  # Windows pads a Tk button by itself
+            ref.destroy()
+            w.configure(pady=max(0, self.px(pady) - extra))
+            return w
+        sk = Skin(self, p, make, look, left=padx if left is None else left, right=padx if right is None else right,
+                  minw=minw, minh=minh, deco={"combo": "chevron", "toggle": "box"}.get(look), var=o.get("variable"))
+        return self.tip(sk.w, tip)
+
+    def entry(self, p, var, tip=None, size=16, style="", h=44, **kw):
+        o = dict(textvariable=var, fg=FG, relief="flat", bd=0, highlightthickness=0, font=self.f(size, "menu", style), width=1)
         o.update(kw)
-        e = tk.Entry(p, **o)
+        e = Skin(self, p, lambda parent: tk.Entry(parent, **o), "entry", left=24, right=12, minh=h).w
         e.bind("<Left>", lambda ev: None if e.index("insert") > 0 else self.nav(2) or "break")
         e.bind("<Right>", lambda ev: None if e.index("insert") < len(e.get()) else self.nav(3) or "break")
         return self.tip(e, tip)
@@ -680,230 +946,290 @@ class App:
     def show_tip(self, key):
         self.hint.config(text=tr(key or DEFAULT_HINT))
 
-    def panel(self, p, title, **kw):
-        f = tk.Frame(p, bg=PANEL, highlightthickness=1, highlightbackground=LINE, padx=self.px(18), pady=self.px(8), **kw)
-        self.label(f, tr(title), fg=SECTION, font="section").grid(row=0, column=0, columnspan=4, sticky="w", pady=(0, self.px(4)))
-        return f
+    def panel(self, p, title, kind="card", pad=(24, 17), radius=8, titled=True):
+        """A titled card of Launcher.xaml: the title centred above a rounded box; returns the box's content frame, laid out as the whole block.
+        The block's `.slot` is a frame between the title and the box."""
+        wrap = tk.Frame(p, bg=p["bg"])
+        wrap.columnconfigure(0, weight=1)
+        if titled and title:
+            self.label(wrap, tr(title), fg=SECTION, size=15, kind="title", anchor="center").grid(row=0, column=0, pady=(0, self.px(10)))
+        slot = tk.Frame(wrap, bg=p["bg"])
+        slot.grid(row=1, column=0, sticky="ew")
+        sk = Skin(self, wrap, lambda o: tk.Frame(o, bg=p["bg"]), kind, radius=radius)
+        sk.outer.grid(row=2, column=0, sticky="nsew")
+        wrap.rowconfigure(2, weight=1)
+        body = tk.Frame(sk.w, bg=sk.w["bg"])
+        body.pack(fill="both", expand=True, padx=self.px(pad[0]), pady=self.px(pad[1]))
+        forward(body, wrap)
+        body.slot = slot
+        return body
 
     def combo(self, p, key, get, cmd):
         """A button that shows the current choice and opens the choice list (Windows has a combo box)."""
-        return self.button(p, "", cmd, key, anchor="w")
+        return self.button(p, "", cmd, key, look="combo", size=17, padx=44, right=44, pady=6, anchor="center")
+
+    def caption(self, p, text, tip=None, **kw):
+        """A field label of Launcher.xaml: small grey text followed by the round info mark."""
+        row = tk.Frame(p, bg=p["bg"])
+        self.label(row, tr(text), fg=LABEL, size=14).pack(side="left")
+        if tip:
+            mark = tk.Canvas(row, width=self.px(16), height=self.px(16), bg=p["bg"], bd=0, highlightthickness=0)
+            d = self.px(14)
+            mark.create_oval(1, 1, d, d, outline=SOFT, width=max(1, self.px(1)))
+            mark.create_text((d + 2) / 2, (d + 2) / 2, text="i", fill=SOFT, font=self.f(10, "menu", "bold"))
+            mark.pack(side="left", padx=(self.px(6), 0))
+            self.tip(mark, tip)
+        return row
 
     def field(self, p, row, text, var, tip, **kw):
-        self.label(p, tr(text), fg=MUTED).grid(row=row, column=0, sticky="w", padx=(0, self.px(14)))
+        """A caption over a text box, on rows 2*row and 2*row+1 of a one-column grid."""
+        self.caption(p, text, tip).grid(row=2 * row, column=0, sticky="w")
         e = self.entry(p, var, tip, **kw)
-        e.grid(row=row, column=1, sticky="ew", pady=self.px(3), ipady=self.px(5))
+        e.grid(row=2 * row + 1, column=0, sticky="ew", pady=(self.px(1), self.px(10)))
         return e
+
+    def plate(self, p, kind, size, fg, text="", minh=0, pad=14, **kw):
+        """A rounded, borderless strip of text (the status and hint bars)."""
+        sk = Skin(self, p, lambda o: tk.Label(o, text=text, fg=fg, font=self.f(size), justify="center", **kw), kind, radius=5 if kind == "bar" else 6,
+                  left=pad, right=pad, minh=minh, fg=fg)
+        return sk.w
 
     # ---- layout ----
     def build(self):
         r = self.root
         for w in r.winfo_children():
             w.destroy()
-        self.wraps, self.tips_on = [], True
+        self.tips_on = True
         r.configure(bg=BG)
-        pad = self.px(16)
-        head = tk.Frame(r, bg=BG)
-        head.pack(fill="x", padx=pad, pady=(self.px(8), 0))
-        head.columnconfigure(1, weight=1)
+        px = self.px
+        self.pagew = self.design_w - 28
+        self.colw = (self.pagew - 27) // 2
+        self.textw = self.colw - 56
+        shell = tk.Frame(r, bg=BG)
+        shell.pack(fill="both", expand=True, padx=max(0, (self.size[0] - round(self.design_w * self.scale)) // 2),
+                   pady=max(0, (self.size[1] - round(self.design_h * self.scale)) // 2))
+        head = tk.Frame(shell, bg=BG)
+        head.pack(fill="x", padx=px(14), pady=(px(4), 0))
+        head.columnconfigure((0, 2), weight=1, uniform="h")
         corner = tk.Frame(head, bg=BG)
         corner.grid(row=0, column=0, sticky="w")
-        self.dot = self.label(corner, "●", fg=OFF)
+        self.dot = Dot(corner, px(9), OFF)
         self.dot.pack(side="left")
-        self.corner = self.label(corner, tr("Server stopped"), fg=LOGFG, font="small")
-        self.corner.pack(side="left", padx=(self.px(6), 0))
-        self.label(head, "THE LEGEND OF ZELDA", fg="#CFBF9C", font="title", anchor="center").grid(row=0, column=1)
-        self.help_btn = self.button(head, tr("Help"), self.toggle_help, padx=self.px(16), pady=self.px(4))
+        self.corner = self.label(corner, tr("Server stopped"), fg=MUTED, size=13)
+        self.corner.pack(side="left", padx=(px(6), 0))
+        self.label(head, "THE LEGEND OF ZELDA", fg="#CFBF9C", size=13, kind="title", anchor="center").grid(row=0, column=1)
+        self.help_btn = self.button(head, tr("Help"), self.toggle_help, padx=15, pady=7)
         self.help_btn.grid(row=0, column=2, sticky="e")
-        self.label(head, "BREATH OF THE WILD", fg="#E2D5B2", font="logo", anchor="center").grid(row=1, column=0, columnspan=3)
-        bar = tk.Frame(r, bg=BG)
-        bar.pack(fill="x", padx=pad, pady=(self.px(4), self.px(6)))
-        lb = self.tip(self.label(bar, "LB", fg=MUTED, font="small"), _k("Previous page (LB or Ctrl+Shift+Tab)"))
-        lb.pack(side="left")
-        rb = self.tip(self.label(bar, "RB", fg=MUTED, font="small"), _k("Next page (RB or Ctrl+Tab)"))
-        rb.pack(side="right")
+        self.label(head, "BREATH OF THE WILD", fg="#E2D5B2", size=34, kind="logo", anchor="center").grid(row=1, column=0, columnspan=3, pady=(px(3), 0))
+        self.label(head, tr("ONLINE MULTIPLAYER"), fg="#A7B5B5", size=14, anchor="center").grid(row=2, column=0, columnspan=3, pady=(0, px(6)))
+        bar = tk.Frame(shell, bg=BG)
+        bar.pack(fill="x", padx=px(14), pady=(0, px(6)))
         tabs = tk.Frame(bar, bg=BG)
         tabs.pack()
-        self.tab_btns = {n: self.button(tabs, tr(TAB_LABELS[n]), self.show_tab, kind="Radiobutton", variable=self.tab, value=n, indicatoron=False,
-                                        selectcolor=GREEN, font=self.font["tab"], padx=self.px(22)) for n in TABS}
+        self.badge(tabs, "LB", _k("Previous page (LB or Ctrl+Shift+Tab)"), (16, 5, 5, 5)).pack(side="left", padx=(0, px(14)))
+        self.tab_btns = {n: self.button(tabs, tr(TAB_LABELS[n]), self.show_tab, kind="Radiobutton", variable=self.tab, value=n, look="tab", size=16,
+                                        style="", fk="title", padx=16, pady=7) for n in TABS}
         for b in self.tab_btns.values():
-            b.pack(side="left", padx=self.px(4))
-        foot = tk.Frame(r, bg=BG)
-        foot.pack(side="bottom", pady=(self.px(4), self.px(8)))
-        self.start_btn = self.button(foot, tr("START SESSION"), self.start, bg=GREEN, font=self.font["start"], highlightbackground=BG, padx=self.px(36))
-        self.stop_btn = self.button(foot, tr("Stop session"), self.stop, padx=self.px(24))
-        self.exit_btn = self.button(foot, tr("Exit"), self.quit, padx=self.px(24))
+            b.pack(side="left", padx=px(3))
+        self.badge(tabs, "RB", _k("Next page (RB or Ctrl+Tab)"), (5, 16, 5, 5)).pack(side="left", padx=(px(14), 0))
+        foot = tk.Frame(shell, bg=BG)
+        foot.pack(side="bottom", padx=px(14), pady=(0, px(16)))
+        self.start_btn = self.button(foot, tr("START SESSION"), self.start, look="start", size=20, style="", fk="title", padx=40, pady=6, minw=300, minh=63)
+        self.stop_btn = self.button(foot, tr("Stop session"), self.stop, padx=20, pady=6, minw=180, minh=63)
+        self.exit_btn = self.button(foot, tr("Exit"), self.quit, padx=20, pady=6, minw=150, minh=63)
         for b in (self.start_btn, self.stop_btn, self.exit_btn):
-            b.pack(side="left", padx=self.px(6))
-        self.status = self.label(r, "", fg=STATUS_FG, wrap=1, bg="#212E2D")
-        self.status.pack(side="bottom", fill="x", padx=pad, ipady=self.px(3))
-        self.hint = self.label(r, tr(DEFAULT_HINT), fg=MUTED, font="small", wrap=1)
-        self.hint.pack(side="bottom", fill="x", padx=pad)
-        self.host = tk.Frame(r, bg=BG)
-        self.host.pack(fill="both", expand=True, padx=pad, pady=(0, self.px(4)))
+            b.pack(side="left", padx=px(6))
+        self.status = self.plate(shell, "bar", 18, STATUS_FG, minh=44, wraplength=px(self.pagew - 60))
+        self.status.pack(side="bottom", fill="x", padx=px(14), pady=(px(6), px(10)))
+        self.hint = self.plate(shell, "hint", 14, MUTED, tr(DEFAULT_HINT), minh=36, pad=16, wraplength=px(self.pagew - 60))
+        self.hint.pack(side="bottom", fill="x", padx=px(14))
+        self.host = tk.Frame(shell, bg=BG)
+        self.host.pack(fill="both", expand=True, padx=px(14), pady=(0, px(6)))
         self.pages = {n: tk.Frame(self.host, bg=BG) for n in TABS}
         for name in TABS:
             getattr(self, "build_" + name.lower())(self.pages[name])
-        self.helpbox = tk.Frame(self.host, bg=PANEL, highlightthickness=1, highlightbackground=LINE)
-        self.build_help(self.helpbox)
         self.help_open = False
+        self.build_help()
         self.zones = [head, bar, self.host, foot]
         self.chrome = {self.help_btn, *self.tab_btns.values(), self.start_btn, self.stop_btn, self.exit_btn}
         self.shown = None
         self.show_tab()
         self.show_mode()
-        self.wrap(r.winfo_width())
 
-    def resize(self, event):
-        if event.widget is self.root:
-            self.wrap(event.width)
-
-    def wrap(self, width):
-        width = width if width > 1 else self.size[0]
-        for lab, frac in self.wraps:
-            if lab.winfo_exists():
-                lab.config(wraplength=max(self.px(240), int(width * frac) - self.px(70)))
+    def badge(self, p, text, tip, radii):
+        """The LB / RB mark beside the tabs."""
+        sk = Skin(self, p, lambda o: tk.Label(o, text=text, fg=BADGE_FG, font=self.f(15, "menu", "bold")), "badge", radius=radii, left=0, right=0, minw=54,
+                  minh=30, fg=BADGE_FG, sticky="")
+        self.tip(sk.w, tip)
+        return sk.w
 
     def build_play(self, page):
-        page.columnconfigure(0, weight=1)
-        card = self.panel(page, "SESSION")
-        card.grid(row=0, column=0, sticky="ew", pady=(self.px(4), self.px(8)))
+        px = self.px
+        inner = (self.pagew - 30) * 9 // 20 - 40
+        page.columnconfigure(0, weight=11, uniform="p")
+        page.columnconfigure(1, weight=9, uniform="p")
+        mine = self.panel(page, None, kind="p1", pad=(16, 10), titled=False)
+        mine.grid(row=0, column=0, sticky="new", padx=(0, px(15)))
+        mine.columnconfigure(0, weight=1)
+        self.label(mine, tr("Player 1"), fg=PLAYER1, size=23, kind="title").grid(row=0, column=0, sticky="w", pady=(0, px(10)))
+        self.label(mine, tr("NAME"), fg=SOFT, size=13).grid(row=1, column=0, sticky="w")
+        self.entry(mine, self.v["name"], _k("Player 1 name"), h=40, style="italic", justify="center").grid(row=2, column=0, sticky="ew", pady=(px(4), px(6)))
+        right = tk.Frame(page, bg=BG)
+        right.grid(row=0, column=1, sticky="new")
+        right.columnconfigure(0, weight=1)
+        card = self.panel(right, "SESSION", pad=(18, 14))
+        card.grid(row=0, column=0, sticky="ew")
         card.columnconfigure(3, weight=1)
         self.dots = {}
-        for i, (key, name) in enumerate((("server", _k("Dedicated server")), ("client", _k("Player 1 (Cemu A)"))), 1):
-            dot = self.label(card, "●", fg=OFF)
-            dot.grid(row=i, column=0, sticky="w")
-            self.label(card, tr(name)).grid(row=i, column=1, sticky="w", padx=(self.px(8), self.px(24)))
-            word = self.label(card, tr("Stopped"), fg=MUTED)
+        for i, (key, name) in enumerate((("server", _k("Dedicated server")), ("client", _k("Player 1 (Cemu A)")))):
+            dot = Dot(card, px(12), OFF)
+            dot.grid(row=i, column=0, sticky="w", pady=px(3))
+            self.label(card, tr(name), size=16).grid(row=i, column=1, sticky="w", padx=(px(8), px(24)))
+            word = self.label(card, tr("Stopped"), fg=BLURB, size=16)
             word.grid(row=i, column=2, sticky="w")
             self.dots[key] = (dot, word)
-        right = tk.Frame(card, bg=PANEL)
-        right.grid(row=1, column=3, rowspan=2, sticky="e")
-        self.label(right, tr("Player 1 name"), fg=MUTED).pack(side="left", padx=(0, self.px(12)))
-        self.entry(right, self.v["name"], _k("Player 1 name"), width=14).pack(side="left", ipady=self.px(5))
-        self.prompt = self.label(card, tr("Cemu A: wait for the main menu, then press Continue within about a minute."), fg=AMBER, wrap=1)
-        self.prompt.grid(row=3, column=0, columnspan=4, sticky="w", pady=(self.px(8), 0))
-        box = self.panel(page, "ONLINE")
-        box.grid(row=1, column=0, sticky="ew")
+        self.promptbox = tk.Frame(card, bg=card["bg"])
+        tk.Frame(self.promptbox, bg=AMBER, width=px(3)).pack(side="left", fill="y")
+        self.prompt = self.label(self.promptbox, tr("Cemu A: wait for the main menu, then press Continue within about a minute."), fg=AMBER, size=14,
+                                 wrap=inner * 45 // 100)
+        self.prompt.pack(side="left", padx=(px(10), 0))
+        self.promptbox.grid(row=0, column=3, rowspan=2, sticky="nsw", padx=(px(16), 0))
+        box = self.panel(right, "ONLINE", pad=(18, 14))
+        box.grid(row=1, column=0, sticky="ew", pady=(px(12), 0))
         box.columnconfigure(0, weight=1)
-        self.modeline = self.label(box, "", wrap=1)
-        self.modeline.grid(row=1, column=0, sticky="w")
-        self.world = self.label(box, "", fg=MUTED, wrap=1)
-        self.world.grid(row=2, column=0, sticky="w")
-        self.event = self.label(box, "", fg=MUTED, wrap=1)
-        self.event.grid(row=3, column=0, sticky="w")
-        self.copy_play = self.button(box, tr("Copy invite"), self.copy_invite, _k("Copies the invite. Your friends paste it in the Join a server mode of their launcher."))
-        self.copy_play.grid(row=1, column=1, rowspan=3, sticky="e")
+        wrap = inner - 170
+        self.modeline = self.label(box, "", size=16, wrap=wrap)
+        self.modeline.grid(row=0, column=0, sticky="w")
+        self.world = self.label(box, "", fg=BLURB, size=14, wrap=wrap)
+        self.world.grid(row=1, column=0, sticky="w")
+        self.event = self.label(box, "", fg=BLURB, size=14, wrap=wrap)
+        self.event.grid(row=2, column=0, sticky="w")
+        self.copy_play = self.button(box, tr("Copy invite"), self.copy_invite, _k("Copies the invite. Your friends paste it in the Join a server mode of their launcher."),
+                                     size=16, style="", padx=22, pady=9)
+        self.copy_play.grid(row=0, column=1, rowspan=3, sticky="e", padx=(px(12), 0))
 
     def build_online(self, page):
+        px = self.px
         page.columnconfigure((0, 1), weight=1, uniform="c")
         left = self.panel(page, "ONLINE")
-        left.grid(row=0, column=0, sticky="nsew", padx=(0, self.px(8)), pady=(self.px(4), 0))
-        left.columnconfigure(1, weight=1)
-        self.label(left, tr("How this device takes part. Applied when the next session starts."), fg=MUTED, wrap=.5).grid(row=1, column=0, columnspan=2, sticky="w")
-        self.label(left, tr("Online mode"), fg=MUTED).grid(row=2, column=0, sticky="w", padx=(0, self.px(14)))
+        left.grid(row=0, column=0, sticky="new", padx=(0, px(14)))
+        left.columnconfigure(0, weight=1)
+        self.label(left, tr("How this device takes part. Applied when the next session starts."), fg=BLURB, size=14, wrap=self.textw, justify="center").grid(row=0, column=0, pady=(0, px(11)))
+        self.caption(left, "Online mode").grid(row=1, column=0, sticky="w")
         self.mode_btn = self.combo(left, _k("Play on this device keeps the server private. Host a server lets friends join over the network. Join a server connects to a friend's server."), None, self.pick_mode)
-        self.mode_btn.grid(row=2, column=1, sticky="ew", pady=self.px(4))
-        self.info = self.label(left, "", fg=MUTED, wrap=.5)
-        self.info.grid(row=3, column=0, columnspan=2, sticky="w", pady=(0, self.px(4)))
-        self.hostf, self.joinf = tk.Frame(left, bg=PANEL), tk.Frame(left, bg=PANEL)
+        self.mode_btn.grid(row=2, column=0, sticky="ew", pady=(px(2), px(5)))
+        self.info = self.label(left, "", fg=INFO, size=13, wrap=self.textw)
+        self.info.grid(row=3, column=0, sticky="w", pady=(0, px(8)))
+        self.hostf, self.joinf = tk.Frame(left, bg=left["bg"]), tk.Frame(left, bg=left["bg"])
         for f in (self.hostf, self.joinf):
-            f.columnconfigure(1, weight=1)
+            f.columnconfigure(0, weight=1)
         self.field(self.hostf, 0, "Port", self.v["port"], _k("The TCP port the server listens on, from 1024 to 65535. It goes in the invite. The default is 5050."))
         self.field(self.hostf, 1, "Password", self.v["hostpass"], _k("Optional. Friends need it to join. Leave it empty for an open server."))
-        self.semicolon = self.label(self.hostf, tr("A semicolon (;) is removed from the password."), fg=MUTED, font="small", wrap=.5)
-        self.semicolon.grid(row=2, column=1, sticky="w")
+        self.semicolon = self.label(self.hostf, tr("A semicolon (;) is removed from the password."), fg=SOFT, size=13, wrap=self.textw)
+        self.semicolon.grid(row=4, column=0, sticky="w", pady=(0, px(8)))
+        self.semicolon.grid_remove()
         self.field(self.hostf, 3, "Server description", self.v["desc"], _k("The text friends see about this server."))
         self.field(self.joinf, 0, "Invite or address", self.v["invite"], _k("Paste the invite your friend sent you, or type their address and port."))
-        self.label(self.joinf, tr("Example: hyrule://100.64.0.5:5050 or 192.168.1.20:5050"), fg=MUTED, font="small", wrap=.5).grid(row=1, column=1, sticky="w")
-        self.field(self.joinf, 2, "Password", self.v["joinpass"], _k("The server password, if the invite does not carry it."), show="")
+        self.label(self.joinf, tr("Example: hyrule://100.64.0.5:5050 or 192.168.1.20:5050"), fg=SOFT, size=13, wrap=self.textw).grid(row=2, column=0, sticky="w", pady=(0, px(8)))
+        self.field(self.joinf, 3, "Password", self.v["joinpass"], _k("The server password, if the invite does not carry it."), show="")
         self.share = self.panel(page, "INVITE FRIENDS")
-        self.share.columnconfigure(1, weight=1)
-        self.addr_entry = self.field(self.share, 1, "Address in the invite", self.v["addr"], _k("The Tailscale or home network address of this device. Use your public address if you forward the port on your router. Empty it to detect the address again."))
+        self.share.columnconfigure(0, weight=1)
+        self.addr_entry = self.field(self.share, 0, "Address in the invite", self.v["addr"], _k("The Tailscale or home network address of this device. Use your public address if you forward the port on your router. Empty it to detect the address again."))
         self.addr_entry.bind("<FocusOut>", lambda e: self.commit_addr(), add="+")
-        self.label(self.share, tr("Invite"), fg=MUTED).grid(row=2, column=0, sticky="w", padx=(0, self.px(14)))
+        self.caption(self.share, "Invite").grid(row=2, column=0, sticky="w")
         self.invite_box = self.entry(self.share, tk.StringVar(self.root), None, state="readonly", takefocus=0)
-        self.invite_box.grid(row=2, column=1, sticky="ew", pady=self.px(3), ipady=self.px(5))
-        self.copy_btn = self.button(self.share, tr("Copy invite"), self.copy_invite, _k("Copies the invite. Your friends paste it in the Join a server mode of their launcher."))
-        self.copy_btn.grid(row=3, column=0, columnspan=2, sticky="ew", pady=self.px(4))
-        self.nethint = self.label(self.share, "", fg=MUTED, font="small", wrap=.5)
-        self.nethint.grid(row=4, column=0, columnspan=2, sticky="w")
+        self.invite_box.grid(row=3, column=0, sticky="ew", pady=(px(4), px(12)))
+        self.copy_btn = self.button(self.share, tr("Copy invite"), self.copy_invite, _k("Copies the invite. Your friends paste it in the Join a server mode of their launcher."),
+                                    size=16, style="", padx=22, pady=9)
+        self.copy_btn.grid(row=4, column=0, sticky="ew")
+        self.nethint = self.label(self.share, "", fg=SOFT, size=13, wrap=self.textw)
+        self.nethint.grid(row=5, column=0, sticky="w", pady=(px(8), 0))
         self.joinhelp = self.panel(page, "JOINING A SERVER")
-        self.label(self.joinhelp, tr("Ask the host for their invite and paste it here. You play on this device with one player. The host chooses the world rules and runs the server."), wrap=.5).grid(row=1, column=0, sticky="w")
+        self.label(self.joinhelp, tr("Ask the host for their invite and paste it here. You play on this device with one player. The host chooses the world rules and runs the server."), size=16, fg=BLURB, wrap=self.textw).grid(row=0, column=0, sticky="w")
 
     def build_world(self, page):
-        page.columnconfigure(0, weight=1)
-        card = self.panel(page, "WORLD RULES")
-        card.grid(row=0, column=0, sticky="nsew", pady=(self.px(4), 0))
-        card.columnconfigure((1, 2, 3), weight=1, uniform="r")
-        self.label(card, tr("What everyone on the server shares. Applied when the next session starts."), fg=MUTED, wrap=1).grid(row=1, column=0, columnspan=4, sticky="w")
-        self.locked = self.label(card, tr("You joined a friend's server: the host sets the world rules, so these are locked."), fg=AMBER, wrap=1)
-        self.locked.grid(row=2, column=0, columnspan=4, sticky="w")
-        self.label(card, tr("Preset"), fg=MUTED).grid(row=3, column=0, sticky="w", padx=(0, self.px(14)))
+        px = self.px
+        page.columnconfigure(0, weight=1, uniform="w")
+        page.columnconfigure(1, weight=1, uniform="w")
+        card = self.panel(page, "WORLD RULES", pad=(24, 12))
+        card.grid(row=0, column=0, sticky="new", padx=(0, px(14)))
+        card.columnconfigure(0, weight=1)
+        self.label(card, tr("What everyone on the server shares. Applied when the next session starts."), fg=BLURB, size=14, wrap=self.textw, justify="center").grid(row=0, column=0, pady=(0, px(12)))
+        self.lockbox = self.panel(page, None, titled=False, pad=(18, 14))
+        self.locked = self.label(self.lockbox, tr("You joined a friend's server: the host sets the world rules, so these are locked."), fg=AMBER, size=14, wrap=self.textw - 30)
+        self.locked.grid(row=0, column=0, sticky="w")
+        self.caption(card, "Preset", _k("A ready-made set of sync rules. You can still change each rule below.")).grid(row=1, column=0, sticky="w")
         self.preset_btn = self.combo(card, _k("A ready-made set of sync rules. You can still change each rule below."), None, self.pick_preset)
-        self.preset_btn.grid(row=3, column=1, columnspan=3, sticky="ew", pady=self.px(3))
-        self.preset_info = self.label(card, "", fg=MUTED, font="small", wrap=.82)
-        self.preset_info.grid(row=4, column=1, columnspan=3, sticky="w")
-        self.label(card, tr("Special mode"), fg=MUTED).grid(row=5, column=0, sticky="w", padx=(0, self.px(14)))
+        self.preset_btn.grid(row=2, column=0, sticky="ew", pady=(px(4), px(4)))
+        self.preset_info = self.label(card, "", fg=INFO, size=13, wrap=self.textw)
+        self.preset_info.grid(row=3, column=0, sticky="w")
+        self.shares = self.label(card, "", size=13, fg=INFO, wrap=self.textw)
+        self.shares.grid(row=4, column=0, sticky="w", pady=(px(2), px(8)))
+        self.caption(card, "Special mode", _k("An optional game mode on top of the rules: Hunter vs Speedrunner or Death Swap.")).grid(row=5, column=0, sticky="w")
         self.special_btn = self.combo(card, _k("An optional game mode on top of the rules: Hunter vs Speedrunner or Death Swap."), None, self.pick_special)
-        self.special_btn.grid(row=5, column=1, columnspan=3, sticky="ew", pady=self.px(3))
-        self.special_info = self.label(card, "", fg=MUTED, font="small", wrap=.82)
-        self.special_info.grid(row=6, column=1, columnspan=3, sticky="w")
-        self.shares = self.label(card, "", font="small", wrap=1)
-        self.shares.grid(row=7, column=0, columnspan=4, sticky="w", pady=(self.px(4), self.px(4)))
+        self.special_btn.grid(row=6, column=0, sticky="ew", pady=(px(4), px(4)))
+        self.special_info = self.label(card, "", fg=INFO, size=13, wrap=self.textw)
+        self.special_info.grid(row=7, column=0, sticky="w", pady=(0, px(8)))
         self.checks = []
-        grid = tk.Frame(card, bg=PANEL)
-        grid.grid(row=8, column=0, columnspan=4, sticky="ew")
-        grid.columnconfigure((0, 1, 2), weight=1, uniform="r")
-        grid.columnconfigure(3, weight=2)
+        grid = tk.Frame(card, bg=card["bg"])
+        grid.grid(row=8, column=0, sticky="ew")
+        grid.columnconfigure((0, 1), weight=1, uniform="r")
         for i, name in enumerate(RULE_NAMES):
             var = tk.BooleanVar(self.root)
-            c = self.button(grid, "", self.rules_changed, RULE_TIPS[i], kind="Checkbutton", variable=var, indicatoron=False, selectcolor=GREEN)
-            c.grid(row=i // 4, column=i % 4, sticky="ew", padx=self.px(2), pady=self.px(2))
+            c = self.button(grid, "", self.rules_changed, RULE_TIPS[i], kind="Checkbutton", variable=var, look="toggle", size=16, style="", padx=34, right=12,
+                            pady=6, anchor="w", minh=41)
+            c.grid(row=i // 2, column=i % 2, sticky="ew", padx=(0, px(8)), pady=(0, px(8)))
             self.checks.append((c, var))
         self.recommended = self.button(grid, tr("Use recommended rules"), self.use_recommended,
-                                       _k("Selects the Game Completion preset with no special mode, the set that shares the most for playing the whole game together. It does not depend on this device's hardware."))
-        self.recommended.grid(row=1, column=3, sticky="ew", padx=self.px(2), pady=self.px(2))
+                                       _k("Selects the Game Completion preset with no special mode, the set that shares the most for playing the whole game together. It does not depend on this device's hardware."),
+                                       size=16, style="", padx=22, pady=6, minh=43)
+        self.recommended.grid(row=(len(RULE_NAMES) + 1) // 2, column=0, columnspan=2, sticky="ew", pady=(px(6), 0))
 
     def build_language(self, page):
-        card = self.panel(page, "LANGUAGE")
-        card.pack(fill="x", pady=(self.px(4), 0))
-        self.label(card, tr("The launcher text changes right away."), fg=MUTED, wrap=1).grid(row=1, column=0, sticky="w")
+        px = self.px
+        page.columnconfigure(0, weight=1)
+        card = self.panel(page, "LANGUAGE", pad=(28, 20))
+        card.grid(row=0, column=0, sticky="n")
+        tk.Frame(card, width=px(644), height=1, bg=card["bg"]).grid(row=0, column=0, columnspan=3)
+        card.columnconfigure((0, 1, 2), weight=1, uniform="l")
+        self.label(card, tr("LAUNCHER"), fg=SOFT, size=13).grid(row=1, column=0, columnspan=3, sticky="w", padx=px(2), pady=(0, px(6)))
         self.lang_btns = {}
-        for i, (code, name) in enumerate(LANGUAGES, 2):
-            b = self.button(card, name, lambda c=code: self.pick_language(c), kind="Radiobutton", variable=self.lang, value=code, indicatoron=False,
-                            selectcolor=GREEN, anchor="w")
-            b.grid(row=i, column=0, sticky="ew", pady=self.px(3))
+        for i, (code, name) in enumerate(LANGUAGES):
+            b = self.button(card, name, lambda c=code: self.pick_language(c), kind="Radiobutton", variable=self.lang, value=code, look="tab", size=18)
+            b.grid(row=2, column=i, sticky="ew", padx=(0 if i == 0 else px(4), 0 if i == len(LANGUAGES) - 1 else px(4)))
             self.lang_btns[code] = b
-        card.columnconfigure(0, weight=1)
+        self.label(card, tr("The launcher text changes right away."), fg=BLURB, size=14, wrap=640).grid(row=3, column=0, columnspan=3, sticky="w", pady=(px(14), 0))
 
     def build_details(self, page):
-        page.columnconfigure((0, 1), weight=1, uniform="d")
+        px = self.px
+        page.columnconfigure(0, weight=1)
         page.rowconfigure(0, weight=1)
         self.texts = {}
-        for col, title in enumerate((_k("Session log"), _k("Server console"))):
-            card = self.panel(page, title)
-            card.grid(row=0, column=col, sticky="nsew", padx=(0, self.px(8)) if col == 0 else (0, 0), pady=(self.px(4), 0))
-            card.rowconfigure(1, weight=1)
-            card.columnconfigure(0, weight=1)
-            box = tk.Text(card, bg=LOGBG, fg=LOGFG, font=self.font["mono"], relief="flat", wrap="word", height=6, width=10, highlightthickness=3,
-                          highlightbackground=PANEL, highlightcolor=GOLD, state="disabled", cursor="arrow", insertwidth=0)
+        card = self.panel(page, None, kind="deep", pad=(18, 14), titled=False)
+        card.grid(row=0, column=0, sticky="nsew")
+        card.columnconfigure(0, weight=1)
+        for col, (title, weight) in enumerate(((_k("Session log"), 3), (_k("Server console"), 2))):
+            self.label(card, tr(title), fg=SECTION, size=14, anchor="center").grid(row=2 * col, column=0, pady=(px(14) if col else 0, px(8)))
+            card.rowconfigure(2 * col + 1, weight=weight, uniform="d")
+            box = tk.Text(card, bg=LOGBG, fg=LOGFG, font=self.f(13, "mono"), relief="flat", wrap="word", height=3, width=10, highlightthickness=px(2),
+                          highlightbackground=LOGBG, highlightcolor=GOLD, padx=px(10), pady=px(8), state="disabled", cursor="arrow", insertwidth=0)
             self.scroll_keys(box)
-            box.grid(row=1, column=0, sticky="nsew")
+            box.grid(row=2 * col + 1, column=0, sticky="nsew")
             self.texts[col] = [box, None]
 
-    def build_help(self, frame):
-        box = tk.Text(frame, bg=PANEL, fg=FG, font=self.font["body"], relief="flat", wrap="word", highlightthickness=3, highlightbackground=PANEL,
-                      highlightcolor=GOLD, padx=self.px(18), pady=self.px(12), cursor="arrow", insertwidth=0, spacing3=self.px(10))
-        box.tag_configure("head", foreground=GOLD, font=self.font["section"])
+    def build_help(self):
+        sk = Skin(self, self.host, lambda o: tk.Text(o, fg="#C7DCDD", font=self.f(14), relief="flat", bd=0, highlightthickness=0, wrap="word", width=1, height=1,
+                                                     padx=0, pady=self.px(2), cursor="arrow", insertwidth=0, spacing3=self.px(8)),
+                  "help", radius=12, left=22, right=10, minh=0)
+        box = sk.w
+        box.tag_configure("head", foreground=SECTION, font=self.f(15, "title"))
         for section in HELP_SECTIONS:
             title, _, text = tr(section).partition(":")
-            box.insert("end", title.strip() + ": ", "head")
+            box.insert("end", title.strip() + "\n", "head")
             box.insert("end", text.strip() + "\n\n")
         box.config(state="disabled")
         self.scroll_keys(box)
-        box.pack(fill="both", expand=True)
-        self.help_text = box
+        self.helpbox, self.help_text = sk.outer, box
 
     def scroll_keys(self, box):
         def scroll(direction):
@@ -923,21 +1249,25 @@ class App:
         for f in self.pages.values():
             f.pack_forget()
         self.pages[name].pack(fill="both", expand=True)
+        if name in HINT_TABS:
+            self.hint.pack(side="bottom", fill="x", padx=self.px(14), before=self.host)
+        else:
+            self.hint.pack_forget()
         self.remember("tab", name)
 
     def show_mode(self):
         m = self.mode.get()
         for f in (self.hostf, self.joinf, self.share, self.joinhelp):
             f.grid_remove()
-        gap = {"sticky": "nsew", "padx": (self.px(8), 0), "pady": (self.px(4), 0)}
+        gap = {"sticky": "new", "padx": (self.px(13), 0)}
         if m == HOST:
-            self.hostf.grid(row=4, column=0, columnspan=2, sticky="ew")
+            self.hostf.grid(row=4, column=0, sticky="ew")
             self.share.grid(row=0, column=1, **gap)
         elif m == JOIN:
-            self.joinf.grid(row=4, column=0, columnspan=2, sticky="ew")
+            self.joinf.grid(row=4, column=0, sticky="ew")
             self.joinhelp.grid(row=0, column=1, **gap)
         self.info.config(text=tr(MODE_INFO[m]))
-        self.mode_btn.config(text=tr(MODE_WORDS[m]) + "   ▾")
+        self.mode_btn.config(text=tr(MODE_WORDS[m]))
         self.remember("mode", m)
         self.refresh_rules()
         self.refresh_invite()
@@ -973,6 +1303,11 @@ class App:
         self.build()
         self.lang_btns[code].focus_set()
 
+    def hide_semicolon(self):
+        if self.semicolon.winfo_exists():
+            self.semicolon.config(fg=SOFT)
+            self.semicolon.grid_remove()
+
     # ---- online ----
     def typed(self, key):
         var = self.v[key]
@@ -981,7 +1316,8 @@ class App:
             if key == "hostpass":
                 self.semicolon_until = 1
                 self.semicolon.config(fg=AMBER)
-                self.root.after(3000, lambda: self.semicolon.winfo_exists() and self.semicolon.config(fg=MUTED))
+                self.semicolon.grid()
+                self.root.after(3000, self.hide_semicolon)
             var.set(text)
             return
         if key in ("port", "hostpass", "addr"):
@@ -1041,15 +1377,18 @@ class App:
         state = "disabled" if locked else "normal"
         for i, (c, var) in enumerate(self.checks):
             var.set(self.bits[i] == "1")
-            c.config(text=("✓  " if var.get() else "✕  ") + tr(RULE_NAMES[i]), state=state)
+            c.config(text=tr(RULE_NAMES[i]), state=state)
         name = rules_name(self.bits, self.presets)
-        self.preset_btn.config(text=(tr("Custom") if name == "Custom" else name) + "   ▾", state=state)
-        self.special_btn.config(text=tr(SPECIALS[int(self.bits[7])]) + "   ▾", state=state)
+        self.preset_btn.config(text=tr("Custom") if name == "Custom" else name, state=state)
+        self.special_btn.config(text=tr(SPECIALS[int(self.bits[7])]), state=state)
         self.recommended.config(state=state)
         self.preset_info.config(text=tr(PRESET_BLURBS.get(name, PRESET_BLURBS["Custom"])))
         self.special_info.config(text=tr(SPECIAL_BLURBS[int(self.bits[7])]))
         self.shares.config(text=shares_text(self.bits))
-        (self.locked.grid if locked else self.locked.grid_remove)()
+        if locked:
+            self.lockbox.grid(row=0, column=1, sticky="new", padx=(self.px(13), 0))
+        else:
+            self.lockbox.grid_remove()
 
     def rules_changed(self):
         self.bits = "".join("1" if var.get() else "0" for _, var in self.checks) + self.bits[7]
@@ -1135,7 +1474,7 @@ class App:
             word.config(text=words[key])
         self.dot.config(fg=TEAL if srv else OFF)
         self.corner.config(text=tr("Server running") if srv else tr("Server stopped"))
-        (self.prompt.grid if cli and not joined else self.prompt.grid_remove)()
+        (self.promptbox.grid if cli and not joined else self.promptbox.grid_remove)()
         self.start_btn.config(text=tr("RESTART SESSION") if self.up else tr("START SESSION"), state="disabled" if c.busy or (alive and not self.up) else "normal")
         self.status.config(text=self.status_text(c, alive, joined))
         self.render_online(srv)
@@ -1211,14 +1550,16 @@ class App:
         self.close_dialog(None)
         ov = tk.Frame(self.root, bg=BG)
         ov.place(x=0, y=0, relwidth=1, relheight=1)
-        box = tk.Frame(ov, bg=PANEL, highlightthickness=2, highlightbackground=GOLD, padx=self.px(28), pady=self.px(18))
-        box.place(relx=.5, rely=.5, anchor="center")
-        self.label(box, title, fg=GOLD, font="section").pack(anchor="w")
+        sk = Skin(self, ov, lambda o: tk.Frame(o, bg=BG), "popup", radius=8)
+        sk.outer.place(relx=.5, rely=.5, anchor="center")
+        box = tk.Frame(sk.w, bg=sk.w["bg"])
+        box.pack(padx=self.px(28), pady=self.px(20))
+        self.label(box, title, fg=GOLD, size=18, kind="title", anchor="center").pack(fill="x")
         if text:
-            self.label(box, text, wrap=0, wraplength=self.px(620), fg=MUTED, font="small").pack(anchor="w", pady=(self.px(4), self.px(8)))
-        buttons = [self.button(box, t, lambda i=i: self.close_dialog(i)) for i, t in enumerate(labels)]
+            self.label(box, text, wrap=620, fg=BLURB, size=14, anchor="center", justify="center").pack(fill="x", pady=(self.px(6), self.px(12)))
+        buttons = [self.button(box, t, lambda i=i: self.close_dialog(i), minw=360) for i, t in enumerate(labels)]
         for b in buttons:
-            b.pack(fill="x", pady=self.px(2))
+            b.pack(fill="x", pady=self.px(3))
         self.dialog = (ov, cb, len(labels) - 1, self.root.focus_get())
         buttons[min(max(current, 0), len(buttons) - 1)].focus_set()
 
@@ -1275,7 +1616,8 @@ class App:
         return out
 
     def boxes(self, items):
-        return [(w.winfo_rootx(), w.winfo_rooty(), w.winfo_width(), w.winfo_height()) for w in items]
+        boxes = [getattr(w, "box", w) for w in items]
+        return [(w.winfo_rootx(), w.winfo_rooty(), w.winfo_width(), w.winfo_height()) for w in boxes]
 
     def nav(self, key):
         items = self.focusables()
@@ -1319,8 +1661,28 @@ class App:
             self.quit()
         return "break"
 
+    # ---- game controller (gamepad.py reads the device; this maps its events onto the keyboard actions above) ----
+    def pad_event(self, name):
+        if name in ("up", "down", "left", "right"):
+            self.nav(("Up", "Down", "Left", "Right")[("up", "down", "left", "right").index(name)])
+        elif name == "accept":
+            self.activate()
+        elif name == "back":
+            self.escape()
+        elif name in ("lb", "rb"):
+            self.cycle(-1 if name == "lb" else 1)
+
+    def poll_pad(self, pad):
+        try:
+            for name in pad.poll():
+                self.pad_event(name)
+        except Exception:  # a failing controller must never stop the window
+            pass
+        self.pad_job = self.root.after(16, self.poll_pad, pad)
+
 
 def main():
+    register_fonts()
     root = tk.Tk()
     root.title("Hyrule Online")
     sw, sh = root.winfo_screenwidth(), root.winfo_screenheight()
@@ -1331,6 +1693,13 @@ def main():
         size = (min(1280, sw), min(800, sh - 80))
         root.geometry(f"{size[0]}x{size[1]}")
     app = App(root, size=size)
+    pad = None
+    if gamepad is not None:
+        try:
+            pad = gamepad.Pad()
+            app.poll_pad(pad)
+        except Exception:
+            pad = None
 
     def take_focus():
         root.lift()
@@ -1343,6 +1712,8 @@ def main():
     root.after(200, take_focus)
     root.after(800, take_focus)
     root.mainloop()
+    if pad is not None:
+        pad.close()
 
 
 if __name__ == "__main__":

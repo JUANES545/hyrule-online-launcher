@@ -28,7 +28,7 @@ def used_keys():
     for n in ast.walk(tree):
         if isinstance(n, ast.Call):
             name = n.func.id if isinstance(n.func, ast.Name) else n.func.attr if isinstance(n.func, ast.Attribute) else ""
-            index = {"tr": 0, "_k": 0, "panel": 1, "field": 2}.get(name)
+            index = {"tr": 0, "_k": 0, "panel": 1, "field": 2, "caption": 1}.get(name)
             if index is not None and len(n.args) > index:
                 add(n.args[index])
         if isinstance(n, ast.Assign) and isinstance(n.value, ast.List) and getattr(n.targets[0], "id", "") in ("RULE_NAMES", "SPECIALS"):
@@ -395,10 +395,13 @@ class Prefs(unittest.TestCase):
             self.assertEqual(L.read_version((d,)), "0.1.0")
 
     def test_scale(self):
-        self.assertEqual(L.ui_scale(1280, 800), 1)
-        self.assertEqual(L.ui_scale(640, 400), 0.7)
-        self.assertEqual(L.ui_scale(3840, 2160), 1.6)
-        self.assertEqual(L.ui_scale(1920, 800), 1)
+        design_w, design_h, scale = L.shell_fit(1280, 800)
+        self.assertEqual((round(design_w), round(design_h), round(scale, 3)), (1648, 1030, 0.746))
+        for size in ((1280, 800), (1024, 600), (1920, 1080), (3840, 2160), (640, 400)):
+            design_w, design_h, scale = L.shell_fit(*size)
+            self.assertLessEqual(design_w * scale, size[0] + 1, size)
+            self.assertLessEqual(design_h * scale, size[1] + 1, size)
+            self.assertGreater(design_w * scale, size[0] * 0.9, size)
 
 
 class Navigation(unittest.TestCase):
@@ -522,7 +525,7 @@ class Window(unittest.TestCase):
         for mode, tab in self.pages(app):
             for w in app.focusables():
                 if w.winfo_class() != "Text":
-                    self.assertGreaterEqual(w.winfo_height(), 30, (mode, tab, w))
+                    self.assertGreaterEqual(getattr(w, "box", w).winfo_height(), 30, (mode, tab, w))
         root.destroy()
 
     def test_pages_and_modes(self):
@@ -648,6 +651,39 @@ class Window(unittest.TestCase):
         self.assertIn("not valid", app.status.cget("text"))
         root.destroy()
 
+    def test_every_family_in_use_is_bundled_or_a_fallback(self):
+        root, app = self.make(1280, 800)
+        allowed = {L.MENU_FONT, L.TITLE_FONT, L.LOGO_FONT, "TkDefaultFont"}
+        for names in L.FALLBACK_FONTS.values():
+            allowed.update(names)
+        self.assertLessEqual(set(app.fam.values()), allowed)
+        if L.register_fonts():
+            self.assertEqual((app.fam["menu"], app.fam["title"], app.fam["logo"]), (L.MENU_FONT, L.TITLE_FONT, L.LOGO_FONT))
+        root.destroy()
+
+
+class Fonts(unittest.TestCase):
+    def test_bundled_files_and_licences_exist(self):
+        for name in L.FONT_FILES + ("Cinzel-OFL.txt", "Roboto-LICENSE.txt"):
+            path = os.path.join(L.FONT_DIR, name)
+            self.assertTrue(os.path.isfile(path) and os.path.getsize(path) > 1000, name)
+
+    def test_missing_folder_falls_back(self):
+        with tempfile.TemporaryDirectory() as empty:
+            self.assertFalse(L.register_fonts(empty))
+
+    def test_the_bundled_files_are_the_ones_of_the_windows_launcher(self):
+        windows = os.path.join(os.path.dirname(HERE), "src", "Launcher", "Fonts")
+        if not os.path.isdir(windows):
+            self.skipTest("the Windows sources are not next to the Ally files")
+        for name in L.FONT_FILES:
+            with open(os.path.join(windows, name), "rb") as a, open(os.path.join(L.FONT_DIR, name), "rb") as b:
+                self.assertEqual(a.read(), b.read(), name)
+
+    def test_windows_launcher_families(self):
+        self.assertEqual((L.MENU_FONT, L.TITLE_FONT, L.LOGO_FONT), ("Roboto Condensed", "Cinzel", "Cinzel Decorative"))
+
 
 if __name__ == "__main__":
     unittest.main()
+
