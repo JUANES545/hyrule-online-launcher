@@ -346,7 +346,7 @@ namespace HyruleOnline {
 
    Require(ServerCommands.Time("7:05") == "Time Set 07:05" && ServerCommands.Time(" 23:59 ") == "Time Set 23:59" && ServerCommands.Time("24:00") == null && ServerCommands.Time("12:60") == null && ServerCommands.Time("noon") == null && ServerCommands.Time(null) == null, "time text");
    Require(ServerCommands.SetWeather("Rain") == "Weather Set Rain" && ServerCommands.Bring("Link", "Pedro") == "Teleport Link Pedro" && ServerCommands.Bring("Sir Link", "Pedro") == "Teleport \"Sir Link\" Pedro", "weather and teleport commands");
-   Require(ServerCommands.NameTags("Activated Name Tags") == true && ServerCommands.NameTags("Deactivated Name Tags") == false && ServerCommands.NameTags("Server started") == null, "name tag lines");
+   Require(ServerCommands.NameTags("Activated Name Tags") == true && ServerCommands.NameTags("Deactivated Name Tags") == false && ServerCommands.NameTags("Server started") == null && ServerCommands.NameTags("[17:19:00] Player Activated Name Tags joined the server. Assigned to player 2.") == null, "name tag lines");
 
    string temp = Path.Combine(Path.GetTempPath(), "hyrule-rules-" + Guid.NewGuid().ToString("N"));
    try {

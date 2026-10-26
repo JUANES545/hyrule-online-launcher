@@ -455,12 +455,22 @@ def parse_server_line(line):
     start = r"^\s*(?:\[\d{1,2}:\d{2}:\d{2}\]\s*)?Player (?P<name>.+?)"
     m = re.match(start + r" joined the server\. Assigned to player (?P<slot>\d+)\.?\s*$", line)
     if m:
-        return ("joined", m.group("name"), int(m.group("slot")))
-    m = re.match(start + r" disconnected\.?(?:\s+-\s+Details:.*)?\s*$", line)
-    if m:
-        return ("left", m.group("name"))
-    m = re.match(start + r" tried to connect but failed with error (?P<code>\d+)\.?\s*$", line)
-    return ("refused", m.group("name"), int(m.group("code"))) if m else None
+        event = ("joined", m.group("name"), int(m.group("slot")))
+    else:
+        m = re.match(start + r" tried to connect but failed with error (?P<code>\d+)\.?\s*$", line)
+        if m:
+            event = ("refused", m.group("name"), int(m.group("code")))
+        else:
+            # Greedy name, and only after the other two: a player named "X disconnected. - Details: y" cannot forge a leave.
+            m = re.match(start.replace(".+?", ".+") + r" disconnected\.?(?:\s+-\s+Details:.*)?\s*$", line)
+            event = ("left", m.group("name")) if m else None
+    if not event:
+        return None
+    name = event[1].strip()
+    # Control and bidi characters are never in a real name; they only forge or garble lines.
+    if not name or any(unicodedata.category(c) in ("Cc", "Cf") for c in name):
+        return None
+    return (event[0], name) + event[2:]
 
 
 def event_text(event):
@@ -480,9 +490,13 @@ class Roster:
     def apply(self, event):
         if event[0] == "joined":
             self.order += 1
-            self.rows = [r for r in self.rows if r[1] != event[2] and r[0] != event[1]] + [(event[1], event[2], self.order)]
+            self.rows = [r for r in self.rows if r[1] != event[2]] + [(event[1], event[2], self.order)]
         elif event[0] == "left":
-            self.rows = [r for r in self.rows if r[0] != event[1]]
+            # Like the Windows roster: one leave removes one player, and a duplicate name keeps the other.
+            for i, r in enumerate(self.rows):
+                if r[0] == event[1]:
+                    del self.rows[i]
+                    break
 
     def names(self):
         return [r[0] for r in sorted(self.rows, key=lambda r: (r[1], r[2]))]

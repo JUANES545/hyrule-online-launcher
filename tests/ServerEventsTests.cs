@@ -108,6 +108,20 @@ namespace HyruleOnline {
     "Player Link tried to connect but failed with error x", "Player Link tried to connect but failed with error 3 now"
    }) NotRefused(line);
 
+   // Hostile names: a refusal or join that imitates a leave stays what it is, and control characters are dropped.
+   string forged = "Link disconnected. - Details: x";
+   Refused("Player " + forged + " tried to connect but failed with error 3", forged, 3);
+   NotLeft("Player " + forged + " tried to connect but failed with error 3");
+   NotLeft("Player " + forged + " joined the server. Assigned to player 3.");
+   Left("Player " + forged + " disconnected. - Details: reset", forged);
+   NotJoined("Player Bo\u202eb joined the server. Assigned to player 4.");
+   NotLeft("Player Bo\u202eb disconnected.");
+   NotRefused("Player Bo\tb tried to connect but failed with error 3");
+   Joined("Player Zelda \U0001F600 joined the server. Assigned to player 4.", "Zelda \U0001F600", 4);
+   var spoofed = new Roster();
+   spoofed.Apply("Player Link joined the server. Assigned to player 1.");
+   spoofed.Apply("Player Link disconnected. - Details: x tried to connect but failed with error 3");
+   Check(spoofed.Text() == "Link", "a forged refusal does not remove a player");
    // Roster.
    var roster = new Roster();
    Check(roster.Count == 0 && roster.Text() == "" && roster.Names().Count == 0, "empty roster");

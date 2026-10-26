@@ -339,6 +339,28 @@ class ServerEvents(unittest.TestCase):
         r.apply(("joined", "D", 1))  # the slot is taken over
         self.assertEqual(r.names(), ["D", "B"])
 
+    def test_hostile_names(self):
+        forged = "Link disconnected. - Details: x"
+        self.assertEqual(L.parse_server_line("Player " + forged + " tried to connect but failed with error 3"), ("refused", forged, 3))
+        self.assertEqual(L.parse_server_line("Player " + forged + " joined the server. Assigned to player 3."), ("joined", forged, 3))
+        self.assertEqual(L.parse_server_line("Player " + forged + " disconnected. - Details: reset"), ("left", forged))
+        for line in ("Player Bo\u202eb joined the server. Assigned to player 4.", "Player Bo\tb disconnected.",
+                     "Player Bo\x1bb tried to connect but failed with error 3", "Player   joined the server. Assigned to player 2."):
+            self.assertIsNone(L.parse_server_line(line), repr(line))
+        self.assertEqual(L.parse_server_line("Player Zelda \U0001F600 joined the server. Assigned to player 4.")[1], "Zelda \U0001F600")
+        r = L.Roster()
+        r.apply(("joined", "Link", 1))
+        r.apply(L.parse_server_line("Player " + forged + " tried to connect but failed with error 3"))
+        self.assertEqual(r.names(), ["Link"])
+
+    def test_duplicate_names(self):
+        r = L.Roster()
+        for e in (("joined", "Sam", 1), ("joined", "Sam", 2)):
+            r.apply(e)
+        self.assertEqual(r.names(), ["Sam", "Sam"])
+        r.apply(("left", "Sam"))
+        self.assertEqual(r.names(), ["Sam"])
+
     def test_log_masks_password(self):
         log = L.ServerLog(os.path.join(HERE, "no-such.log"))
         log.feed("Player A joined the server. Assigned to player 1.")

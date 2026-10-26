@@ -33,6 +33,8 @@ namespace HyruleOnline {
 
   // The name tag state the server reports, or null for any other line.
   public static bool? NameTags(string line) {
+   // Player names are free text, so a join or leave line never counts.
+   if (Regex.IsMatch(line, @"^\s*(?:\[[^\]]*\]\s*)?Player ")) return null;
    if (line.IndexOf("Deactivated Name Tags", StringComparison.OrdinalIgnoreCase) >= 0) return false;
    if (line.IndexOf("Activated Name Tags", StringComparison.OrdinalIgnoreCase) >= 0) return true;
    return null;

@@ -9,8 +9,10 @@ namespace HyruleOnline {
 
   const string Start = @"^\s*(?:\[\d{1,2}:\d{2}:\d{2}\]\s*)?Player (?<name>.+?)";
   static readonly Regex JoinedLine = new Regex(Start + @" joined the server\. Assigned to player (?<slot>\d+)\.?\s*$", RegexOptions.CultureInvariant);
-  static readonly Regex LeftLine = new Regex(Start + @" disconnected\.?(?:\s+-\s+Details:.*)?\s*$", RegexOptions.CultureInvariant);
+  // A greedy name so a player called "X disconnected. - Details: y" cannot cut the line short.
+  static readonly Regex LeftLine = new Regex(Start.Replace(".+?", ".+") + @" disconnected\.?(?:\s+-\s+Details:.*)?\s*$", RegexOptions.CultureInvariant);
   static readonly Regex RefusedLine = new Regex(Start + @" tried to connect but failed with error (?<code>\d+)\.?\s*$", RegexOptions.CultureInvariant);
+  static readonly Regex Unprintable = new Regex(@"[\p{Cc}\p{Cf}]", RegexOptions.CultureInvariant);
 
   static bool Match(Regex pattern, string line, out string name, out Match found) {
    name = null; found = null;
@@ -18,7 +20,8 @@ namespace HyruleOnline {
    found = pattern.Match(line);
    if (!found.Success) return false;
    name = found.Groups["name"].Value.Trim();
-   return name.Length > 0;
+   // Control and bidi characters are never in a real name; they only forge or garble lines.
+   return name.Length > 0 && !Unprintable.IsMatch(name);
   }
 
   public static bool TryJoined(string line, out string name, out int slot) {
@@ -27,7 +30,9 @@ namespace HyruleOnline {
   }
 
   public static bool TryLeft(string line, out string name) {
-   Match found;
+   Match found; int number;
+   // A refusal or join whose player name imitates a leave is still that refusal or join.
+   if (TryRefused(line, out name, out number) || TryJoined(line, out name, out number)) { name = null; return false; }
    return Match(LeftLine, line, out name, out found);
   }
 
