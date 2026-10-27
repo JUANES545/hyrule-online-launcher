@@ -12,7 +12,7 @@ namespace HyruleOnline {
  // The first-run screen. It replaces the PLAY page and the footer while the preflight finds something required missing, and goes away by
  // itself once nothing is. Everything slow (the checks, the download, the scan of the user's folder) runs off the UI thread.
  sealed partial class Launcher {
-  bool setupActive, setupChecking, installing, installCancelled, locating;
+  bool setupActive, setupChecking, installing, installCancelled, locating, merging, mergeTried;
   List<SetupCheck> setupChecks = new List<SetupCheck>();
   readonly List<Msg> setupNotes = new List<Msg>();
   Process installProcess;
@@ -46,6 +46,7 @@ namespace HyruleOnline {
    if (needed && !setupActive && (script != null || sessionLive || Scripts.Owned(root).Count > 0)) return;
    if (needed) { if (!setupActive) EnterSetup(); RenderSetup(); }
    else if (setupActive) LeaveSetup();
+   if (needed && !mergeTried && !installing && !locating && Preflight.OnlyModMissing(checks)) RunMerge();
   }
 
   static readonly string[] SetupChrome = { "NavRow", "StatusBar", "Start", "Stop" };
@@ -74,7 +75,7 @@ namespace HyruleOnline {
    C<Button>("SetupDownload").Click += (s, e) => RunInstall();
    C<Button>("SetupCancel").Click += (s, e) => StopInstall();
    C<Button>("SetupLocate").Click += (s, e) => LocateGame();
-   C<Button>("SetupRecheck").Click += (s, e) => StartSetupCheck();
+   C<Button>("SetupRecheck").Click += (s, e) => { mergeTried = false; StartSetupCheck(); };
   }
 
   static Brush SetupBrush(SetupStatus status) { return status == SetupStatus.Ok ? Good : status == SetupStatus.Missing ? Busy : Bad; }
@@ -136,17 +137,23 @@ namespace HyruleOnline {
   }
 
   // Runs scripts/Install-Components.ps1 and follows its SETUP| lines.
-  void RunInstall() {
+  void RunInstall() { RunSetupScript("Install-Components.ps1", "-Root \"" + root.TrimEnd('\\') + "\"", false); }
+
+  // Runs scripts/Merge-Mod.ps1 (BCML merge, export and fixes) with the same progress screen.
+  void RunMerge() { RunSetupScript("Merge-Mod.ps1", "", true); }
+
+  void RunSetupScript(string script, string arguments, bool merge) {
    if (installing || locating) return;
    installing = true;
+   merging = merge;
    installCancelled = false;
    installFailure = null;
    setupPercent = 0;
    setupNotes.Clear();
-   setupProgress = Msg.Say("Starting the download...");
+   setupProgress = merge ? Msg.Say("Merging the multiplayer mod...") : Msg.Say("Starting the download...");
    RenderSetup();
    try {
-    installProcess = Scripts.Run(root, "Install-Components.ps1", "-Root \"" + root.TrimEnd('\\') + "\"",
+    installProcess = Scripts.Run(root, script, arguments,
      line => Window.Dispatcher.BeginInvoke(new Action(() => OnInstallLine(line))),
      line => Window.Dispatcher.BeginInvoke(new Action(() => Write(line))),
      code => Window.Dispatcher.BeginInvoke(new Action(() => OnInstallExit(code))));
@@ -154,7 +161,8 @@ namespace HyruleOnline {
    catch (Exception error) {
     installing = false;
     setupProgress = null;
-    setupNotes.Add(Msg.Say("The download failed: {0}", error.Message));
+    if (merge) mergeTried = true;
+    setupNotes.Add(merge ? Msg.Say("The mod merge failed: {0}", error.Message) : Msg.Say("The download failed: {0}", error.Message));
     RenderSetup();
    }
   }
@@ -164,7 +172,7 @@ namespace HyruleOnline {
    if (message == null) { Write(line); return; }
    if (message.Kind == "PROGRESS") {
     setupPercent = message.Percent;
-    setupProgress = Msg.Say("Downloading and installing {0}", message.Text);
+    setupProgress = merging ? Msg.Say("Setting up {0}", message.Text) : Msg.Say("Downloading and installing {0}", message.Text);
     RenderSetup();
     return;
    }
@@ -177,7 +185,10 @@ namespace HyruleOnline {
    installing = false;
    setupProgress = null;
    if (installCancelled) setupNotes.Add(Msg.Say("Download cancelled."));
-   else if (code != 0) setupNotes.Add(Msg.Say("The download failed: {0}", installFailure ?? code.ToString()));
+   else if (code != 0) { setupNotes.Add(merging ? Msg.Say("The mod merge failed: {0}", installFailure ?? code.ToString()) : Msg.Say("The download failed: {0}", installFailure ?? code.ToString())); }
+   else if (merging) foreach (string name in SetupPaths.Instances) SetupLayout.EnsureGraphicPacks(SetupPaths.Instance(root, name));
+   if (merging) mergeTried = true;
+   merging = false;
    RenderSetup();
    StartSetupCheck();
   }
@@ -214,6 +225,7 @@ namespace HyruleOnline {
     catch (Exception error) { notes.Add(Msg.Text(error.Message)); }
     Window.Dispatcher.BeginInvoke(new Action(() => {
      locating = false;
+     mergeTried = false;
      setupProgress = null;
      setupNotes.Clear();
      setupNotes.AddRange(notes);
