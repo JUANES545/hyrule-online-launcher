@@ -75,10 +75,11 @@ valid_dir() { [[ $1 =~ ^/[A-Za-z0-9._/-]+$ ]] && [[ $1 != *..* ]] && [ "$1" != "
 
 # fetch <url> <sha256> <file name>: resumable, verified, a bad download is deleted (fail closed).
 fetch() {
-  local f="$DIR/downloads/$3"
+  local f="$DIR/downloads/$3" bar=(--progress-bar)
+  [ -t 2 ] || bar=(-sS)
   [ -f "$f" ] && sha_ok "$f" "$2" && return 0
   rm -f "$f"
-  [ -f "$f.part" ] && sha_ok "$f.part" "$2" || curl -fL --retry 3 --retry-delay 3 -C - --progress-bar -o "$f.part" "$1" \
+  [ -f "$f.part" ] && sha_ok "$f.part" "$2" || curl -fL --retry 3 --retry-delay 3 -C - "${bar[@]}" -o "$f.part" "$1" \
     || { echo "Download failed: $1" >&2; return 1; }
   sha_ok "$f.part" "$2" || { rm -f "$f.part"; echo "Checksum mismatch for $3: the download was deleted and nothing was installed from it." >&2; return 1; }
   mv "$f.part" "$f"
@@ -588,7 +589,7 @@ Desktop Mode: run $DIR/hyrule-online.sh or the \"$APP_NAME\" menu entry.
 The menu offers Play on this device, Host a server, Join a server and Stop. To join you need the invite (or address, port and password) from the host.
 Controller: Hyrule Online gives Cemu a Wii U Pro Controller profile on the first pad. In Gaming Mode the Steam shortcut needs a gamepad layout (Controller Settings > pick a gamepad template, not Disabled or a keyboard one)."
   else
-    text="Almost done. Still to do: $DEFERRED
+    text="Almost done. Still to do: ${DEFERRED%; }
 Run $DIR/install.sh again to finish. Steps that are already done are skipped."
   fi
   progress_stop
