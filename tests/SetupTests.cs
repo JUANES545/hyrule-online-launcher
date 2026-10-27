@@ -264,7 +264,9 @@ namespace HyruleOnline {
     Require(wrong.Base != null && wrong.Update == null && wrong.Dlc == null && !wrong.HasGame, "other versions are not accepted");
     Require(wrong.Notes.Any(n => n.ToString().Contains("v192")) && wrong.Notes.Any(n => n.ToString().Contains("v64")), "the notes say which versions were found");
     Require(GameFiles.Scan(Path.Combine(install, "missing"), manifest).Notes.Count == 1, "a folder that is not there is explained");
-    Require(GameFiles.Scan(NewTemp("blank"), manifest).Notes.Count == 3, "an empty folder lists what is missing");
+    Require(GameFiles.Scan(Directory.CreateDirectory(Path.Combine(NewTemp("blank"), "empty")).FullName, manifest).Notes.Count == 3, "an empty folder lists what is missing");
+    var onlyGame = GameFiles.Scan(Path.Combine(scan.Base), manifest);
+    Require(!onlyGame.HasGame && onlyGame.Notes.Count > 0 && onlyGame.Notes[0].ToString().Contains(Path.GetDirectoryName(scan.Base)), "picking only the game folder points to the folder above");
 
     string cemu = NewTemp("cemuinstall");
     Write(Path.Combine(cemu, "mlc01", "usr", "title", "0005000e", "101c9400", "meta", "meta.xml"), Meta("00050000101C9400", 208));

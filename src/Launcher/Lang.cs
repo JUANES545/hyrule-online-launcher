@@ -94,6 +94,7 @@ namespace HyruleOnline {
    new[] { "The base game (code/U-King.rpx with its content) was not found.", "No se encontró el juego base (code/U-King.rpx con su contenido).", "Le jeu de base (code/U-King.rpx avec son contenu) est introuvable." },
    new[] { "The game update v{0} was not found.", "No se encontró la actualización v{0} del juego.", "La mise à jour v{0} du jeu est introuvable." },
    new[] { "The DLC v{0} was not found.", "No se encontró el DLC v{0}.", "Le DLC v{0} est introuvable." },
+   new[] { "More of your game is in {0}. Pick that folder instead.", "Más de tu juego está en {0}. Elige esa carpeta.", "Une plus grande partie de votre jeu se trouve dans {0}. Choisissez ce dossier." },
    new[] { "The game update at {0} is v{1}, v{2} is needed.", "La actualización en {0} es la v{1}, se necesita la v{2}.", "La mise à jour dans {0} est en v{1}, la v{2} est requise." },
    new[] { "The DLC at {0} is v{1}, v{2} is needed.", "El DLC en {0} es la v{1}, se necesita la v{2}.", "Le DLC dans {0} est en v{1}, la v{2} est requise." },
    new[] { "The game, update and DLC must all be found first.", "Primero hay que encontrar el juego, la actualización y el DLC.", "Le jeu, la mise à jour et le DLC doivent d'abord être trouvés." },
