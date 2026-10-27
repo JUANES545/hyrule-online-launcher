@@ -4,7 +4,7 @@
 # Usage: install.sh [--dry-run] [--yes --dump PATH] [--mod PATH] [--dir PATH] [--link] [--uninstall]
 #   --dry-run    print what would be done, change nothing
 #   --yes        no questions (needs --dump); never closes Steam, never deletes the game copy
-#   --dump PATH  folder with your dumped game, update, DLC and save (it is searched, not modified)
+#   --dump PATH  folder with your dumped game, update, DLC and, if you have one, your save (it is searched, not modified)
 #   --mod PATH   folder with the Hyrule Online mod pack from the Windows install (default: the dump folder)
 #   --dir PATH   install folder (default ~/hyrule-online)
 #   --link       link the game, update and DLC instead of copying them (the dump must stay available)
@@ -27,6 +27,9 @@ INJECT_SHA=FF78ACAAA2B221F0DCCEA0E76EA390A7CEE142525A4E885D1C26D7EB604EF7B1
 # The headless Linux client; pinned to the release the working setup used (the "latest" link can change under us).
 CLI_URL=https://github.com/CarlosEvCode/MilkBarLauncher/releases/download/v1.0.0-cli/MilkBar.CLI-win-x64.zip
 CLI_SHA=0E176C2A99FD048CFA28B7574332399798937B3D8DF253A510AD0BD2DE9B692D
+# 0: a save is optional and the first game is played without the mod. Keep in step with requireSave in scripts/components.json
+# and REQUIRE_SAVE in hyrule-online.sh (test.sh checks that); HYRULE_REQUIRE_SAVE=1 asks for the save again.
+REQUIRE_SAVE=${HYRULE_REQUIRE_SAVE:-0}
 DOTNET_URL=https://builds.dotnet.microsoft.com/dotnet/WindowsDesktop/8.0.31/windowsdesktop-runtime-8.0.31-win-x64.exe
 DOTNET_SHA=C375DFD80A967405CFEFF634912C1FCCC56261CE3D9209EA473F60A21184D1CC
 VC_URL=https://download.visualstudio.microsoft.com/download/pr/990c720a-46ce-4dc7-87b9-c2eb615d34b9/CC0FF0EB1DC3F5188AE6300FAEF32BF5BEEBA4BDD6E8E445A9184072096B713B/VC_redist.x64.exe
@@ -72,10 +75,11 @@ valid_dir() { [[ $1 =~ ^/[A-Za-z0-9._/-]+$ ]] && [[ $1 != *..* ]] && [ "$1" != "
 
 # fetch <url> <sha256> <file name>: resumable, verified, a bad download is deleted (fail closed).
 fetch() {
-  local f="$DIR/downloads/$3"
+  local f="$DIR/downloads/$3" bar=(--progress-bar)
+  [ -t 2 ] || bar=(-sS)
   [ -f "$f" ] && sha_ok "$f" "$2" && return 0
   rm -f "$f"
-  [ -f "$f.part" ] && sha_ok "$f.part" "$2" || curl -fL --retry 3 --retry-delay 3 -C - --progress-bar -o "$f.part" "$1" \
+  [ -f "$f.part" ] && sha_ok "$f.part" "$2" || curl -fL --retry 3 --retry-delay 3 -C - "${bar[@]}" -o "$f.part" "$1" \
     || { echo "Download failed: $1" >&2; return 1; }
   sha_ok "$f.part" "$2" || { rm -f "$f.part"; echo "Checksum mismatch for $3: the download was deleted and nothing was installed from it." >&2; return 1; }
   mv "$f.part" "$f"
@@ -369,25 +373,36 @@ EOF
   fi
 }
 
+# How many of the base game, the update and the DLC the last scan_dump found.
+scan_parts() { local n=0 v; for v in "$SCAN_BASE" "$SCAN_UPDATE" "$SCAN_DLC"; do [ -z "$v" ] || n=$((n + 1)); done; echo "$n"; }
+
 # Asks for (or takes) the dump and mod folders and checks both. Sets SCAN_* and MODSRC.
 pick_sources() {
-  local src=$DUMP gp
+  local src=$DUMP gp up ask=0
+  [ "$YES" = 1 ] || [ -n "$DUMP" ] || ask=1
   while :; do
-    [ -n "$src" ] || src=$(ask_dir "Pick the folder with your Breath of the Wild dump (game, update, DLC and save)" "$HOME") || return 1
+    [ -n "$src" ] || src=$(ask_dir "Pick the one folder that holds your game, update and DLC (and your save, if you have one). You only need your game files: Cemu is downloaded for you." "$HOME") || return 1
     scan_dump "$src"
-    if [ -n "$SCAN_BASE" ] && [ -n "$SCAN_UPDATE" ] && [ -n "$SCAN_DLC" ] && [ -n "$SCAN_SAVE" ]; then break; fi
+    # Picking just one of the three folders is the usual slip: when the folder above has more of them, offer it.
+    up=$(dirname "$src")
+    if [ "$ask" = 1 ] && [ "$(scan_parts)" -lt 3 ] && [ "$up" != / ] && [ "$up" != "$HOME" ]; then
+      local here; here=$(scan_parts); scan_dump "$up"
+      if [ "$(scan_parts)" -gt "$here" ] && ask_yesno "More of your game is in $up. Use that folder instead?"; then src=$up; else scan_dump "$src"; fi
+    fi
+    if [ -n "$SCAN_BASE" ] && [ -n "$SCAN_UPDATE" ] && [ -n "$SCAN_DLC" ] && { [ -n "$SCAN_SAVE" ] || [ "$REQUIRE_SAVE" != 1 ]; }; then break; fi
     msg_box warning "Not everything was found in $src.
 $([ -n "$SCAN_BASE" ] && echo "OK: game" || echo "MISSING: the base game (code/U-King.rpx with content and meta)")
 $([ -n "$SCAN_UPDATE" ] && echo "OK: update v$UPDATE_VER" || echo "MISSING: the update v$UPDATE_VER")
 $([ -n "$SCAN_DLC" ] && echo "OK: DLC v$DLC_VER" || echo "MISSING: the DLC v$DLC_VER")
-$([ -n "$SCAN_SAVE" ] && echo "OK: save" || echo "MISSING: a save with user/80000001 (a brand new game hangs in Cemu)")
-$SCAN_NOTE"
+$([ -n "$SCAN_SAVE" ] && echo "OK: save" || { [ "$REQUIRE_SAVE" = 1 ] && echo "MISSING: a save with user/80000001 (a brand new game hangs in Cemu)" || echo "No save found; that is fine, the first game starts without one."; })
+$SCAN_NOTE
+Pick the one folder that holds the game, update and DLC together, not just one of them."
     if [ "$YES" = 1 ] || [ -n "$DUMP" ]; then return 1; fi
     ask_yesno "Try another folder?" || return 1
     src=
   done
   DUMP=$src
-  progress "    game: $SCAN_BASE"; progress "    update: $SCAN_UPDATE"; progress "    DLC: $SCAN_DLC"; progress "    save: $SCAN_SAVE"
+  progress "    game: $SCAN_BASE"; progress "    update: $SCAN_UPDATE"; progress "    DLC: $SCAN_DLC"; progress "    save: ${SCAN_SAVE:-none, the first game will make one}"
   MODSRC=
   src=${MOD:-$DUMP}
   while :; do
@@ -402,15 +417,15 @@ It is the folders BreathOfTheWild_BCML, bcmlPatches (and HyruleOnline) inside th
 
 step_dump() {
   local save=$DIR/cemu/mlc01/usr/save/00050000/101c9400
-  if [ "$DRY" = 1 ] && [ -z "$DUMP" ]; then echo "    [dry-run] would ask for the dump folder, check it, and copy game, update, DLC and the save"; return 0; fi
+  if [ "$DRY" = 1 ] && [ -z "$DUMP" ]; then echo "    [dry-run] would ask for the dump folder, check it, and copy game, update, DLC and the save, if there is one"; return 0; fi
   pick_sources || return 1
   if [ "$DRY" = 1 ]; then
-    echo "    [dry-run] would $([ "$LINK" = 1 ] && echo link || echo copy) game, update and DLC into $DIR and copy the save to $save"
+    echo "    [dry-run] would $([ "$LINK" = 1 ] && echo link || echo copy) game, update and DLC into $DIR and copy the save (if any) to $save"
     return 0
   fi
   progress "    $([ "$LINK" = 1 ] && echo linking || echo copying) the game files (this takes a while)"
   copy_title "$SCAN_BASE" "$DIR/game" && copy_title "$SCAN_UPDATE" "$DIR/update" && copy_title "$SCAN_DLC" "$DIR/dlc" || return 1
-  if [ ! -d "$save" ]; then
+  if [ -n "$SCAN_SAVE" ] && [ ! -d "$save" ]; then
     mkdir -p "$(dirname "$save")" && rm -rf "$save.partial" && cp -a "$SCAN_SAVE" "$save.partial" && mv "$save.partial" "$save" || return 1
   fi
   state_set mod_src "$MODSRC"
@@ -574,7 +589,7 @@ Desktop Mode: run $DIR/hyrule-online.sh or the \"$APP_NAME\" menu entry.
 The menu offers Play on this device, Host a server, Join a server and Stop. To join you need the invite (or address, port and password) from the host.
 Controller: Hyrule Online gives Cemu a Wii U Pro Controller profile on the first pad. In Gaming Mode the Steam shortcut needs a gamepad layout (Controller Settings > pick a gamepad template, not Disabled or a keyboard one)."
   else
-    text="Almost done. Still to do: $DEFERRED
+    text="Almost done. Still to do: ${DEFERRED%; }
 Run $DIR/install.sh again to finish. Steps that are already done are skipped."
   fi
   progress_stop
