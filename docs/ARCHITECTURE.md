@@ -110,7 +110,7 @@ flowchart TB
     SMEM["Local\HyruleCoop.Routing.v2"]:::file
     DLL["xinput1_4.dll beside each Cemu"]:::file
     SRVP["MBL.DedicatedServer.exe"]:::proc
-    PS1["Start-Online / Stop-Online /<br/>Install-Components / Patch-Mod ..."]:::proc
+    PS1["Start-Online / Stop-Online /<br/>Install-Components / Merge-Mod / Patch-Mod ..."]:::proc
     NETSH["netsh advfirewall"]:::proc
   end
 
@@ -416,7 +416,7 @@ All items come from `RESEARCH.md` unless marked otherwise.
 - Player 2 sometimes stalls while loading; the restart of B (`Cemu-Stall.ps1`) is not confirmed in game.
 - The mod's DLL scan needs Continue pressed in about a minute, otherwise Cemu closes.
 - The Milk Bar pipe takes two instances, so players start one after another; three or four local players are not built.
-- Merging the mod with BCML is a manual boundary; BCML drops some files, which `Patch-Mod.ps1` repairs.
+- The wizard merges the mod with BCML on its own (`Merge-Mod.ps1`); BCML drops some files, which `Patch-Mod.ps1` repairs.
 - The cause of the Milk Bar JSON "Unexpected character" corruption is not proven. DLL injection may trigger antivirus.
 - The shared shader cache is off by default and not verified in game. The FPS target needs a restart.
 - Rotation is not verified with a real pad or gameplay. Rumble in Routed mode is not verified.

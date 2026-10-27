@@ -268,11 +268,20 @@ namespace HyruleOnline {
     Msg.Say("Reinstall Hyrule Online, or run scripts/Build.ps1 when working from source."), SetupAction.None, true);
   }
 
-  // The merged multiplayer mod. Putting it there is the manual part of the setup (see RESEARCH.md, "How setup works").
+  public const string ModComponent = "mod";
+
+  // The merged multiplayer mod. The wizard builds it with scripts/Merge-Mod.ps1 once everything else is ready (see RESEARCH.md, "How setup works").
   static SetupCheck Mod(string root) {
    string merged = Path.Combine(root, ".tools", "localappdata", "bcml", "merged", "content", "Actor", "Pack", "Jugador1.sbactorpack");
-   return Make("Components", Msg.Say("Multiplayer mod merged in BCML"), File.Exists(merged) ? SetupStatus.Ok : SetupStatus.Missing, Msg.Text(".tools/localappdata/bcml/merged"),
-    Msg.Say("Install MilkBarLauncher.bnp in BCML and run scripts/Patch-Mod.ps1. The steps are in RESEARCH.md."), SetupAction.None, true);
+   var check = Make("Components", Msg.Say("Multiplayer mod merged in BCML"), File.Exists(merged) ? SetupStatus.Ok : SetupStatus.Missing, Msg.Text(".tools/localappdata/bcml/merged"),
+    Msg.Say("It is merged on its own once everything else is ready. Or run scripts/Merge-Mod.ps1."), SetupAction.None, true);
+   check.Component = ModComponent;
+   return check;
+  }
+
+  // True when the merge is the only thing left, so the wizard can run it without asking.
+  public static bool OnlyModMissing(IEnumerable<SetupCheck> checks) {
+   return checks.Any(c => c.Component == ModComponent && c.Status != SetupStatus.Ok) && checks.All(c => c.Component == ModComponent || !c.Required || c.Status == SetupStatus.Ok);
   }
 
   static IEnumerable<SetupCheck> Game(string root, SetupManifest manifest) {
