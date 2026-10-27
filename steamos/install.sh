@@ -372,19 +372,30 @@ EOF
   fi
 }
 
+# How many of the base game, the update and the DLC the last scan_dump found.
+scan_parts() { local n=0 v; for v in "$SCAN_BASE" "$SCAN_UPDATE" "$SCAN_DLC"; do [ -z "$v" ] || n=$((n + 1)); done; echo "$n"; }
+
 # Asks for (or takes) the dump and mod folders and checks both. Sets SCAN_* and MODSRC.
 pick_sources() {
-  local src=$DUMP gp
+  local src=$DUMP gp up ask=0
+  [ "$YES" = 1 ] || [ -n "$DUMP" ] || ask=1
   while :; do
-    [ -n "$src" ] || src=$(ask_dir "Pick the folder with your Breath of the Wild dump (game, update, DLC and, if you have one, your save)" "$HOME") || return 1
+    [ -n "$src" ] || src=$(ask_dir "Pick the one folder that holds your game, update and DLC (and your save, if you have one). You only need your game files: Cemu is downloaded for you." "$HOME") || return 1
     scan_dump "$src"
+    # Picking just one of the three folders is the usual slip: when the folder above has more of them, offer it.
+    up=$(dirname "$src")
+    if [ "$ask" = 1 ] && [ "$(scan_parts)" -lt 3 ] && [ "$up" != / ] && [ "$up" != "$HOME" ]; then
+      local here; here=$(scan_parts); scan_dump "$up"
+      if [ "$(scan_parts)" -gt "$here" ] && ask_yesno "More of your game is in $up. Use that folder instead?"; then src=$up; else scan_dump "$src"; fi
+    fi
     if [ -n "$SCAN_BASE" ] && [ -n "$SCAN_UPDATE" ] && [ -n "$SCAN_DLC" ] && { [ -n "$SCAN_SAVE" ] || [ "$REQUIRE_SAVE" != 1 ]; }; then break; fi
     msg_box warning "Not everything was found in $src.
 $([ -n "$SCAN_BASE" ] && echo "OK: game" || echo "MISSING: the base game (code/U-King.rpx with content and meta)")
 $([ -n "$SCAN_UPDATE" ] && echo "OK: update v$UPDATE_VER" || echo "MISSING: the update v$UPDATE_VER")
 $([ -n "$SCAN_DLC" ] && echo "OK: DLC v$DLC_VER" || echo "MISSING: the DLC v$DLC_VER")
 $([ -n "$SCAN_SAVE" ] && echo "OK: save" || { [ "$REQUIRE_SAVE" = 1 ] && echo "MISSING: a save with user/80000001 (a brand new game hangs in Cemu)" || echo "No save found; that is fine, the first game starts without one."; })
-$SCAN_NOTE"
+$SCAN_NOTE
+Pick the one folder that holds the game, update and DLC together, not just one of them."
     if [ "$YES" = 1 ] || [ -n "$DUMP" ]; then return 1; fi
     ask_yesno "Try another folder?" || return 1
     src=

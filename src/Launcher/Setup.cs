@@ -171,6 +171,7 @@ namespace HyruleOnline {
   public string Base, Update, Dlc, Save;
   public List<Msg> Notes = new List<Msg>();
   public bool HasGame { get { return Base != null && Update != null && Dlc != null; } }
+  public int Found { get { return (Base != null ? 1 : 0) + (Update != null ? 1 : 0) + (Dlc != null ? 1 : 0); } }
  }
 
  static class SetupPaths {
@@ -374,6 +375,15 @@ namespace HyruleOnline {
 
   // Looks through a folder (a Cemu install, a mlc01 folder or a folder of dumps) for the game, the update, the DLC and a save.
   public static GameScan Scan(string folder, SetupManifest manifest) {
+   var scan = ScanFolder(folder, manifest);
+   // Picking just one of the three folders is the usual slip: when the folder above holds more of them, say so.
+   string above = scan.HasGame || !Directory.Exists(folder) ? null : Path.GetDirectoryName(folder.TrimEnd('\\', '/'));
+   if (!string.IsNullOrEmpty(above) && above != Path.GetPathRoot(above) && !above.Equals(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), StringComparison.OrdinalIgnoreCase)
+    && ScanFolder(above, manifest).Found > scan.Found) scan.Notes.Insert(0, Msg.Say("More of your game is in {0}. Pick that folder instead.", above));
+   return scan;
+  }
+
+  static GameScan ScanFolder(string folder, SetupManifest manifest) {
    var scan = new GameScan();
    if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder)) { scan.Notes.Add(Msg.Say("That folder does not exist.")); return scan; }
    int budget = MaxFolders;

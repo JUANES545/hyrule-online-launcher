@@ -182,6 +182,10 @@ mkdir -p "$D/boss/00050000/101c9400/user/80000001"
 scan_dump "$D"; equal "boss data is not a save" "$D/save" "$SCAN_SAVE"
 rm -rf "$D/boss" "$D/save"; scan_dump "$D"; equal "no save found" "" "$SCAN_SAVE"
 refuse "find_mod without the pack" find_mod "$TMP/steam"
+# Picking just the game folder: the installer offers the folder above when that has more of the three, and never switches on its own.
+pick() ( ask_dir() { echo "$D/game"; }; ask_yesno() { [ "$ANS" = 1 ]; }; msg_box() { :; }; progress() { :; }; DUMP='' MOD=$D; pick_sources >/dev/null 2>&1 && echo "$DUMP" )
+equal "picking one folder offers the one above" "$D" "$(ANS=1 YES=0 pick)"
+equal "declining the offer does not switch folders" "" "$(ANS=0 YES=0 pick)"
 
 # copy_title copies only what is needed and does not redo a finished copy.
 mkdir -p "$D/game/junk"; : > "$D/game/junk/big.bin"

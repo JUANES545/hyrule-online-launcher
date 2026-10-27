@@ -8,7 +8,7 @@ It installs Cemu 1.26.2f and the headless Milk Bar client into their own folder,
 
 - SteamOS in Desktop Mode, x86_64, about 25 GB free (8 GB with `--link`).
 - **Proton 10.0 or newer**, installed from Steam (Library, include Tools in the filter, search `Proton 10.0`, Install). The installer checks for it.
-- Your own legally dumped copy of Breath of the Wild: base game, update v208, DLC v80 and, if you have one, a save. They can sit in one folder; the installer searches it and never changes it.
+- Your own legally dumped copy of Breath of the Wild: base game, update v208, DLC v80 and, if you have one, a save. Put them together in one folder and pick that folder: the installer searches it, never changes it, tells you which of the three it could not find, and offers the folder above when you picked just one of them. You do not download anything for Windows or Cemu: the game files are the same on every system, and the installer fetches the Windows build of Cemu itself and runs it with Proton.
 - The Hyrule Online mod pack from your Windows install: the `BreathOfTheWild_BCML`, `bcmlPatches` and `HyruleOnline` folders inside its `graphicPacks` folder (in `.tools\instances\cemuA\graphicPacks`). Copy them next to your dump, or point the installer at them with `--mod`. This pack is built on Windows from your own game files, so it cannot be downloaded.
 - `curl`, `unzip` or `7z`, `python3`, `systemd-run` (all present on SteamOS).
 
