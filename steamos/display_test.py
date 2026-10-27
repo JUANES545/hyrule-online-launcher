@@ -308,6 +308,25 @@ class Apply(unittest.TestCase):
             with self.assertRaises(FileNotFoundError):
                 D.apply(root, os.path.join(root, "c"), (1920, 1080, 60))
 
+    def test_the_mod_packs_go_out_and_back_without_touching_the_others(self):
+        root, _, _ = self.run_apply({})
+        settings = os.path.join(root, "cemu", "settings.xml")
+
+        def files():
+            return [e.get("filename") for e in ET.parse(settings).getroot().find("GraphicPack").findall("Entry")]
+
+        D.set_mod_packs(settings, True)
+        self.assertTrue(set(D.MOD_PACKS) <= set(files()))
+        D.set_mod_packs(settings, True)
+        self.assertEqual(len(files()), len(set(files())))
+        D.set_mod_packs(settings, False)
+        self.assertEqual([f for f in files() if f in D.MOD_PACKS], [])
+        self.assertIn(D.PACK.replace(os.sep, "\\"), files())
+        D.set_mod_packs(settings, False)
+        self.assertEqual(D.main(["display.py", "mod-on", root]), 0)
+        self.assertTrue(set(D.MOD_PACKS) <= set(files()))
+        self.assertEqual(D.main(["display.py", "mod-off", os.path.join(root, "nowhere")]), 1)
+
     def with_packs(self, *names):
         root = tempfile.mkdtemp()
         self.addCleanup(lambda: __import__("shutil").rmtree(root, True))

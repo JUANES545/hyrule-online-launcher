@@ -7,6 +7,7 @@ settings.xml. The same steps and numbers as CemuDisplay.cs, GraphicsMod.cs, FpsM
 Windows, without the screen rotation and the two-player layouts, which this device does not have.
 
   display.py apply [DIR]   write the pack and settings.xml for the next session (DIR is the install folder)
+  display.py mod-off [DIR] take the multiplayer mod's packs out of settings.xml (the first game, before any save); mod-on puts them back
   display.py info [DIR]    print the detected screen, the hardware class and what apply would use
 """
 import glob
@@ -21,6 +22,9 @@ HERE = os.path.dirname(os.path.realpath(__file__))
 STOCK = os.path.join("graphicPacks", "downloadedGraphicPacks", "BreathOfTheWild", "Graphics")
 FPS_PACK = os.path.join("graphicPacks", "downloadedGraphicPacks", "BreathOfTheWild", "Mods", "FPS++", "rules.txt")
 PACK = os.path.join("graphicPacks", "HyruleOnline", "Graphics", "rules.txt")
+MOD_PACKS = tuple(os.path.join("graphicPacks", *p).replace(os.sep, "\\") for p in (
+    ("downloadedGraphicPacks", "BreathOfTheWild", "Mods", "ExtendedMemory", "rules.txt"),
+    ("BreathOfTheWild_BCML", "rules.txt"), ("bcmlPatches", "MilkBarLauncher", "rules.txt")))
 DISPLAY_PRESET, RESOLUTION_PRESET = "Online Display", "Online Resolution"
 SQUARE_HUD = ("Square HUD Mode", "Enabled (Experimental, Will Have Some Issues)")
 SHADOWS, SHADOW_DISTANCE, ANTI_ALIASING = "Shadows", "Shadow Draw Distance", "Anti-Aliasing"
@@ -469,11 +473,29 @@ def write_settings(path, view, prefs, fps_preset, vulkan, console=CONSOLES["en"]
         put(overlay, tag, "true" if prefs["usage"] else "false")
     put(child(graphic, "Notification"), "ShaderCompiling", "true" if prefs["shader"] else "false")
     put(child(content, "Audio"), "TVVolume", prefs["volume"])
+    save_tree(tree, path)
+
+
+def save_tree(tree, path):
     if hasattr(ET, "indent"):
         ET.indent(tree, "    ")
     tmp = path + ".tmp"
     tree.write(tmp, encoding="utf-8", xml_declaration=True)
     os.replace(tmp, path)
+
+
+def set_mod_packs(settings, on):
+    """Puts the multiplayer mod's packs in or out of settings.xml: a game without a save is played without the mod (SetupLayout on Windows)."""
+    tree = ET.parse(settings)
+    packs = child(tree.getroot(), "GraphicPack")
+    if on:
+        for name in MOD_PACKS:
+            entry_for(packs, name)
+    else:
+        for e in list(packs.findall("Entry")):
+            if norm(e.get("filename", "")) in {norm(n) for n in MOD_PACKS}:
+                packs.remove(e)
+    save_tree(tree, settings)
 
 
 def plan(folder, own, screen):
@@ -522,6 +544,13 @@ def main(argv):
             print(apply(folder))
         except Exception as error:  # the hook is best effort: whatever goes wrong must not stop the session
             print(f"Display settings were not applied: {error}")
+            return 1
+        return 0
+    if command in ("mod-on", "mod-off"):
+        try:
+            set_mod_packs(os.path.join(folder, "cemu", "settings.xml"), command == "mod-on")
+        except Exception as error:  # an install without settings.xml has nothing to switch
+            print(f"The mod packs were not switched: {error}")
             return 1
         return 0
     if command == "info":

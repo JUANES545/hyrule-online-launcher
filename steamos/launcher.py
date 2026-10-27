@@ -86,6 +86,9 @@ RECOMMENDED_TIP = _k("Sets the render resolution, shadows, anti-aliasing, the Ce
 GFX_TEXT = {key: (caption, tip) for key, caption, tip in GRAPHICS_ROWS + FILTER_ROWS + [API_ROW, VOLUME_ROW]}
 GFX_TEXT["fps"] = (FPS_TIP, FPS_TIP)
 GFX_PACK = {"shadows": display.SHADOWS, "shadow_distance": display.SHADOW_DISTANCE, "aa": display.ANTI_ALIASING}  # the choices that come from the game's pack
+CONTINUE_PROMPT = _k("Cemu A: wait for the main menu, then press Continue within about a minute.")
+FIRST_PROMPT = _k("First game: no mod and no server yet. Start a new game, let it save, then close Cemu; joining and hosting unlock by itself.")
+NO_SAVE_NOTE = _k("No save yet. Start plays a first game on your own, without the mod; once the game has saved, joining and hosting unlock.")
 CHECKLIST = _k("Check the invite, the password, that the host has a session running, and that its firewall allows the port.")
 RULE_TIPS = [_k("Keeps enemies in sync: what one player defeats is defeated for both."), _k("Shares quest progress between the players."),
              _k("Shares the Korok seeds found by each player."), _k("Shares activated towers and the map they reveal."),
@@ -1235,7 +1238,7 @@ class App:
             self.dots[key] = (dot, word)
         self.promptbox = tk.Frame(card, bg=card["bg"])
         tk.Frame(self.promptbox, bg=AMBER, width=px(3)).pack(side="left", fill="y")
-        self.prompt = self.label(self.promptbox, tr("Cemu A: wait for the main menu, then press Continue within about a minute."), fg=AMBER, size=15,
+        self.prompt = self.label(self.promptbox, tr(CONTINUE_PROMPT), fg=AMBER, size=15,
                                  wrap=inner * 45 // 100)
         self.prompt.pack(side="left", padx=(px(10), 0))
         self.promptbox.grid(row=0, column=3, rowspan=2, sticky="nsw", padx=(px(16), 0))
@@ -1977,14 +1980,16 @@ class App:
             else:
                 self.return_btn.pack_forget()
         joined = s.get("joined") == "yes"
+        first = s.get("mode") == "first"
         words = {"server": tr("Running") if srv else tr("Starting") if alive else tr("Stopped"),
-                 "client": tr("Joined the server") if cli and joined else tr("Waiting for Continue") if cli else tr("Waiting") if alive and srv else tr("Starting") if alive else tr("Stopped")}
+                 "client": tr("Joined the server") if cli and joined else tr("Running") if cli and first else tr("Waiting for Continue") if cli else tr("Waiting") if alive and srv else tr("Starting") if alive else tr("Stopped")}
         for key, on in (("server", srv), ("client", cli)):
             dot, word = self.dots[key]
             dot.config(fg=TEAL if on else OFF)
             word.config(text=words[key])
         self.dot.config(fg=TEAL if srv else OFF)
         self.corner.config(text=tr("Server running") if srv else tr("Server stopped"))
+        self.prompt.config(text=tr(FIRST_PROMPT if first else CONTINUE_PROMPT))
         (self.promptbox.grid if cli and not joined else self.promptbox.grid_remove)()
         self.start_btn.config(text=tr("RESTART SESSION") if self.up else tr("START SESSION"), state="disabled" if c.busy or (alive and not self.up) else "normal")
         self.status.config(text=self.status_text(c, alive, joined))
@@ -2005,7 +2010,9 @@ class App:
             return tr("Session running.")
         if alive:
             return tr("Starting...")
-        return tr("{0} is missing", c.missing[0]) if c.missing else tr("Ready.")
+        if c.missing:
+            return tr("{0} is missing", c.missing[0])
+        return tr(NO_SAVE_NOTE) if (c.stat or {}).get("save") == "no" else tr("Ready.")
 
     def render_online(self, srv):
         if self.mode.get() == HOST:
