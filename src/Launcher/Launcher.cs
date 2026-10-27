@@ -151,6 +151,7 @@ namespace HyruleOnline {
   const string CrashPrompt = "The server stopped. Press Restart session to bring it back.";
   const string SavePrompt = "Local multiplayer unlocks after your first save. Play single player and start a new game; once the game has saved, it unlocks by itself.";
   bool coopReady = true;
+  const string FirstGamePrompt = "First game: no mod and no server yet. Start a new game, let it save, then close Cemu; local multiplayer unlocks by itself.";
   bool serverCrashed;
   string language = "en", launcherLanguage = "en";
   List<GameLanguage> gameLanguages = new List<GameLanguage> { GameLanguages.English };
@@ -1391,6 +1392,8 @@ namespace HyruleOnline {
    SetStatus("Starting...");
    if (shaderProblem != null) SetStatus("Shared shader cache is off for this session: {0}", shaderProblem);
    SetPrompt("");
+   if (!coopReady) { BeginFirstGame(); return; }
+   foreach (string name in SetupPaths.Instances) { try { SetupLayout.EnsureGraphicPacks(SetupPaths.Instance(root, name)); } catch (Exception) { } }
    CommitOnline();
    string host, serverPassword;
    int port;
@@ -1418,6 +1421,19 @@ namespace HyruleOnline {
     }
    }
    script = Scripts.Run(root, "Start-Online.ps1", "-InputMode Routed -ExternalRouter -ExternalServer -PlayerCount " + playerCount + (Joining ? " -RemoteServer " + host + ":" + port : ""), Line, Error, code => Window.Dispatcher.BeginInvoke(new Action(() => ScriptExited(code))));
+   SetButtons();
+  }
+
+  // No save yet: only Cemu A starts, without the server or the mod, so the game can make its first save. Two players unlock after it (RefreshCoop).
+  void BeginFirstGame() {
+   string rpx = SetupPaths.GameRpx(root);
+   if (rpx == null) { Fail("The game files were not found. Open Check again on the setup page."); return; }
+   try { SetupLayout.DisableGraphicPacks(SetupPaths.Instance(root, "cemuA")); }
+   catch (Exception error) { Fail("Cemu A could not be prepared: {0}", error.Message); return; }
+   SetPrompt(FirstGamePrompt);
+   Write("No save yet: starting Cemu A alone and without the mod.");
+   Step("Server", "Stopped", Idle); Step("A", "Waiting", Idle); Step("B", "Stopped", Idle);
+   script = Scripts.Run(root, "Start-Online.ps1", "-InputMode Routed -ExternalRouter -FirstGame -PlayerCount 1 -GameRpx \"" + rpx + "\"", Line, Error, code => Window.Dispatcher.BeginInvoke(new Action(() => ScriptExited(code))));
    SetButtons();
   }
 

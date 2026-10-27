@@ -11,6 +11,9 @@ param(
     [switch]$ShowMilkBar,
     # One player starts only Cemu A; two players also start Cemu B.
     [ValidateRange(1, 2)][int]$PlayerCount = 2,
+    # No save yet: start only Cemu A on the given game, without the server or the Milk Bar launcher, so the game can make its first save.
+    [switch]$FirstGame,
+    [string]$GameRpx = '',
     [int]$ContinueTimeoutSeconds = 180
 )
 $ErrorActionPreference = 'Stop'
@@ -145,11 +148,12 @@ $running = Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Name -i
 if ($running) { throw 'Cemu, a Milk Bar launcher, the server or an input router is already running. Close it before starting an online session.' }
 if ($InputMode -eq 'Routed' -and -not (Test-Path -LiteralPath (Join-Path $inputRouter 'Bridge\xinput1_4.dll'))) { throw 'Run scripts/Build-Input.ps1 first.' }
 foreach ($player in $players) {
-    foreach ($path in $player.Cemu, $player.Launcher) {
+    foreach ($path in $(if ($FirstGame) { $player.Cemu } else { $player.Cemu, $player.Launcher })) {
         if (-not (Test-Path -LiteralPath $path)) { throw "Missing $path. Run the clean install first." }
     }
 }
-if (-not $RemoteServer -and -not (Test-Path -LiteralPath (Join-Path $serverDirectory 'MBL.DedicatedServer.exe'))) { throw 'The dedicated server is missing.' }
+if ($FirstGame -and -not (Test-Path -LiteralPath $GameRpx)) { throw "The game was not found: $GameRpx" }
+if (-not $RemoteServer -and -not $FirstGame -and -not (Test-Path -LiteralPath (Join-Path $serverDirectory 'MBL.DedicatedServer.exe'))) { throw 'The dedicated server is missing.' }
 
 foreach ($player in $players) { Set-ControllerProfile -CemuDirectory $player.Cemu -Slot $player.Slot }
 
@@ -162,6 +166,12 @@ if ($InputMode -eq 'Routed') {
 }
 else {
     foreach ($player in $players) { Remove-Item -LiteralPath (Join-Path $player.Cemu 'xinput1_4.dll') -ErrorAction SilentlyContinue }
+}
+
+if ($FirstGame) {
+    Start-Process -FilePath (Join-Path $players[0].Cemu 'Cemu.exe') -ArgumentList '-g', "`"$GameRpx`"" -WorkingDirectory $players[0].Cemu | Out-Null
+    Write-Output 'First game: Cemu A started without the mod.'
+    exit 0
 }
 
 if ($RemoteServer) {

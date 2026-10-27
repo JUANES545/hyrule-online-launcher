@@ -57,6 +57,8 @@ namespace HyruleOnline {
   public const string FileName = "components.json";
   public int Schema, MinWindowsBuild, MinDotNetRelease, UpdateVersion, DlcVersion;
   public long FreeDiskBytes;
+  // When true the wizard blocks until the user brings a save, as before the first-game mode existed.
+  public bool RequireSave;
   public string GameTitleId, UpdateTitleId, DlcTitleId;
   public List<SetupComponent> Components = new List<SetupComponent>();
 
@@ -77,6 +79,7 @@ namespace HyruleOnline {
    manifest.GameTitleId = Str(needs, "gameTitleId");
    manifest.UpdateTitleId = Str(needs, "updateTitleId");
    manifest.DlcTitleId = Str(needs, "dlcTitleId");
+   manifest.RequireSave = Str(needs, "requireSave").ToLowerInvariant() == "true";
    foreach (var item in List(data, "components")) {
     var d = item as Dictionary<string, object>;
     if (d == null) throw new FormatException("A component entry is not an object.");
@@ -177,6 +180,13 @@ namespace HyruleOnline {
   public static string TitleMeta(string instance, string kind) { return Path.Combine(instance, "mlc01", "usr", "title", kind, "101c9400", "meta", "meta.xml"); }
   public static string SaveFolder(string instance) { return Path.Combine(instance, "mlc01", "usr", "save", "00050000", "101c9400"); }
   public static readonly string[] Instances = { "cemuA", "cemuB" };
+
+  // The game's code file as BCML knows it, or null when it is not there.
+  public static string GameRpx(string root) {
+   string content = GameLanguages.ContentFolder(Bcml(root, "cemuA"));
+   string rpx = content == null ? null : Path.Combine(Path.GetDirectoryName(content.TrimEnd('\\', '/')) ?? "", "code", "U-King.rpx");
+   return rpx != null && File.Exists(rpx) ? rpx : null;
+  }
  }
 
  // Split screen needs a save in both Cemu folders, and a brand new game in Cemu A hangs on loading (see RESEARCH.md).
@@ -323,10 +333,11 @@ namespace HyruleOnline {
     Msg.Say("Game folder known to BCML"), Msg.Say("Use Locate my game files and pick the folder with your game dump."), SetupAction.Locate, true);
    yield return Title(root, manifest, "0005000e", manifest.UpdateTitleId, manifest.UpdateVersion, Msg.Say("Game update v{0}", manifest.UpdateVersion));
    yield return Title(root, manifest, "0005000c", manifest.DlcTitleId, manifest.DlcVersion, Msg.Say("DLC v{0}", manifest.DlcVersion));
-   // Optional: without a save the launcher plays one player until the game has made its first save (see SaveGate).
+   // Optional unless components.json says requireSave: without a save the launcher plays a first game alone until the game has saved (see SaveGate).
+   bool need = manifest.RequireSave;
    yield return Make("Your game", Msg.Say("Save game to start from"), SaveGate.Valid(SetupPaths.SaveFolder(SetupPaths.Instance(root, "cemuA"))) ? SetupStatus.Ok : SetupStatus.Missing,
-    Msg.Say("Optional. Without one, local multiplayer unlocks after your first save in single player"),
-    Msg.Say("Use Locate my game files and pick a Cemu folder that has your save (user/80000001), or start a new single player game."), SetupAction.Locate, false);
+    need ? Msg.Say("A new game on an empty save hangs in Cemu") : Msg.Say("Optional. Without one, local multiplayer unlocks after your first save in single player"),
+    need ? Msg.Say("Use Locate my game files and pick a Cemu folder that has your save (user/80000001).") : Msg.Say("Use Locate my game files and pick a Cemu folder that has your save (user/80000001), or start a new single player game."), SetupAction.Locate, need);
   }
 
   static SetupCheck Title(string root, SetupManifest manifest, string kind, string titleId, int version, Msg item) {
@@ -521,6 +532,19 @@ namespace HyruleOnline {
     changed = true;
    }
    if (changed) Save(document, file);
+  }
+
+  // The first game runs without the mod; EnsureGraphicPacks puts the packs back before the next multiplayer session.
+  public static void DisableGraphicPacks(string instance) {
+   string file = Path.Combine(instance, "settings.xml");
+   if (!File.Exists(file)) return;
+   var document = XDocument.Load(file);
+   var packs = document.Root.Element("GraphicPack");
+   if (packs == null) return;
+   var mod = packs.Elements("Entry").Where(e => BcmlPacks.Any(p => string.Equals(p, (string)e.Attribute("filename"), StringComparison.OrdinalIgnoreCase))).ToList();
+   if (mod.Count == 0) return;
+   foreach (var entry in mod) entry.Remove();
+   Save(document, file);
   }
 
   // BCML's own settings, one file per player; they never touch the global BCML install (RESEARCH.md, "Isolation caveats").

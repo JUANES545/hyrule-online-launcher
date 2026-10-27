@@ -220,6 +220,25 @@ namespace HyruleOnline {
    Require(File.ReadAllText(Path.Combine(b, "user", "80000001", "0", "game_data.sav")) == "first save", "Cemu B gets a copy of the save");
    Require(Find(Preflight.Run(install, small, GoodFacts()), "Save game to start from").Status == SetupStatus.Ok, "the save row turns green");
 
+   Require(!SetupManifest.Load(root).RequireSave, "the shipped manifest does not require a save");
+   var strict = SetupManifest.Parse(TinyJson(new string('c', 64)).Replace("\"dlcVersion\": 80 }", "\"dlcVersion\": 80, \"requireSave\": true }"));
+   string bare = TinyRoot(strict, "strict"), bareDump = MakeDump(bare, 208, 80);
+   Directory.Delete(Path.Combine(bareDump, "mlc01"), true);
+   Require(SetupLayout.Apply(bare, GameFiles.Scan(bareDump, strict)).Ok, "the layout is built for the strict check");
+   var strictChecks = Preflight.Run(bare, strict, GoodFacts());
+   Require(strict.RequireSave && Find(strictChecks, "Save game to start from").Required && Preflight.NeedsSetup(strictChecks), "requireSave brings the old behaviour back: no save, setup needed");
+
+   string rpx = SetupPaths.GameRpx(install);
+   Require(rpx != null && rpx.EndsWith("U-King.rpx") && File.Exists(rpx), "the launcher finds the game's code file for the first game");
+   string cemuA = SetupPaths.Instance(install, "cemuA");
+   Write(Path.Combine(cemuA, "graphicPacks", "bcmlPatches", "MilkBarLauncher", "rules.txt"), "[Definition]");
+   SetupLayout.EnsureGraphicPacks(cemuA);
+   Require(File.ReadAllText(Path.Combine(cemuA, "settings.xml")).Contains("bcmlPatches"), "the mod pack is on for multiplayer");
+   SetupLayout.DisableGraphicPacks(cemuA);
+   Require(!File.ReadAllText(Path.Combine(cemuA, "settings.xml")).Contains("bcmlPatches"), "the first game runs without the mod pack");
+   SetupLayout.EnsureGraphicPacks(cemuA);
+   Require(File.ReadAllText(Path.Combine(cemuA, "settings.xml")).Contains("bcmlPatches"), "the mod pack comes back for multiplayer");
+
    Write(Path.Combine(b, "user", "80000001", "0", "game_data.sav"), "player two progress");
    Write(Path.Combine(a, "user", "80000001", "0", "game_data.sav"), "more progress");
    Require(SaveGate.Sync(install) && File.ReadAllText(Path.Combine(b, "user", "80000001", "0", "game_data.sav")) == "player two progress", "a save that has progress is never overwritten");
@@ -229,7 +248,7 @@ namespace HyruleOnline {
    string withSave = MakeDump(other, 208, 80);
    var provided = GameFiles.Scan(withSave, small);
    Require(SetupLayout.Apply(other, provided).Ok && SaveGate.Sync(other), "a save the user brings replaces the empty account folder Cemu made");
-   foreach (string folder in new[] { install, other }) Clean(folder);
+   foreach (string folder in new[] { install, other, bare }) Clean(folder);
   }
 
   static void Locator() {
