@@ -179,6 +179,35 @@ namespace HyruleOnline {
   public static readonly string[] Instances = { "cemuA", "cemuB" };
  }
 
+ // Split screen needs a save in both Cemu folders, and a brand new game in Cemu A hangs on loading (see RESEARCH.md).
+ // So a save-less install plays one player first; once Cemu A holds a real save it is copied to Cemu B and two players unlock.
+ static class SaveGate {
+  // A save the game made: some slot under the account folder holds game_data.sav. An empty account folder, which Cemu creates by itself, is not one.
+  public static bool Valid(string saveFolder) {
+   try {
+    string user = Path.Combine(saveFolder, "user", "80000001");
+    return Directory.Exists(user) && Directory.EnumerateFiles(user, "game_data.sav", SearchOption.AllDirectories).Any();
+   }
+   catch (Exception) { return false; }
+  }
+
+  // Copies a save over a destination that has none; a save that already holds progress is never touched.
+  public static bool Copy(string from, string to) {
+   if (!Valid(from) || Valid(to)) return false;
+   SetupLayout.CopyFolder(from, to);
+   return true;
+  }
+
+  // True when local multiplayer can start: Cemu A has a save, and Cemu B gets a copy of it if it has none.
+  public static bool Sync(string root) {
+   string a = SetupPaths.SaveFolder(SetupPaths.Instance(root, "cemuA"));
+   if (!Valid(a)) return false;
+   try { Copy(a, SetupPaths.SaveFolder(SetupPaths.Instance(root, "cemuB"))); }
+   catch (Exception) { return false; }
+   return Valid(SetupPaths.SaveFolder(SetupPaths.Instance(root, "cemuB")));
+  }
+ }
+
  static class Preflight {
   // Too long and network folders are already stopped by PathGuard before the launcher opens, so the wizard never sees them.
   // The hook stays for callers (and tests) that want the checklist to list a folder problem.
@@ -294,9 +323,10 @@ namespace HyruleOnline {
     Msg.Say("Game folder known to BCML"), Msg.Say("Use Locate my game files and pick the folder with your game dump."), SetupAction.Locate, true);
    yield return Title(root, manifest, "0005000e", manifest.UpdateTitleId, manifest.UpdateVersion, Msg.Say("Game update v{0}", manifest.UpdateVersion));
    yield return Title(root, manifest, "0005000c", manifest.DlcTitleId, manifest.DlcVersion, Msg.Say("DLC v{0}", manifest.DlcVersion));
-   bool saved = SetupPaths.Instances.All(i => Directory.Exists(Path.Combine(SetupPaths.SaveFolder(SetupPaths.Instance(root, i)), "user", "80000001")));
-   yield return Make("Your game", Msg.Say("Save game to start from"), saved ? SetupStatus.Ok : SetupStatus.Missing, Msg.Say("A new game on an empty save hangs in Cemu"),
-    Msg.Say("Use Locate my game files and pick a Cemu folder that has your save (user/80000001)."), SetupAction.Locate, true);
+   // Optional: without a save the launcher plays one player until the game has made its first save (see SaveGate).
+   yield return Make("Your game", Msg.Say("Save game to start from"), SaveGate.Valid(SetupPaths.SaveFolder(SetupPaths.Instance(root, "cemuA"))) ? SetupStatus.Ok : SetupStatus.Missing,
+    Msg.Say("Optional. Without one, local multiplayer unlocks after your first save in single player"),
+    Msg.Say("Use Locate my game files and pick a Cemu folder that has your save (user/80000001), or start a new single player game."), SetupAction.Locate, false);
   }
 
   static SetupCheck Title(string root, SetupManifest manifest, string kind, string titleId, int version, Msg item) {
@@ -380,7 +410,7 @@ namespace HyruleOnline {
    }
    // Cemu keeps the account's saves in <mlc01>/usr/save/00050000/101c9400/user/80000001.
    if (scan.Save == null && Path.GetFileName(dir).Equals("101c9400", StringComparison.OrdinalIgnoreCase)
-    && Path.GetFileName(Path.GetDirectoryName(dir) ?? "") == "00050000" && Directory.Exists(Path.Combine(dir, "user", "80000001"))) scan.Save = dir;
+    && Path.GetFileName(Path.GetDirectoryName(dir) ?? "") == "00050000" && SaveGate.Valid(dir)) scan.Save = dir;
   }
  }
 
@@ -442,15 +472,13 @@ namespace HyruleOnline {
   }
 
   static void CopySave(string instance, string save, string name, LayoutResult result) {
-   string destination = SetupPaths.SaveFolder(instance);
-   if (save == null || Directory.Exists(destination)) return;
-   CopyFolder(save, destination);
+   if (save == null || !SaveGate.Copy(save, SetupPaths.SaveFolder(instance))) return;
    result.Log.Add(Msg.Say("Copied your save into {0}.", name));
   }
 
-  static void CopyFolder(string from, string to) {
+  public static void CopyFolder(string from, string to) {
    Directory.CreateDirectory(to);
-   foreach (string file in Directory.GetFiles(from)) File.Copy(file, Path.Combine(to, Path.GetFileName(file)));
+   foreach (string file in Directory.GetFiles(from)) File.Copy(file, Path.Combine(to, Path.GetFileName(file)), true);
    foreach (string folder in Directory.GetDirectories(from)) CopyFolder(folder, Path.Combine(to, Path.GetFileName(folder)));
   }
 

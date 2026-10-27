@@ -196,6 +196,42 @@ namespace HyruleOnline {
    foreach (string folder in new[] { empty, install }) Clean(folder);
   }
 
+  // A new user who brings no save: single player must be ready, and two players unlock once the game has saved.
+  static void SaveFlow() {
+   var small = SetupManifest.Parse(TinyJson(new string('c', 64)));
+   string install = TinyRoot(small, "nosave");
+   string dump = MakeDump(install, 208, 80);
+   Directory.Delete(Path.Combine(dump, "mlc01"), true);
+   var scan = GameFiles.Scan(dump, small);
+   Require(scan.HasGame && scan.Save == null, "a dump without a save is still a game");
+   Require(SetupLayout.Apply(install, scan).Ok, "the layout is built without a save");
+   var checks = Preflight.Run(install, small, GoodFacts());
+   var row = Find(checks, "Save game to start from");
+   Require(row.Status == SetupStatus.Missing && !row.Required && !Preflight.NeedsSetup(checks), "an install without a save needs no setup");
+   Require(!SaveGate.Sync(install), "two players stay locked without a save");
+
+   string a = SetupPaths.SaveFolder(SetupPaths.Instance(install, "cemuA")), b = SetupPaths.SaveFolder(SetupPaths.Instance(install, "cemuB"));
+   Directory.CreateDirectory(Path.Combine(a, "user", "80000001"));
+   Write(Path.Combine(a, "user", "80000001", "0", "caption.jpg"), "picture");
+   Require(!SaveGate.Valid(a) && !SaveGate.Sync(install), "an account folder without game_data.sav is not a save");
+
+   Write(Path.Combine(a, "user", "80000001", "0", "game_data.sav"), "first save");
+   Require(SaveGate.Sync(install), "the first save unlocks two players");
+   Require(File.ReadAllText(Path.Combine(b, "user", "80000001", "0", "game_data.sav")) == "first save", "Cemu B gets a copy of the save");
+   Require(Find(Preflight.Run(install, small, GoodFacts()), "Save game to start from").Status == SetupStatus.Ok, "the save row turns green");
+
+   Write(Path.Combine(b, "user", "80000001", "0", "game_data.sav"), "player two progress");
+   Write(Path.Combine(a, "user", "80000001", "0", "game_data.sav"), "more progress");
+   Require(SaveGate.Sync(install) && File.ReadAllText(Path.Combine(b, "user", "80000001", "0", "game_data.sav")) == "player two progress", "a save that has progress is never overwritten");
+
+   string other = TinyRoot(small, "emptyfirst");
+   foreach (string name in SetupPaths.Instances) Directory.CreateDirectory(Path.Combine(SetupPaths.SaveFolder(SetupPaths.Instance(other, name)), "user", "80000001"));
+   string withSave = MakeDump(other, 208, 80);
+   var provided = GameFiles.Scan(withSave, small);
+   Require(SetupLayout.Apply(other, provided).Ok && SaveGate.Sync(other), "a save the user brings replaces the empty account folder Cemu made");
+   foreach (string folder in new[] { install, other }) Clean(folder);
+  }
+
   static void Locator() {
    var manifest = SetupManifest.Parse(TinyJson(new string('c', 64)));
    string install = NewTemp("locator");
@@ -471,7 +507,7 @@ namespace HyruleOnline {
    Directory.CreateDirectory(temp);
    try {
     foreach (var test in new KeyValuePair<string, Action>[] {
-     new KeyValuePair<string, Action>("manifest", Manifest), new KeyValuePair<string, Action>("preflight", PreflightLayouts), new KeyValuePair<string, Action>("locator", Locator),
+     new KeyValuePair<string, Action>("manifest", Manifest), new KeyValuePair<string, Action>("preflight", PreflightLayouts), new KeyValuePair<string, Action>("locator", Locator), new KeyValuePair<string, Action>("save flow", SaveFlow),
      new KeyValuePair<string, Action>("messages", Messages), new KeyValuePair<string, Action>("install script", CheckMode), new KeyValuePair<string, Action>("zip safety", ZipSafety),
      new KeyValuePair<string, Action>("downloads", Downloads), new KeyValuePair<string, Action>("translations", Translations), new KeyValuePair<string, Action>("wizard", Wizard) }) {
      int before = failures;
