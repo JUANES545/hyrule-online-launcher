@@ -415,6 +415,14 @@
   "es": "Algunos cambios solo se aplican tras reiniciar. Pulsa Reiniciar sesión para aplicarlos.",
   "fr": "Certains changements ne s'appliquent qu'après un redémarrage. Appuyez sur Redémarrer la session pour les appliquer."
  },
+ "First game: no mod and no server yet. Start a new game, let it save, then close Cemu; joining and hosting unlock by itself.": {
+  "es": "Primera partida: aún sin mod ni servidor. Empieza una partida nueva, deja que se guarde y cierra Cemu; unirse y alojar se desbloquean solos.",
+  "fr": "Première partie : pas encore de mod ni de serveur. Lancez une nouvelle partie, laissez-la se sauvegarder, puis fermez Cemu ; rejoindre et héberger se débloquent tout seuls."
+ },
+ "No save yet. Start plays a first game on your own, without the mod; once the game has saved, joining and hosting unlock.": {
+  "es": "Aún no hay partida guardada. Iniciar juega una primera partida en solitario, sin el mod; cuando el juego se haya guardado, se desbloquean unirse y alojar.",
+  "fr": "Pas encore de sauvegarde. Démarrer lance une première partie en solo, sans le mod ; une fois le jeu sauvegardé, rejoindre et héberger se débloquent."
+ },
  "Session running.": {
   "es": "Sesión en marcha.",
   "fr": "Session en cours."

@@ -319,15 +319,36 @@ IPS='2: wlan0    inet 192.168.1.43/24 scope global wlan0
 ip() { printf '%s\n' "$IPS"; }
 SA=0 CA=0; server_active() { [ "$SA" = 1 ]; }; session_active() { [ "$CA" = 1 ]; }
 LOG=$TMP/client.log; V=$(app_version); rm -f "$TMP/run/mode"
-equal "status idle" "version=$V mode=idle server=down client=down joined=no port=" "$(status_line)"
+equal "status idle" "version=$V mode=idle server=down client=down joined=no port= save=no" "$(status_line)"
 set_mode host 5050; conf_set hostpass 'p w'; SA=1
-equal "status host with both invites" "version=$V mode=host server=up client=down joined=no port=5050 invite=hyrule://192.168.1.43:5050?pw=p%20w invite_vpn=hyrule://100.110.16.75:5050?pw=p%20w" "$(status_line)"
+equal "status host with both invites" "version=$V mode=host server=up client=down joined=no port=5050 invite=hyrule://192.168.1.43:5050?pw=p%20w invite_vpn=hyrule://100.110.16.75:5050?pw=p%20w save=no" "$(status_line)"
 set_mode local 5051
-equal "status local has no invite" "version=$V mode=local server=up client=down joined=no port=5051" "$(status_line)"
+equal "status local has no invite" "version=$V mode=local server=up client=down joined=no port=5051 save=no" "$(status_line)"
 SA=0 CA=1; set_mode join 5052; conf_set host h.example; echo 'SUCCESS' > "$LOG"
-equal "status join" "version=$V mode=join server=down client=up joined=yes port=5052 host=h.example" "$(status_line)"
+equal "status join" "version=$V mode=join server=down client=up joined=yes port=5052 host=h.example save=no" "$(status_line)"
 SA=0 CA=0
-equal "status ignores a stale mode file" "version=$V mode=idle server=down client=down joined=no port=" "$(status_line)"
+equal "status ignores a stale mode file" "version=$V mode=idle server=down client=down joined=no port= save=no" "$(status_line)"
+# The save: any game_data.sav under the account folder counts; without one the first game starts alone, unless HYRULE_REQUIRE_SAVE=1.
+SAVED=$HERE/cemu/mlc01/usr/save/00050000/101c9400/user/80000001
+refuse "no save yet" have_save
+mkdir -p "$SAVED/0"; refuse "an empty account folder is not a save" have_save
+: > "$SAVED/0/game_data.sav"; check "a slot with game_data.sav is a save" have_save
+check "status says save=yes" grep -q " save=yes$" <(status_line)
+REQUIRE_SAVE=1; check "required and present is still save=yes" grep -q " save=yes$" <(status_line)
+rm -rf "$SAVED"
+check "required and absent says save=required" grep -q " save=required$" <(status_line)
+REQUIRE_SAVE=0
+check "the first game runs Cemu alone on the game" grep -q "Cemu.exe -g" <(write_first_run; cat "$HERE/run/first-run.sh")
+check "the first game has no Milk Bar or server" bash -c "! grep -qE 'MilkBar|server' \"$HERE/run/first-run.sh\""
+check "the first-run script is valid bash" bash -n "$HERE/run/first-run.sh"
+# The gate in main(): no save means the first game, a required save means a refusal, --no-play (server only) is not gated.
+G=$TMP/gate; mkdir -p "$G/cemu" "$G/bin"; : > "$G/cemu/Cemu.exe"; echo : > "$G/env.sh"; printf '#!/bin/sh\n' > "$G/bin/wine64"; chmod +x "$G/bin/wine64"
+gate() ( HERE=$G CONF=$G/conf PATH=$G/bin:$PATH; first_game_session() { echo FIRST; }; server_session() { echo SERVER; }; "$@" )
+equal "no save starts the first game" FIRST "$(gate main --host | tail -n1)"
+equal "a server-only start is not gated" SERVER "$(gate main --host --no-play | tail -n1)"
+refuse "a required save refuses to start" gate eval 'REQUIRE_SAVE=1; main --host'
+mkdir -p "$G/cemu/mlc01/usr/save/00050000/101c9400/user/80000001/0"; : > "$G/cemu/mlc01/usr/save/00050000/101c9400/user/80000001/0/game_data.sav"
+equal "with a save it starts as before" SERVER "$(gate main --host | tail -n1)"
 equal "status is one line" 1 "$(main --status | wc -l)"
 equal "presets list" "10111100 Game Completion" "$(main --presets | head -n1)"
 equal "five presets" 5 "$(main --presets | wc -l)"
@@ -395,6 +416,8 @@ if [ -f "$J" ]; then
   for v in "$CEMU_URL" "$CEMU_SHA" "$GP_URL" "$GP_SHA" "$MILKBAR_URL" "$MILKBAR_SHA" "$GAME_ID" "$UPDATE_ID" "$DLC_ID"; do
     check "components.json has $v" grep -qi -- "$v" "$J"
   done
+  # A save is optional by default here and on Windows; flipping one switch without the others would split the behaviour.
+  equal "requireSave default is the same here, in install.sh and in components.json" "false 0 0" "$(grep -q '"requireSave": *false' "$J" && echo false) $(grep -o 'REQUIRE_SAVE=${HYRULE_REQUIRE_SAVE:-[01]}' "$TDIR/install.sh" | grep -o '[01]}' | tr -d '}') $(grep -o 'REQUIRE_SAVE=${HYRULE_REQUIRE_SAVE:-[01]}' "$TDIR/hyrule-online.sh" | grep -o '[01]}' | tr -d '}')"
 else echo "scripts/components.json not found, skipped"; fi
 
 echo "== dry run (Linux only) =="

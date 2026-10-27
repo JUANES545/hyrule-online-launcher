@@ -18,6 +18,13 @@ HERE=$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)
 
 UNIT=hyrule-client
 SRV_UNIT=hyrule-server
+
+# Without a save the first game is played alone and without the mod (the Windows launcher's requireSave switch is false by default).
+# Ship 1 here and in install.sh, or run with HYRULE_REQUIRE_SAVE=1, to ask for a save again.
+REQUIRE_SAVE=${HYRULE_REQUIRE_SAVE:-0}
+
+# Same test as SaveGate on Windows: some slot under the account folder holds game_data.sav.
+have_save() { [ -n "$(find -L "$HERE/cemu/mlc01/usr/save/00050000/101c9400/user/80000001" -name game_data.sav -print -quit 2>/dev/null)" ]; }
 CONF="$HERE/join.conf"
 LOG="$HERE/logs/client.log"
 SRV_LOG="$HERE/logs/server.log"
@@ -157,10 +164,41 @@ start_session() {
   mkdir -p "$HERE/logs" "$HERE/run"
   rm -f "$HERE/cemu/log.txt" "$LOG" "$HERE/logs/client.err"
   # Best effort: a failure keeps the last Cemu settings and never blocks the start.
+  [ -f "$HERE/display.py" ] && { python3 "$HERE/display.py" mod-on "$HERE" || echo "The mod packs were not switched on; Cemu keeps its last ones."; }
   [ -f "$HERE/display.py" ] && { python3 "$HERE/display.py" apply "$HERE" || echo "Display settings were not applied; Cemu keeps its last ones."; }
   ensure_pad_profile || echo "Could not write the Cemu controller profile; the pad may do nothing in game."
   write_client_run
   run_unit "$UNIT" "$HERE/run/client-run.sh" "$LOG" "$HERE/logs/client.err"
+}
+
+# Writes the run script of the first game: Cemu alone on the game, with no Milk Bar client and no server.
+write_first_run() {
+  mkdir -p "$HERE/run"
+  {
+    echo '#!/usr/bin/env bash'
+    printf '. %q\ncd %q || exit 1\n' "$HERE/env.sh" "$HERE/cemu"
+    printf 'export WINEDEBUG=err+all,fixme-all\ncmd=(wine64 Cemu.exe -g %q)\n' "$(winpath "$HERE/game/code/U-King.rpx")"
+    inhibit_lines "Playing"
+    echo 'exec "${cmd[@]}"'
+  } > "$HERE/run/first-run.sh"
+}
+
+# The first game, before any save exists: no server, no mod. It ends when Cemu closes, and the next start sees the save.
+first_game_session() {
+  mkdir -p "$HERE/logs" "$HERE/run"
+  rm -f "$HERE/cemu/log.txt" "$LOG" "$HERE/logs/client.err"
+  if [ -f "$HERE/display.py" ]; then
+    python3 "$HERE/display.py" mod-off "$HERE" || echo "The mod packs were not switched off; the game may not start."
+    python3 "$HERE/display.py" apply "$HERE" || echo "Display settings were not applied; Cemu keeps its last ones."
+  fi
+  ensure_pad_profile || echo "Could not write the Cemu controller profile; the pad may do nothing in game."
+  write_first_run
+  set_mode first ''
+  echo "No save yet: Cemu starts alone, without the mod. Start a new game, let it save, then close Cemu."
+  run_unit "$UNIT" "$HERE/run/first-run.sh" "$LOG" "$HERE/logs/client.err" || fatal "Could not start the game. Is systemd available for your user (systemd-run --user)?"
+  while session_active; do sleep 3; done
+  stop_session
+  if have_save; then echo "Your save was found. Joining and hosting are unlocked."; else echo "The game closed without a save yet."; fi
 }
 
 # Writes the run script of the game for $HOST, $PORT, $NAME and $PASS (nothing is started).
@@ -463,7 +501,7 @@ Use hyrule://host:port?pw=PASSWORD, host:port, or: host port [password] [name]"
 set_mode() { mkdir -p "$HERE/run" && printf '%s %s\n' "$1" "$2" > "$HERE/run/mode"; }
 
 # One line of key=value pairs, split on spaces and then on the first "=" (no value has a space):
-# version mode(idle|local|host|join) server(up|down) client(up|down) joined(yes|no) port [host (join only)] [invite] [invite_vpn]
+# version mode(idle|first|local|host|join) server(up|down) client(up|down) joined(yes|no) port [host (join only)] [invite] [invite_vpn] save(yes|no|required)
 status_line() {
   local kind='' port='' srv=down cli=down joined=no mode=idle ips lan vpn pw
   server_active && srv=up
@@ -479,6 +517,7 @@ status_line() {
     [ -z "${lan:-$vpn}" ] || printf ' invite=%s' "$(invite_url "${lan:-$vpn}" "$port" "$pw")"
     [ -z "$vpn" ] || printf ' invite_vpn=%s' "$(invite_url "$vpn" "$port" "$pw")"
   fi
+  if have_save; then printf ' save=yes'; elif [ "$REQUIRE_SAVE" = 1 ]; then printf ' save=required'; else printf ' save=no'; fi
   echo
 }
 
@@ -498,9 +537,13 @@ check_install() {
   if systemctl --user show-environment >/dev/null 2>&1; then echo "ok: systemd --user"; else echo "missing: systemd --user"; bad=1; fi
   if session_active || server_active; then echo "skipped: run scripts (a session is running)"
   else
-    HOST=127.0.0.1 PORT=5050 NAME=Check PASS='' write_client_run && write_server_run && bash -n "$HERE/run/client-run.sh" && bash -n "$HERE/run/server-run.sh" \
+    HOST=127.0.0.1 PORT=5050 NAME=Check PASS='' write_client_run && write_server_run && write_first_run \
+      && bash -n "$HERE/run/client-run.sh" && bash -n "$HERE/run/server-run.sh" && bash -n "$HERE/run/first-run.sh" \
       && echo "ok: run scripts" || { echo "missing: valid run scripts"; bad=1; }
   fi
+  if have_save; then echo "ok: save"
+  elif [ "$REQUIRE_SAVE" = 1 ]; then echo "missing: a save (a brand new game hangs in Cemu)"; bad=1
+  else echo "info: no save yet, the first game starts without the mod"; fi
   if have_window; then echo "info: window available (launcher.py)"; else echo "info: no window, the zenity menu is used"; fi
   return $bad
 }
@@ -560,6 +603,10 @@ main() {
     have_gui || [ -t 0 ] || fatal "A Hyrule Online session is already running. Stop it first: $HERE/hyrule-online.sh --stop"
     ask_yesno "A Hyrule Online session is already running. Stop it and start a new one?" || exit 0
     stop_session
+  fi
+  if [ "$NOPLAY" != 1 ] && ! have_save; then
+    [ "$REQUIRE_SAVE" != 1 ] || fatal "A save is needed first: a brand new game hangs in Cemu. Run install.sh again with a dump that has your save."
+    first_game_session; exit 0
   fi
   case $mode in
     "$M_LOCAL") server_session local ;;
