@@ -42,6 +42,7 @@ namespace HyruleOnline {
    setupProgress = null;
    if (checks == null) { if (setupActive) RenderSetup(); return; }
    setupChecks = checks;
+   if (!gameRunning) RefreshCoop();
    bool needed = Preflight.NeedsSetup(checks);
    if (needed && !setupActive && (script != null || sessionLive || Scripts.Owned(root).Count > 0)) return;
    if (needed) { if (!setupActive) EnterSetup(); RenderSetup(); }
