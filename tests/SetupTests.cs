@@ -150,6 +150,16 @@ namespace HyruleOnline {
    checks = Preflight.Run(install, small, GoodFacts());
    Require(!Preflight.NeedsSetup(checks), "a complete install needs no setup: " + string.Join(", ", checks.Where(c => c.Status != SetupStatus.Ok).Select(c => c.Item.ToString()).ToArray()));
    Require(checks.All(c => c.Status == SetupStatus.Ok && c.Action == SetupAction.None && c.Fix == null), "a complete install has nothing to fix");
+   Require(!Preflight.OnlyModMissing(checks), "nothing to merge when the mod is merged");
+   string jugador = Path.Combine(install, ".tools", "localappdata", "bcml", "merged", "content", "Actor", "Pack", "Jugador1.sbactorpack");
+   File.Delete(jugador);
+   checks = Preflight.Run(install, small, GoodFacts());
+   Require(Preflight.NeedsSetup(checks) && Preflight.OnlyModMissing(checks), "the merge runs by itself when it is the only thing missing");
+   var notReady = GoodFacts();
+   notReady.Vulkan = false;
+   Require(!Preflight.OnlyModMissing(Preflight.Run(install, small, notReady)), "the merge waits for the other requirements");
+   Require(!Preflight.OnlyModMissing(Preflight.Run(empty, real, GoodFacts())), "the merge waits for the downloads and the game files");
+   Write(jugador, "x");
 
    var full = GoodFacts();
    full.FreeBytes = 0;
@@ -445,6 +455,8 @@ namespace HyruleOnline {
    foreach (Match m in Regex.Matches(wizard, "\\bTr\\(\"((?:[^\"\\\\]|\\\\.)*)\"")) Require(texts.Contains(Unescape(m.Groups[1].Value)), "no translation for: " + m.Groups[1].Value);
    Require(!Regex.IsMatch(wizard, "\\bTr\\((?!\")"), "SetupWizard.cs: every Tr takes a plain string literal");
    Require(Regex.Matches(wizard, "EnterSetup\\(\\)").Count == 2 && wizard.Contains("if (needed) { if (!setupActive) EnterSetup();"), "the wizard is only entered when the preflight needs setup");
+   Require(wizard.Contains("!mergeTried && !installing && !locating && Preflight.OnlyModMissing(checks)) RunMerge();") && wizard.Contains("mergeTried = false;"), "the merge starts once per check and Check again allows another try");
+   Require(File.ReadAllText(Path.Combine(root, "scripts", "Package.ps1")).Contains("'Merge-Mod.ps1', 'merge_mod.py'"), "the portable zip ships the merge scripts");
    string main = File.ReadAllText(Path.Combine(launcher, "Launcher.cs"));
    foreach (string method in new[] { "void ShowPage(int index)", "void PressStart()", "void StartSession()" })
     Require(Regex.IsMatch(main, Regex.Escape(method) + " \\{\\s*if \\(setupActive(?: \\|\\| seeding)?\\) return;"), method + " does nothing while the wizard is up");
