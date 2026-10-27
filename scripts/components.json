@@ -8,7 +8,8 @@
     "updateTitleId": "0005000E101C9400",
     "updateVersion": 208,
     "dlcTitleId": "0005000C101C9400",
-    "dlcVersion": 80
+    "dlcVersion": 80,
+    "requireSave": false
   },
   "components": [
     {

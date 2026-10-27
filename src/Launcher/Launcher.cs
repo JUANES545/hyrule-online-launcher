@@ -149,6 +149,9 @@ namespace HyruleOnline {
   DisplayPlan sessionPlan;
   const string RestartPrompt = "Some changes only apply after a restart. Press Restart session to apply them.";
   const string CrashPrompt = "The server stopped. Press Restart session to bring it back.";
+  const string SavePrompt = "Local multiplayer unlocks after your first save. Play single player and start a new game; once the game has saved, it unlocks by itself.";
+  bool coopReady = true;
+  const string FirstGamePrompt = "First game: no mod and no server yet. Start a new game, let it save, then close Cemu; local multiplayer unlocks by itself.";
   bool serverCrashed;
   string language = "en", launcherLanguage = "en";
   List<GameLanguage> gameLanguages = new List<GameLanguage> { GameLanguages.English };
@@ -373,7 +376,7 @@ namespace HyruleOnline {
   void ReadPrefs() {
    var saved = Prefs.Read(PrefsFile);
    mode = saved.Mode; scale = saved.Scale; shadows = saved.Shadows; shadowDistance = saved.ShadowDistance; antiAliasing = saved.AntiAliasing; advanced = saved.Advanced;
-   fpsLimit = saved.FpsLimit; perDisplay = saved.PerDisplay; playerCount = saved.PlayerCount; Router.MenuLayout = saved.MenuLayout;
+   fpsLimit = saved.FpsLimit; perDisplay = saved.PerDisplay; coopReady = SaveGate.Sync(root); playerCount = coopReady ? saved.PlayerCount : 1; Router.MenuLayout = saved.MenuLayout;
    for (int i = 0; i < 2; i++) {
     displays[i] = saved.Displays[i]; scales[i] = saved.Scales[i]; fpsLimits[i] = saved.FpsLimits[i]; rotations[i] = saved.Rotations[i]; names[i] = saved.Names[i]; models[i] = saved.Models[i];
    }
@@ -1153,8 +1156,18 @@ namespace HyruleOnline {
   // The switch always offers the other mode, so its text and tooltip follow the current one.
   void ShowModeSwitch() {
    bool two = playerCount == 2;
-   C<TextBlock>("ModeText").Text = two ? Tr("Switch to single player") : Tr("Switch to local multiplayer");
-   C<Button>("Mode").ToolTip = two ? Tr("Play alone: one game on the whole primary display.") : Tr("Two players on this PC, with the screen split or one display each.");
+   C<TextBlock>("ModeText").Text = !two && !coopReady ? Tr("Local multiplayer needs a save") : two ? Tr("Switch to single player") : Tr("Switch to local multiplayer");
+   C<Button>("Mode").ToolTip = !two && !coopReady ? Tr(SavePrompt) : two ? Tr("Play alone: one game on the whole primary display.") : Tr("Two players on this PC, with the screen split or one display each.");
+  }
+
+  // Cemu may still be writing the save while a game is open, so callers only use this when no game runs.
+  void RefreshCoop() {
+   bool ready = SaveGate.Sync(root);
+   if (ready == coopReady) return;
+   coopReady = ready;
+   if (!ready && playerCount == 2) SetPlayerCount(1, -1);
+   ShowModeSwitch();
+   if (ready) Write("Your save was found, so local multiplayer is unlocked.");
   }
 
   void TogglePlayerCount() { SetPlayerCount(playerCount == 1 ? 2 : 1, actorSlot); }
@@ -1162,6 +1175,7 @@ namespace HyruleOnline {
   // The controller that picks single player becomes player 1; going back to two players restores the routes it replaced.
   void SetPlayerCount(int count, int slot) {
    if (count == playerCount) return;
+   if (count == 2 && !coopReady) { SetPrompt(SavePrompt); return; }
    if (count == 1) {
     routesBeforeSingle = null;
     if (slot >= 0) { routesBeforeSingle = router.Snapshot().Routes; router.Promote(slot); }
@@ -1378,6 +1392,8 @@ namespace HyruleOnline {
    SetStatus("Starting...");
    if (shaderProblem != null) SetStatus("Shared shader cache is off for this session: {0}", shaderProblem);
    SetPrompt("");
+   if (!coopReady) { BeginFirstGame(); return; }
+   foreach (string name in SetupPaths.Instances) { try { SetupLayout.EnsureGraphicPacks(SetupPaths.Instance(root, name)); } catch (Exception) { } }
    CommitOnline();
    string host, serverPassword;
    int port;
@@ -1405,6 +1421,19 @@ namespace HyruleOnline {
     }
    }
    script = Scripts.Run(root, "Start-Online.ps1", "-InputMode Routed -ExternalRouter -ExternalServer -PlayerCount " + playerCount + (Joining ? " -RemoteServer " + host + ":" + port : ""), Line, Error, code => Window.Dispatcher.BeginInvoke(new Action(() => ScriptExited(code))));
+   SetButtons();
+  }
+
+  // No save yet: only Cemu A starts, without the server or the mod, so the game can make its first save. Two players unlock after it (RefreshCoop).
+  void BeginFirstGame() {
+   string rpx = SetupPaths.GameRpx(root);
+   if (rpx == null) { Fail("The game files were not found. Open Check again on the setup page."); return; }
+   try { SetupLayout.DisableGraphicPacks(SetupPaths.Instance(root, "cemuA")); }
+   catch (Exception error) { Fail("Cemu A could not be prepared: {0}", error.Message); return; }
+   SetPrompt(FirstGamePrompt);
+   Write("No save yet: starting Cemu A alone and without the mod.");
+   Step("Server", "Stopped", Idle); Step("A", "Waiting", Idle); Step("B", "Stopped", Idle);
+   script = Scripts.Run(root, "Start-Online.ps1", "-InputMode Routed -ExternalRouter -FirstGame -PlayerCount 1 -GameRpx \"" + rpx + "\"", Line, Error, code => Window.Dispatcher.BeginInvoke(new Action(() => ScriptExited(code))));
    SetButtons();
   }
 
@@ -1533,11 +1562,12 @@ namespace HyruleOnline {
     Step("A", a ? (joined[0] ? "Joined the server" : "Game open") : "Stopped", a ? (joined[0] ? Good : Busy) : Idle);
     Step("B", b ? (joined[1] ? "Joined the server" : "Game open") : "Stopped", b ? (joined[1] ? Good : Busy) : Idle);
     if (owned.Count > 0 && failure == null) SetStatus(serverCrashed ? "The server stopped." : "Session running.");
-    else if (owned.Count == 0 && failure == null) { SetStatus("Ready."); SetPrompt(""); }
+    else if (owned.Count == 0 && failure == null) { SetStatus("Ready."); SetPrompt(coopReady ? "" : SavePrompt); }
    }
    sessionLive = owned.Count > 0;
    if (!sessionLive) serverCrashed = false;
    ShowOnlineStatus();
+   if (gameRunning && !(a || b)) RefreshCoop();
    gameRunning = a || b;
    C<Button>("ReturnGame").Visibility = gameRunning ? Visibility.Visible : Visibility.Collapsed;
    if (!sessionLive && script == null && !stopping) { appliedSignature = null; sessionPlan = null; }
