@@ -23,6 +23,12 @@ namespace HyruleOnline {
   // English, Spanish, French.
   public static readonly string[][] Table = {
    new[] { "Help", "Ayuda", "Aide" },
+   new[] { "Update to {0}", "Actualizar a {0}", "Mettre à jour vers {0}" },
+   new[] { "Downloading {0}%", "Descargando {0}%", "Téléchargement {0}%" },
+   new[] { "Installing...", "Instalando...", "Installation..." },
+   new[] { "Stop the session first.", "Detén primero la sesión.", "Arrête d'abord la session." },
+   new[] { "Update failed: {0}", "La actualización falló: {0}", "La mise à jour a échoué : {0}" },
+   new[] { "The last update failed and was undone.", "La última actualización falló y se deshizo.", "La dernière mise à jour a échoué et a été annulée." },
    new[] { "System", "Sistema", "Système" },
    new[] { "Components", "Componentes", "Composants" },
    new[] { "Your game", "Tu juego", "Votre jeu" },

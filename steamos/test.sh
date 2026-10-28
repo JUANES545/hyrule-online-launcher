@@ -437,6 +437,58 @@ if [ "$(uname -s)" = Linux ] && [ "$(uname -m)" = x86_64 ]; then
   equal "dry run changes nothing" "$before" "$(find "$H" | sort | md5sum)"
 else echo "not Linux x86_64, skipped"; fi
 
+echo "== updates =="
+# A changed pin in a release redoes only the steps that use it; an install from before the fingerprints just records them.
+STATE=$TMP/ustate
+marks() { local s; for s in download extract server prefix prefix_dotnet prefix_vc; do state_mark "$s"; done; }
+stays() { local s; for s; do state_done "$s" || return 1; done; }
+marks; stale_components >/dev/null
+equal "first run records the file pins" "$FP_FILES" "$(state_get fp_files)"
+check "first run redoes nothing" stays download extract server prefix prefix_dotnet prefix_vc
+state_set fp_files old; stale_components >/dev/null
+refuse "changed Cemu or Milk Bar pins redo the download" state_done download
+refuse "changed Cemu or Milk Bar pins redo the unpack" state_done extract
+refuse "changed Cemu or Milk Bar pins redo the server" state_done server
+check "changed Cemu or Milk Bar pins keep Wine" stays prefix prefix_dotnet prefix_vc
+equal "stale files are remembered across a failed run" 1 "$(state_get stale_files)"
+equal "the new file pins are recorded" "$FP_FILES" "$(state_get fp_files)"
+marks; state_set fp_runtime old; stale_components >/dev/null
+refuse "changed .NET or VC++ pins redo Wine" state_done prefix
+refuse "changed .NET pin redoes its step" state_done prefix_dotnet
+refuse "changed VC++ pin redoes its step" state_done prefix_vc
+check "changed runtime pins keep the unpacked files" stays extract server
+
+# hyrule-online.sh --update against a local "release" (file:// instead of GitHub).
+REL=$TMP/rel; RELURL=file://$REL
+if command -v cygpath >/dev/null 2>&1; then RELURL=file:///$(cygpath -m "$REL"); fi
+mk_rel() { # version, install.sh body, optional wrong VERSION content
+  local v=$1 p=$TMP/pkgsrc/HyruleOnline-$1-steamos
+  rm -rf "$p" "$REL/v$v"; mkdir -p "$p" "$REL/v$v"
+  cp "$TDIR/hyrule-online.sh" "$TDIR/lib.sh" "$p/"; printf '%s\n' "$v" > "$p/VERSION"
+  printf '#!/usr/bin/env bash\nUPD_VERSION=%s\n%s\n' "${3:-$v}" "$2" > "$p/install.sh"
+  tar -czf "$REL/v$v/HyruleOnline-$v-steamos.tar.gz" -C "$TMP/pkgsrc" "HyruleOnline-$v-steamos"
+  (cd "$REL/v$v" && sha256sum "HyruleOnline-$v-steamos.tar.gz" > "HyruleOnline-$v-steamos.tar.gz.sha256")
+}
+mk_inst() { rm -rf "$TMP/inst"; mkdir -p "$TMP/inst"; cp "$TDIR/hyrule-online.sh" "$TDIR/lib.sh" "$TMP/inst/"; echo 0.0.1 > "$TMP/inst/VERSION"; }
+upd() { HYRULE_RELEASE_BASE=$RELURL UPD_TARGET=$TMP/inst bash "$TMP/inst/hyrule-online.sh" --update "$@"; }
+COPY='d=$(dirname "$0"); cp "$d/hyrule-online.sh" "$d/lib.sh" "$UPD_TARGET/"; printf "%s\n" "$UPD_VERSION" > "$UPD_TARGET/VERSION"'
+mk_inst; mk_rel 9.9.9 "$COPY"
+refuse "update refuses a malformed version" upd 9.9
+refuse "update refuses the installed version" upd 0.0.1
+mk_rel 0.0.0 "$COPY"; refuse "update refuses an older version" upd 0.0.0
+upd 9.9.9 >"$TMP/upd.out" 2>&1; equal "update installs the release" "Hyrule Online 9.9.9" "$(bash "$TMP/inst/hyrule-online.sh" --version)"
+check "update reports progress lines" grep -q '^Installing 9.9.9' "$TMP/upd.out"
+check "a good update removes the backup and the download" test ! -e "$TMP/inst/.rollback" -a ! -e "$TMP/inst/.update"
+mk_inst; mk_rel 9.9.9 "$COPY"; echo corrupt > "$REL/v9.9.9/HyruleOnline-9.9.9-steamos.tar.gz"
+refuse "update refuses a download that does not match its checksum" upd 9.9.9
+equal "a damaged download changes nothing" "Hyrule Online 0.0.1" "$(bash "$TMP/inst/hyrule-online.sh" --version)"
+mk_inst; mk_rel 9.9.9 'exit 1'
+refuse "update fails when the installer fails" upd 9.9.9
+equal "a failed installer is rolled back" "Hyrule Online 0.0.1" "$(bash "$TMP/inst/hyrule-online.sh" --version)"
+mk_inst; mk_rel 9.9.9 "$COPY" 0.0.2
+refuse "update fails when the new version reports another number" upd 9.9.9
+equal "a wrong version is rolled back" "Hyrule Online 0.0.1" "$(bash "$TMP/inst/hyrule-online.sh" --version)"
+check "a rollback leaves no backup behind" test ! -e "$TMP/inst/.rollback" -a ! -e "$TMP/inst/.update"
 echo
 echo "passed: $PASSES, failed: $FAILS"
 [ "$FAILS" -eq 0 ]

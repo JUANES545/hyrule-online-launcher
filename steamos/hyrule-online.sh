@@ -9,6 +9,7 @@
 #        hyrule-online.sh --stop                            stop the server and the game
 #        hyrule-online.sh --status                          one line: server=up|down client=up|down mode=... (see README)
 #        hyrule-online.sh --check                           check the install without starting anything
+#        hyrule-online.sh --update X.Y.Z                    install that release (not while a session runs); on a failure the previous version is put back
 #        hyrule-online.sh --presets                         list the world rule presets
 #        hyrule-online.sh --no-gui                          with no other argument: the zenity menu instead of the window
 #        hyrule-online.sh --version
@@ -521,6 +522,53 @@ status_line() {
   echo
 }
 
+# --update X.Y.Z: fetch that release, check it, run its install.sh --update. Lines that start in column 0 are progress for the window.
+# shortcut: only the scripts and fonts are put back after a failure; the component steps the new install.sh already redid stay as they are, run install.sh again to finish them.
+RELEASE_BASE=${HYRULE_RELEASE_BASE:-https://github.com/JUANES545/hyrule-online-launcher/releases/download}
+UPDATE_FILES="install.sh hyrule-online.sh lib.sh steam_shortcut.py launcher.py gamepad.py display.py finder.py strings.json VERSION"
+update_fail() {
+  local f
+  echo "Update failed: $1. Putting the previous version back." >&2
+  if [ -d "$HERE/.rollback" ]; then
+    for f in $UPDATE_FILES; do [ ! -f "$HERE/.rollback/$f" ] || install -m 755 "$HERE/.rollback/$f" "$HERE/$f"; done
+    [ ! -d "$HERE/.rollback/fonts" ] || cp -a "$HERE/.rollback/fonts/." "$HERE/fonts/"
+  fi
+  rm -rf "$HERE/.rollback" "$HERE/.update"
+  return 1
+}
+do_update() {
+  local v=${1:-} cur work pkg sum f
+  cur=$(app_version)
+  [[ $v =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Not a release number: ${v:-nothing}" >&2; return 2; }
+  if [ "$cur" = "$v" ] || { [ "$cur" != unknown ] && [ "$(printf "%s\n%s\n" "$cur" "$v" | sort -V | tail -n1)" != "$v" ]; }; then
+    echo "Already on $cur." >&2; return 2
+  fi
+  if session_active || server_active; then echo "Stop the session first." >&2; return 3; fi
+  work=$HERE/.update; pkg=$work/HyruleOnline-$v-steamos
+  rm -rf "$work" "$HERE/.rollback"; mkdir -p "$work" || { echo "Cannot write in $HERE." >&2; return 1; }
+  echo "Downloading $v"
+  curl -fsSL --retry 3 --connect-timeout 20 -o "$work/pkg.tar.gz" "$RELEASE_BASE/v$v/HyruleOnline-$v-steamos.tar.gz" \
+    && curl -fsSL --retry 3 --connect-timeout 20 -o "$work/pkg.sha256" "$RELEASE_BASE/v$v/HyruleOnline-$v-steamos.tar.gz.sha256" \
+    || { rm -rf "$work"; echo "Could not download $v." >&2; return 1; }
+  echo "Checking $v"
+  sum=$(cut -d" " -f1 "$work/pkg.sha256" | head -n1)
+  [ "$(sha256sum "$work/pkg.tar.gz" | cut -d" " -f1)" = "$sum" ] && [ ${#sum} = 64 ] || { rm -rf "$work"; echo "The download is damaged (checksum differs)." >&2; return 1; }
+  tar -xzf "$work/pkg.tar.gz" -C "$work" && [ "$(cat "$pkg/VERSION" 2>/dev/null)" = "$v" ] || { rm -rf "$work"; echo "The package is not $v." >&2; return 1; }
+  for f in "$pkg"/*.sh; do [ -f "$f" ] && ! bash -n "$f" && { rm -rf "$work"; echo "The package has a broken script." >&2; return 1; }; done
+  for f in "$pkg"/*.py; do [ -f "$f" ] && ! PYTHONDONTWRITEBYTECODE=1 python3 -c "import sys; compile(open(sys.argv[1]).read(), sys.argv[1], \"exec\")" "$f" && { rm -rf "$work"; echo "The package has a broken script." >&2; return 1; }; done
+  mkdir -p "$HERE/.rollback" && for f in $UPDATE_FILES; do [ ! -f "$HERE/$f" ] || cp -p "$HERE/$f" "$HERE/.rollback/$f"; done
+  [ ! -d "$HERE/fonts" ] || cp -a "$HERE/fonts" "$HERE/.rollback/fonts" || { update_fail "could not save the current version"; return 1; }
+  echo "Installing $v"
+  bash "$pkg/install.sh" --update || { update_fail "the installer stopped"; return 1; }
+  echo "Testing $v"
+  [ "$(bash "$HERE/hyrule-online.sh" --version)" = "Hyrule Online $v" ] || { update_fail "the new version does not report $v"; return 1; }
+  if [ -f "$HERE/launcher.py" ]; then
+    ( cd "$HERE" && PYTHONDONTWRITEBYTECODE=1 timeout 20 python3 -c "import launcher" ) >/dev/null 2>&1 || { update_fail "the new window does not load"; return 1; }
+  fi
+  rm -rf "$HERE/.rollback" "$HERE/.update"
+  echo "Updated to $v"
+}
+
 # The window needs a display, python3 with tkinter and launcher.py next to this script.
 have_window() {
   [ "${HYRULE_NO_GUI:-0}" != 1 ] && [ -n "${DISPLAY:-}" ] && [ -f "$HERE/launcher.py" ] && python3 -c 'import tkinter' 2>/dev/null
@@ -568,9 +616,10 @@ main() {
     --stop) stop_session; echo "Stopped."; exit 0 ;;
     --status) status_line; exit 0 ;;
     --check) check_install; exit ;;
+    --update) do_update "${2:-}"; exit ;;
     --presets) for a in "${!PRESETS[@]}"; do echo "${PRESET_BITS[a]} ${PRESETS[a]}"; done; exit 0 ;;
     --version) echo "Hyrule Online $(app_version)"; exit 0 ;;
-    -h|--help) sed -n '2,14p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,15p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
   esac
   [ -z "$NAME_ARG" ] || valid_name "$NAME_ARG" || fatal "The player name must be 1 to 16 letters, numbers, _ or -: $NAME_ARG"
   [ -f "$HERE/env.sh" ] && [ -f "$HERE/cemu/Cemu.exe" ] || fatal "Hyrule Online is not installed in $HERE. Run install.sh first."
