@@ -131,6 +131,7 @@ namespace HyruleOnline {
    string sdist = File.ReadAllText(Path.Combine(root, "scripts", "bcml-sdist-requirements.txt"));
    Require(Regex.IsMatch(sdist, @"(?m)^proxy_tools==0\.1\.0 \\\r?\n\s+--hash=sha256:[0-9a-f]{64}"), "proxy_tools (needed by pywebview, source-only on PyPI) is pinned with a SHA-256");
    Require(File.ReadAllText(Path.Combine(root, "scripts", "components.json")).Contains("site-packages/proxy_tools/__init__.py"), "BCML counts as missing without proxy_tools, so existing installs get repaired");
+   Require(File.ReadAllText(Path.Combine(root, "scripts", "Install-Components.ps1")).Contains("'/uninstall /quiet'"), "a stale Python 3.8.10 registration is removed and the install is tried again");
   }
 
   static void PreflightLayouts() {
