@@ -201,6 +201,12 @@ function Install-Component($Component, [scriptblock]$Progress) {
             $arguments = "/quiet InstallAllUsers=0 TargetDir=`"$target`" PrependPath=0 Include_launcher=0 InstallLauncherAllUsers=0 Include_test=0 Include_doc=0 Shortcuts=0 AssociateFiles=0 Include_pip=1"
             $process = Start-Process -FilePath $archive -ArgumentList $arguments -Wait -PassThru
             if ($process.ExitCode -ne 0) { throw "The Python installer failed with exit code $($process.ExitCode)." }
+            if (-not (Test-Path -LiteralPath (Join-Path $target 'python.exe'))) {
+                # Deleting the project folder by hand leaves Python 3.8.10 registered, so the installer repairs that entry instead of installing here.
+                Start-Process -FilePath $archive -ArgumentList '/uninstall /quiet' -Wait | Out-Null
+                $process = Start-Process -FilePath $archive -ArgumentList $arguments -Wait -PassThru
+                if ($process.ExitCode -ne 0) { throw "The Python installer failed with exit code $($process.ExitCode)." }
+            }
         }
         'pip' {
             $python = Join-Path (Resolve-Inside $Root $Component.targets[0]) 'python.exe'
