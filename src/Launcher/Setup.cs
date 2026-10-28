@@ -474,9 +474,9 @@ namespace HyruleOnline {
   }
 
   static void Link(string link, string target, LayoutResult result) {
-   if (Directory.Exists(link)) return;
-   // A junction whose target moved still exists as a name, so it has to go before it can be made again.
+   // An older junction can point at a folder that moved, or at one that still exists but is not the one found now, so it is always made again.
    try { if ((File.GetAttributes(link) & FileAttributes.ReparsePoint) != 0) Directory.Delete(link, false); } catch (Exception) { }
+   if (Directory.Exists(link)) return;
    Directory.CreateDirectory(Path.GetDirectoryName(link));
    Junction(link, target);
    result.Log.Add(Msg.Say("Linked {0} to {1}.", link, target));

@@ -308,6 +308,13 @@ namespace HyruleOnline {
     Require(again.Ok && File.ReadAllText(Path.Combine(SetupPaths.SaveFolder(SetupPaths.Instance(target, "cemuA")), "user", "80000001", "game_data.sav")) == "progress", "running it again keeps the player's progress");
     Require(!SetupLayout.Apply(NewTemp("nogame"), wrong).Ok, "it refuses without a complete game");
 
+    string staleLink = Path.GetDirectoryName(Path.GetDirectoryName(SetupPaths.TitleMeta(SetupPaths.Instance(target, "cemuA"), "0005000e")));
+    string emptyTarget = NewTemp("empty");
+    Directory.Delete(staleLink, false);
+    SetupLayout.Junction(staleLink, emptyTarget);
+    Require(SetupLayout.Apply(target, scan).Ok && File.Exists(SetupPaths.TitleMeta(SetupPaths.Instance(target, "cemuA"), "0005000e")), "a link that points at an old folder that still exists is pointed at the game again");
+    Clean(emptyTarget);
+
     string pack = Path.Combine(SetupPaths.Instance(target, "cemuA"), "graphicPacks", "bcmlPatches", "MilkBarLauncher", "rules.txt");
     Write(pack, "[Definition]");
     SetupLayout.EnsureGraphicPacks(SetupPaths.Instance(target, "cemuA"));
