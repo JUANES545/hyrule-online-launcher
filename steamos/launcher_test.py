@@ -1197,6 +1197,80 @@ class Window(unittest.TestCase):
         root.destroy()
 
 
+    def test_update_button(self):
+        root, app = self.make(1280, 800)
+        calls = []
+        app.cli.update = calls.append
+        app.render()
+        root.update()
+        self.assertFalse(app.update_btn.box.winfo_ismapped(), "no button without a newer release")
+        app.update = "0.6.0"
+        app.render()
+        root.update()
+        self.assertTrue(app.update_btn.box.winfo_ismapped())
+        self.assertIn(app.update_btn, app.pad_items(), "the pad and keyboard can reach it")
+        app.up = True  # a session is running
+        app.apply_update()
+        self.assertEqual(calls, [])
+        self.assertEqual(app.status_text(app.cli, False, False), L.tr("Stop the session first."))
+        app.up = False
+        app.apply_update()
+        self.assertEqual((calls, app.updating), (["0.6.0"], True))
+        app.apply_update()
+        self.assertEqual(calls, ["0.6.0"], "a second press does nothing")
+        app.cli.lines = ["Downloading 0.6.0"]
+        self.assertIn("0.6.0: Downloading 0.6.0", app.status_text(app.cli, True, False))
+        app.quit()
+        self.assertTrue(root.winfo_exists(), "the window stays open while updating")
+        app.restart = lambda: calls.append("restart")
+        app.cli.lines, app.cli.proc = ["Update failed: the installer stopped. Putting the previous version back."], mock.Mock(returncode=1, poll=lambda: 1)
+        app.render()
+        self.assertFalse(app.updating)
+        self.assertIn("Update failed", app.status_text(app.cli, False, False))
+        self.assertIn("the installer stopped", app.status_text(app.cli, False, False))
+        self.assertEqual(calls, ["0.6.0"])
+        app.apply_update()
+        app.cli.proc = mock.Mock(returncode=0, poll=lambda: 0)
+        app.render()
+        self.assertEqual(calls[-1], "restart")
+        root.destroy()
+
+class Updates(unittest.TestCase):
+    def release(self, tag, *names):
+        return {"tag_name": tag, "assets": [{"name": n} for n in names]}
+
+    def test_numbers(self):
+        self.assertEqual(L.release_numbers("v0.10.2"), (0, 10, 2))
+        self.assertEqual(L.release_numbers("0.5.0"), (0, 5, 0))
+        for bad in ("", None, "unknown", "0.5", "0.5.0-rc1", "v1.2.3.4", "x0.5.0"):
+            self.assertIsNone(L.release_numbers(bad), bad)
+
+    def test_a_newer_release_with_a_package_is_offered(self):
+        pkg = "HyruleOnline-0.6.0-steamos.tar.gz"
+        self.assertEqual(L.parse_release(self.release("v0.6.0", "HyruleOnline-0.6.0-setup.exe", pkg), "0.5.0"), "0.6.0")
+        self.assertEqual(L.parse_release(self.release("v0.10.0", "HyruleOnline-0.10.0-steamos.tar.gz"), "0.9.9"), "0.10.0")
+
+    def test_everything_else_is_ignored(self):
+        pkg = "HyruleOnline-0.6.0-steamos.tar.gz"
+        self.assertIsNone(L.parse_release(self.release("v0.5.0", "HyruleOnline-0.5.0-steamos.tar.gz"), "0.5.0"))
+        self.assertIsNone(L.parse_release(self.release("v0.4.0", "HyruleOnline-0.4.0-steamos.tar.gz"), "0.5.0"))
+        self.assertIsNone(L.parse_release(self.release("v0.6.0", "HyruleOnline-0.6.0-setup.exe"), "0.5.0"))
+        self.assertIsNone(L.parse_release(self.release("v0.6.0", pkg), "unknown"))
+        self.assertIsNone(L.parse_release(self.release("nightly", pkg), "0.5.0"))
+        self.assertIsNone(L.parse_release({"tag_name": "v0.6.0", "assets": None}, "0.5.0"))
+        self.assertIsNone(L.parse_release({"message": "API rate limit exceeded"}, "0.5.0"))
+        self.assertIsNone(L.parse_release([], "0.5.0"))
+
+    def test_no_network_means_no_button(self):
+        with mock.patch.object(L.urllib.request, "urlopen", side_effect=OSError("offline")):
+            self.assertIsNone(L.find_update("0.5.0"))
+
+    def test_progress_line(self):
+        self.assertEqual(L.progress_line(["Downloading 0.6.0", "Installing 0.6.0", "    Install folder: /x", "[3/8] Unpacking"]), "[3/8] Unpacking")
+        self.assertEqual(L.progress_line(["Installing 0.6.0", "    detail"]), "Installing 0.6.0")
+        self.assertEqual(L.progress_line([]), "")
+
+
 class Fonts(unittest.TestCase):
     def test_bundled_files_and_licences_exist(self):
         for name in L.FONT_FILES + ("Cinzel-OFL.txt", "Roboto-LICENSE.txt"):

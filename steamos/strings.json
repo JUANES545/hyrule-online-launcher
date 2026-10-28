@@ -874,5 +874,33 @@
  "Local": {
   "es": "Local",
   "fr": "Local"
+ },
+ "Update to {0}": {
+  "es": "Actualizar a {0}",
+  "fr": "Mettre à jour vers {0}"
+ },
+ "Updating...": {
+  "es": "Actualizando...",
+  "fr": "Mise à jour..."
+ },
+ "Updating to {0}: {1}": {
+  "es": "Actualizando a {0}: {1}",
+  "fr": "Mise à jour vers {0} : {1}"
+ },
+ "Stop the session first.": {
+  "es": "Detén primero la sesión.",
+  "fr": "Arrête d'abord la session."
+ },
+ "Update failed. Press the button to try again.": {
+  "es": "La actualización falló. Pulsa el botón para reintentar.",
+  "fr": "La mise à jour a échoué. Appuie sur le bouton pour réessayer."
+ },
+ "Updated. Close and open the launcher again.": {
+  "es": "Actualizado. Cierra y vuelve a abrir el launcher.",
+  "fr": "Mis à jour. Ferme puis rouvre le lanceur."
+ },
+ "Wait for the update to finish.": {
+  "es": "Espera a que termine la actualización.",
+  "fr": "Attends la fin de la mise à jour."
  }
 }

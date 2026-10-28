@@ -6,7 +6,7 @@ using System.Windows.Media;
 namespace HyruleOnline {
  // Applies a ShellFit to the loaded launcher window. The tests load the same XAML and call this too, so they measure the real layout.
  static class ShellLayout {
-  public static readonly string[] ChromeNames = { "Help", "Start", "ReturnGame", "Stop", "Exit" };
+  public static readonly string[] ChromeNames = { "Update", "Help", "Start", "ReturnGame", "Stop", "Exit" };
 
   public static void Apply(FrameworkElement root, ShellFit fit) {
    var shell = (Grid)root.FindName("Shell");

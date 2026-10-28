@@ -44,6 +44,7 @@ hyrule-online.sh --local                       # private server, 127.0.0.1 only
 hyrule-online.sh --stop                        # stop everything of this install
 hyrule-online.sh --status                      # one line: what is running
 hyrule-online.sh --check                       # check the install, start nothing
+hyrule-online.sh --update X.Y.Z                 # install that release (not while a session runs)
 hyrule-online.sh --presets                     # the world rule presets
 hyrule-online.sh --version
 ```
@@ -129,6 +130,7 @@ Cemu and the server start under `systemd-run --user`, outside the Steam shortcut
 | `--stop` | stops the server unit, the game unit and the Wine processes of this install | done |
 | `--status` | prints one status line | done |
 | `--check` | checks the install and the run scripts, starts nothing | done |
+| `--update X.Y.Z` | downloads `HyruleOnline-X.Y.Z-steamos.tar.gz` from the GitHub Release, checks its `.sha256`, runs its `install.sh --update` and tests the result. Progress lines start in column 0. It refuses while a session runs (exit 3). Any failure puts the previous scripts back (exit 1, reason on the last line) | done |
 | `--presets` | prints `DIGITS Name`, one preset per line | done |
 | `--version` | prints `Hyrule Online X.Y.Z` | done |
 
@@ -143,6 +145,8 @@ Run the blocking commands as a child process and watch `--status` while they run
 **Saved settings** are in `join.conf` next to the script (permissions 600, one `key=value` per line). Read-only for the GUI, to prefill forms: `host`, `port`, `name`, `password` (last join), `hostport`, `hostpass`, `rules` (8 digits), `desc` (last host). The GUI changes them only through the options above.
 
 **Exit codes.** `0`: done, or the user cancelled, or the session ended normally. `1`: failed; the reason (the checklist, "wrong password", the last server log lines, "not installed", an invalid value) is on stderr, and for `--check` it means something is missing. `143`: stopped by a signal (this also stops the server and the game). `--status`, `--presets`, `--version` and `--stop` always exit 0. A start that fails also stops what it started.
+
+**Updates.** When the window opens it asks GitHub once for the latest release. If it is newer and has a SteamOS package, a button "Update to X.Y.Z" appears next to the server status; nothing is downloaded until it is pressed, and it does nothing while a session runs. After a good update the window restarts itself; `join.conf` and `launcher.conf` are never touched. The release's `install.sh --update` runs the same steps as a normal install, but redoes the downloads and the Wine runtimes only when this release pins different Cemu, Milk Bar, .NET or Visual C++ files than the install recorded (`fp_files` and `fp_runtime` in the state file). A failed update restores the previous scripts and fonts; steps it already redid stay done, and running `install.sh` again finishes them. Only installs made by `install.sh` (they have a `.hyrule-online` marker) check for updates, and `HYRULE_RELEASE_BASE` points `--update` at another download folder (the tests use a local one).
 
 **Window start.** `hyrule-online.sh` with no arguments runs `python3 launcher.py` when `DISPLAY` is set, `launcher.py` is next to the script and `import tkinter` works, and exits with its code 0. Any other exit code, or `--no-gui`, `HYRULE_NO_GUI=1` or a missing display, falls back to the menu (the stderr of the window goes to `logs/launcher.err`). The Steam entry keeps running exactly `hyrule-online.sh`.
 

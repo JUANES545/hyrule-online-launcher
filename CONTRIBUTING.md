@@ -42,3 +42,5 @@ When it fails, the message names what changed and which file to update:
 ## Packages
 
 `scripts/Package.ps1` builds `HyruleOnline-<version>-portable.zip` and, when Inno Setup is installed, `HyruleOnline-<version>-setup.exe`. Both hold only this project's own files. Cemu, Python, BCML, Milk Bar and the game files are never bundled.
+
+Installed copies update themselves: on start the launcher asks GitHub for the latest release and, if it is newer, shows an Update button (setup installs only). Pressing it downloads `HyruleOnline-<version>-setup.exe`, checks it against `HyruleOnline-<version>-setup.exe.sha256`, keeps one backup in `.artifacts\update-backup` and runs `scripts\Update-Launcher.ps1`, which installs silently and restores the backup if the new launcher does not start. The release workflow publishes both files, so a release must keep those asset names. The SteamOS launcher does the same with the `-steamos.tar.gz` asset through `hyrule-online.sh --update`.

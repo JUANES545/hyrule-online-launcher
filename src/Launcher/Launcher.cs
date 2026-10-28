@@ -283,7 +283,7 @@ namespace HyruleOnline {
    WireSetup();
    Window.Closing += OnClosing;
    Window.SizeChanged += (s, e) => FitShell();
-   Window.Loaded += (s, e) => { FitPrimary(); ShowPage(Math.Max(0, Array.IndexOf(PageNames, lastPage))); UpdatePlan(); RefreshProcesses(); C<Button>("Start").Focus(); timer.Start(); StartSetupCheck(); };
+   Window.Loaded += (s, e) => { FitPrimary(); ShowPage(Math.Max(0, Array.IndexOf(PageNames, lastPage))); UpdatePlan(); RefreshProcesses(); C<Button>("Start").Focus(); timer.Start(); StartUpdateCheck(); StartSetupCheck(); };
    timer.Interval = TimeSpan.FromMilliseconds(33);
    timer.Tick += (s, e) => Tick();
   }
