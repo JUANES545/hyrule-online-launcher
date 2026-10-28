@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2034  # variables are read by the functions in lib.sh
 # Hyrule Online - guided SteamOS installer (play, host and join). See README.md.
-# Usage: install.sh [--dry-run] [--yes --dump PATH] [--mod PATH] [--dir PATH] [--link] [--uninstall]
+# Usage: install.sh [--dry-run] [--yes --dump PATH] [--mod PATH] [--dir PATH] [--link] [--update] [--uninstall]
 #   --dry-run    print what would be done, change nothing
 #   --yes        no questions (needs --dump); never closes Steam, never deletes the game copy
 #   --dump PATH  folder with your dumped game, update, DLC and, if you have one, your save (it is searched, not modified)
 #   --mod PATH   folder with the Hyrule Online mod pack from the Windows install (default: the dump folder)
 #   --dir PATH   install folder (default ~/hyrule-online)
 #   --link       link the game, update and DLC instead of copying them (the dump must stay available)
+#   --update     refresh an existing install from this release (no questions, no game files, no Steam change); used by hyrule-online.sh --update
 #   --uninstall  remove the Steam entry, the menu entry and the install folder
 set -u
 SELF_DIR=$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)
@@ -43,7 +44,7 @@ DLC_VER=80
 # and shows the other players. With 70 s it joins the server but never scans (verified on a Ally, 3 players).
 CLI_WAIT_MS=750
 
-DRY=0 YES=0 LINK=0 UNINSTALL=0 DUMP='' MOD='' DIR=''
+DRY=0 YES=0 LINK=0 UNINSTALL=0 UPDATE=0 DUMP='' MOD='' DIR=''
 NEED_GB=25
 STATE=${HYRULE_STATE:-${XDG_CONFIG_HOME:-$HOME/.config}/hyrule-online/state}
 STEAM_ROOT=${HYRULE_STEAM_ROOT:-$HOME/.steam/steam}
@@ -52,7 +53,7 @@ APP_NAME="Hyrule Online"
 DESKTOP_FILE=$HOME/.local/share/applications/hyrule-online.desktop
 STEP_N=0 STEP_TOTAL=10 DEFERRED=
 
-usage() { sed -n '2,10p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,11p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 
 die() { progress_stop; msg_box error "$*"; exit 1; }
 
@@ -225,6 +226,27 @@ Fix the problem and run install.sh again. Finished steps are skipped."
   state_mark "$1"
 }
 
+# What a release pins. When it differs from what the install recorded, the steps that use those components run again.
+# An install from before this was recorded only gets the value stored (its pins never changed).
+fp() { printf "%s\n" "$@" | sha256sum | cut -c1-16; }
+FP_FILES=$(fp "$CEMU_SHA" "$CEMU_EXE_SHA" "$GP_SHA" "$GP_MARKER_SHA" "$MILKBAR_SHA" "$INJECT_SHA" "$CLI_SHA" "$CLI_WAIT_MS")
+FP_RUNTIME=$(fp "$DOTNET_SHA" "$VC_SHA")
+stale_components() {
+  local old
+  [ "$DRY" = 1 ] && return 0
+  old=$(state_get fp_files)
+  if [ -n "$old" ] && [ "$old" != "$FP_FILES" ]; then
+    echo "    Cemu or Milk Bar changed in this release: they are downloaded and unpacked again"
+    state_set stale_files 1; state_set done_download 0; state_set done_extract 0; state_set done_server 0
+  fi
+  old=$(state_get fp_runtime)
+  if [ -n "$old" ] && [ "$old" != "$FP_RUNTIME" ]; then
+    echo "    .NET or Visual C++ changed in this release: they are installed again"
+    state_set done_download 0; state_set done_prefix 0; state_set done_prefix_dotnet 0; state_set done_prefix_vc 0
+  fi
+  state_set fp_files "$FP_FILES"; state_set fp_runtime "$FP_RUNTIME"
+}
+
 PF_ERR=
 preflight() {
   local missing='' t
@@ -294,6 +316,7 @@ step_extract() {
   local dl=$DIR/downloads tmp=$DIR/.extract gp=$DIR/cemu/graphicPacks/downloadedGraphicPacks
   if [ "$DRY" = 1 ]; then echo "    [dry-run] would unpack Cemu, the graphic packs, InjectDLL.dll and the Milk Bar CLI, then patch the CLI's start delay"; return 0; fi
   rm -rf "$tmp"; mkdir -p "$tmp" "$DIR/cemu" "$DIR/milkbar" || return 1
+  if [ "$(state_get stale_files)" = 1 ]; then rm -f "$DIR/milkbar/MilkBar.CLI.exe" "$gp/BreathOfTheWild/Mods/ExtendedMemory/rules.txt"; fi
   if ! sha_ok "$DIR/cemu/Cemu.exe" "$CEMU_EXE_SHA"; then
     extract "$dl/cemu_1.26.2.zip" "$tmp/cemu" || return 1
     sha_ok "$tmp/cemu/cemu_1.26.2/Cemu.exe" "$CEMU_EXE_SHA" || { echo "Cemu.exe is not the expected build." >&2; return 1; }
@@ -322,12 +345,13 @@ step_extract() {
 step_server() {
   local tmp=$DIR/.extract
   if [ "$DRY" = 1 ]; then echo "    [dry-run] would unpack the dedicated server from MilkBarLauncher.zip into $DIR/server"; return 0; fi
+  [ "$(state_get stale_files)" = 1 ] && rm -f "$DIR/server/MBL.DedicatedServer.exe"
   [ -f "$DIR/server/MBL.DedicatedServer.exe" ] && return 0
   mkdir -p "$DIR/downloads" && fetch "$MILKBAR_URL" "$MILKBAR_SHA" MilkBarLauncher.zip || return 1
   rm -rf "$tmp/srv" "$DIR/server"
   extract "$DIR/downloads/MilkBarLauncher.zip" "$tmp/srv" 'DedicatedServer/*' || return 1
   [ -f "$tmp/srv/DedicatedServer/MBL.DedicatedServer.exe" ] || { echo "The dedicated server is missing from MilkBarLauncher.zip." >&2; return 1; }
-  mv "$tmp/srv/DedicatedServer" "$DIR/server" && rm -rf "$tmp"
+  mv "$tmp/srv/DedicatedServer" "$DIR/server" && rm -rf "$tmp" && state_set stale_files 0
 }
 
 # shellcheck source=/dev/null
@@ -593,7 +617,7 @@ Controller: Hyrule Online gives Cemu a Wii U Pro Controller profile on the first
 Run $DIR/install.sh again to finish. Steps that are already done are skipped."
   fi
   progress_stop
-  msg_box info "$text"
+  if [ "$UPDATE" = 1 ]; then echo "Updated to $(app_version)."; else msg_box info "$text"; fi
 }
 
 do_uninstall() {
@@ -646,6 +670,7 @@ main() {
       --dry-run) DRY=1 ;;
       --yes|-y) YES=1 ;;
       --link) LINK=1 ;;
+      --update) UPDATE=1 ;;
       --uninstall) UNINSTALL=1 ;;
       --dump|--mod|--dir)
         [ $# -ge 2 ] || { echo "$1 needs a value." >&2; exit 2; }
@@ -655,8 +680,9 @@ main() {
     esac
     shift
   done
+  [ "$UPDATE" = 1 ] && { YES=1; STEP_TOTAL=8; }
   [ "$YES" = 1 ] && HYRULE_NO_GUI=1
-  if [ "$YES" = 1 ] && [ -z "$DUMP" ] && [ "$UNINSTALL" = 0 ] && [ "$DRY" = 0 ]; then echo "--yes needs --dump PATH." >&2; exit 2; fi
+  if [ "$YES" = 1 ] && [ "$UPDATE" = 0 ] && [ -z "$DUMP" ] && [ "$UNINSTALL" = 0 ] && [ "$DRY" = 0 ]; then echo "--yes needs --dump PATH." >&2; exit 2; fi
   [ "$LINK" = 1 ] && NEED_GB=8
   trap cleanup EXIT
   trap 'exit 130' INT TERM
@@ -674,17 +700,21 @@ You need about 15 GB of free space and your own game dump and mod pack (see READ
   say_step "Checking this device"
   preflight || die "$PF_ERR"
   say_step "Choosing the install folder"
+  if [ "$UPDATE" = 1 ]; then
+    [ "$DRY" = 1 ] || { [ -n "$(state_get install_dir)" ] && [ -f "$(state_get install_dir)/.hyrule-online" ]; } || die "--update needs an existing install. Run install.sh without it."
+  fi
   step_dir
+  stale_components
   state_set version "$(app_version)"
   run_step download "Downloading and verifying the components" step_download
   run_step extract "Unpacking Cemu, the graphic packs and the Milk Bar client" step_extract
   run_step server "Unpacking the dedicated server (for hosting)" step_server
   run_step prefix "Preparing Wine (.NET 8 and Visual C++ in their own prefix)" step_prefix
-  run_step dump "Getting your game files" step_dump
+  [ "$UPDATE" = 1 ] || run_step dump "Getting your game files" step_dump
   run_step config "Applying the Cemu configuration" step_config
   [ "$DRY" = 1 ] || state_set done_launcher 0   # the scripts are copied again on every run, so an update reaches the install
   run_step launcher "Installing the launcher and the menu entry" step_launcher
-  run_step steam "Adding the Steam library entry" step_steam
+  [ "$UPDATE" = 1 ] || run_step steam "Adding the Steam library entry" step_steam
   summary
 }
 

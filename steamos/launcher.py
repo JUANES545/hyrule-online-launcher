@@ -14,6 +14,7 @@ import sys
 import threading
 import time
 import unicodedata
+import urllib.request
 import zlib
 from urllib.parse import quote, unquote
 
@@ -572,6 +573,38 @@ def read_version(dirs=(HERE, os.path.dirname(HERE))):
     return "unknown"
 
 
+RELEASES_API = "https://api.github.com/repos/JUANES545/hyrule-online-launcher/releases/latest"
+
+
+def release_numbers(text):
+    m = re.fullmatch(r"v?(\d+)\.(\d+)\.(\d+)", text or "")
+    return tuple(int(n) for n in m.groups()) if m else None
+
+
+def parse_release(data, current):
+    """The version to offer: the latest release when it is newer than `current` and has a SteamOS package, else None."""
+    tag = str(data.get("tag_name", "")) if isinstance(data, dict) else ""
+    new, old = release_numbers(tag), release_numbers(current)
+    names = [a.get("name") for a in data.get("assets") or [] if isinstance(a, dict)] if new else []
+    version = tag.lstrip("v")
+    return version if new and old and new > old and f"HyruleOnline-{version}-steamos.tar.gz" in names else None
+
+
+def find_update(current):
+    """Asks GitHub once; any failure (no network, rate limit, odd answer) means no update button."""
+    try:
+        req = urllib.request.Request(RELEASES_API, headers={"Accept": "application/vnd.github+json", "User-Agent": "hyrule-online"})
+        with urllib.request.urlopen(req, timeout=8) as r:
+            return parse_release(json.load(r), current)
+    except (OSError, ValueError):
+        return None
+
+
+def progress_line(lines):
+    """The last line of `hyrule-online.sh --update` that starts in column 0: the step it is on, or the reason it stopped."""
+    return next((x for x in reversed(list(lines)) if x and not x[0].isspace()), "")
+
+
 def mask(line):
     return re.sub(r"pw=\S*", "pw=…", line)
 
@@ -662,7 +695,8 @@ class Cli:
     """Contract (see "CLI used by the GUI" in README.md; adjust here only). Always HYRULE_NO_GUI=1 and stdin from /dev/null.
     `--local|--host [PORT [PASSWORD]] [--no-play] [--rules R] [--desc T] [--name N]` and `HOST PORT [PASSWORD] [NAME]` block until the game
     closes (exit 1 = failed with the reason on stderr, 143 = stopped); `--stop`; `--presets` (`DIGITS Name` lines); `--check` (`ok:`/`missing:`
-    lines); `--status` (one line of key=value pairs: version mode server client joined port [host] [invite] [invite_vpn])."""
+    lines); `--status` (one line of key=value pairs: version mode server client joined port [host] [invite] [invite_vpn]);
+    `--update X.Y.Z` (progress lines start in column 0; exit 0 = installed, the window restarts itself; 1 = failed and rolled back, 3 = a session is running)."""
 
     def __init__(self, script=os.path.join(HERE, "hyrule-online.sh")):
         self.script, self.proc, self.lines, self.stat, self.missing, self.addresses = script, None, [], None, [], []
@@ -688,6 +722,9 @@ class Cli:
 
     def alive(self):
         return self.proc is not None and self.proc.poll() is None
+
+    def update(self, version):
+        self._spawn(["--update", version])
 
     def _spawn(self, args):
         self.lines, self.quiet = [], False
@@ -985,6 +1022,7 @@ class App:
         self.design_w, self.design_h, self.scale = shell_fit(*self.size)
         self.bits, self.dialog, self.note, self.up, self.started, self.started_mode = st["bits"], None, None, False, None, LOCAL
         self.hidden, self.game_seen, self.capture = False, None, None
+        self.update, self.updating, self.update_shown, self.update_fn = None, False, False, find_update
         self.tracker, self.tap = (gamepad.Tracker(), gamepad.Tap()) if gamepad else (None, None)
         self.pointer, self.hovered, self.memory = True, set(), {}  # pointer: False while the pad drives; memory: the focus kept per page
         root.bind_all("<Motion>", self.pointer_moved, add="+")
@@ -1148,6 +1186,8 @@ class App:
         self.dot.pack(side="left")
         self.corner = self.label(corner, tr("Server stopped"), fg=MUTED, size=13)
         self.corner.pack(side="left", padx=(px(6), 0))
+        self.update_btn = self.button(corner, "", self.apply_update, size=13, padx=12, pady=4)
+        self.update_shown = False  # packed next to the server status only while a newer release exists
         self.label(head, "THE LEGEND OF ZELDA", fg="#CFBF9C", size=13, kind="title", anchor="center").grid(row=0, column=1)
         self.help_btn = self.button(head, tr("Help"), self.toggle_help, padx=15, pady=7)
         self.help_btn.grid(row=0, column=2, sticky="e")
@@ -1187,7 +1227,7 @@ class App:
         self.help_open = False
         self.build_help()
         self.zones = [head, bar, self.host, foot]
-        self.chrome = {self.help_btn, *self.tab_btns.values(), self.start_btn, self.stop_btn, self.return_btn, self.exit_btn}
+        self.chrome = {self.help_btn, *self.tab_btns.values(), self.start_btn, self.stop_btn, self.return_btn, self.exit_btn, self.update_btn}
         self.shown = None
         self.show_tab()
         self.show_mode()
@@ -1964,6 +2004,8 @@ class App:
         c, s = self.cli, self.cli.stat or {}
         self.log.poll()
         self.answer_beacon(s.get("mode") == "host" and s.get("server") == "up", s.get("port"))
+        if self.updating and c.proc is not None and not c.alive():
+            self.finish_update(c.proc.returncode)
         if c.proc is not None and not c.alive():
             ended, c.proc = c.proc.returncode not in (0, 143, -15) and not c.quiet, None  # 143: stopped
             if ended:
@@ -1989,6 +2031,14 @@ class App:
             word.config(text=words[key])
         self.dot.config(fg=TEAL if srv else OFF)
         self.corner.config(text=tr("Server running") if srv else tr("Server stopped"))
+        if bool(self.update) != self.update_shown:
+            self.update_shown = bool(self.update)
+            if self.update_shown:
+                self.update_btn.pack(side="left", padx=(self.px(14), 0))
+            else:
+                self.update_btn.pack_forget()
+        if self.update:
+            self.update_btn.config(text=tr("Updating...") if self.updating else tr("Update to {0}", self.update))
         self.prompt.config(text=tr(FIRST_PROMPT if first else CONTINUE_PROMPT))
         (self.promptbox.grid if cli and not joined else self.promptbox.grid_remove)()
         self.start_btn.config(text=tr("RESTART SESSION") if self.up else tr("START SESSION"), state="disabled" if c.busy or (alive and not self.up) else "normal")
@@ -1999,6 +2049,8 @@ class App:
     def status_text(self, c, alive, joined):
         if c.busy:
             return tr("Stopping...")
+        if self.updating:
+            return tr("Updating to {0}: {1}", self.update, progress_line(c.lines))
         if self.addr_msg:
             self.addr_msg = False
             self.note = ("That address is not valid, so the previous one was kept. Use letters, digits, dots and dashes only.", ())
@@ -2066,7 +2118,41 @@ class App:
                     box.see("end")
                 self.texts[col][1] = text
 
+    def check_updates(self):
+        """Once, when the window opens, and only for a real install (a dev checkout or a copy has no .hyrule-online marker)."""
+        current = read_version()
+        if current == "unknown" or not os.path.isfile(os.path.join(HERE, ".hyrule-online")):
+            return
+        threading.Thread(target=lambda: setattr(self, "update", self.update_fn(current)), daemon=True).start()
+
+    def apply_update(self):
+        if self.updating or not self.update:
+            return
+        if self.cli.alive() or self.up:
+            self.note = (_k("Stop the session first."), ())
+            return
+        self.updating, self.note = True, None
+        self.cli.update(self.update)
+
+    def finish_update(self, code):
+        reason = progress_line(self.cli.lines)
+        self.cli.proc, self.updating = None, False
+        if code == 0:
+            self.restart()
+        else:
+            self.note = ("{0}", (tr("Update failed. Press the button to try again.") + (" " + reason if reason else ""),))
+
+    def restart(self):
+        """Same process, new code: the script that started the window keeps waiting for it."""
+        try:
+            os.execv(sys.executable, [sys.executable, *sys.argv])
+        except OSError:
+            self.update, self.note = None, (_k("Updated. Close and open the launcher again."), ())
+
     def quit(self):
+        if self.updating:
+            self.note = (_k("Wait for the update to finish."), ())
+            return
         if self.cli.alive() or self.up:
             def done(i):
                 if i == 1:
@@ -2315,6 +2401,7 @@ def main():
         size = (min(1280, sw), min(800, sh - 80))
         root.geometry(f"{size[0]}x{size[1]}")
     app = App(root, size=size)
+    app.check_updates()
     pad = None
     if gamepad is not None:
         try:

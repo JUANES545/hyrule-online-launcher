@@ -75,6 +75,7 @@ jobs:
           cp VERSION ".artifacts/steamos-stage/HyruleOnline-$v-steamos/VERSION"
           tar -czf ".artifacts/dist/HyruleOnline-$v-steamos.tar.gz" -C .artifacts/steamos-stage "HyruleOnline-$v-steamos"
           (cd .artifacts/dist && sha256sum "HyruleOnline-$v-steamos.tar.gz" > "HyruleOnline-$v-steamos.tar.gz.sha256")
+          (cd .artifacts/dist && sha256sum "HyruleOnline-$v-setup.exe" > "HyruleOnline-$v-setup.exe.sha256")
       - name: Check that VERSION, the tag and the packages agree
         shell: bash
         run: |
@@ -97,7 +98,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           v="${{ steps.meta.outputs.version }}"
-          gh release create "v$v" .artifacts/dist/HyruleOnline-$v-setup.exe .artifacts/dist/HyruleOnline-$v-portable.zip \
+          gh release create "v$v" .artifacts/dist/HyruleOnline-$v-setup.exe .artifacts/dist/HyruleOnline-$v-setup.exe.sha256 .artifacts/dist/HyruleOnline-$v-portable.zip \
             .artifacts/dist/HyruleOnline-$v-steamos.tar.gz .artifacts/dist/HyruleOnline-$v-steamos.tar.gz.sha256 \
             --target "${{ github.sha }}" --title "Hyrule Online $v" --generate-notes
 
