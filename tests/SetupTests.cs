@@ -128,6 +128,9 @@ namespace HyruleOnline {
    int lines = requirements.Split('\n').Count(l => Regex.IsMatch(l, "^[A-Za-z0-9_.\\-]+=="));
    Require(packages.Count >= 10 && packages.Count == lines, "every BCML requirement is pinned with at least one SHA-256 (" + packages.Count + " of " + lines + ")");
    Require(requirements.IndexOf("bcml==3.10.8", StringComparison.OrdinalIgnoreCase) >= 0, "BCML 3.10.8 is pinned");
+   string sdist = File.ReadAllText(Path.Combine(root, "scripts", "bcml-sdist-requirements.txt"));
+   Require(Regex.IsMatch(sdist, @"(?m)^proxy_tools==0\.1\.0 \\\r?\n\s+--hash=sha256:[0-9a-f]{64}"), "proxy_tools (needed by pywebview, source-only on PyPI) is pinned with a SHA-256");
+   Require(File.ReadAllText(Path.Combine(root, "scripts", "components.json")).Contains("site-packages/proxy_tools/__init__.py"), "BCML counts as missing without proxy_tools, so existing installs get repaired");
   }
 
   static void PreflightLayouts() {
@@ -193,7 +196,8 @@ namespace HyruleOnline {
 
    File.Delete(Path.Combine(install, ".artifacts", "input", "InputRouter.exe"));
    Require(Preflight.NeedsSetup(Preflight.Run(install, small, GoodFacts())), "a missing router needs setup");
-   foreach (string folder in new[] { empty, install }) Clean(folder);
+   foreach (string folder in new[] { empty, install }) Clean(folder);
+
   }
 
   // A new user who brings no save: single player must be ready, and two players unlock once the game has saved.

@@ -212,6 +212,14 @@ function Install-Component($Component, [scriptblock]$Progress) {
             $code = $LASTEXITCODE
             $ErrorActionPreference = $previous
             if ($code -ne 0) { throw "pip failed with exit code $code." }
+            if ($Component.sdistRequirements) {
+                $sdist = Resolve-Inside $package $Component.sdistRequirements
+                $ErrorActionPreference = 'Continue'
+                & $python -m pip install --no-deps --require-hashes --no-build-isolation --disable-pip-version-check --no-warn-script-location -r $sdist 2>&1 | ForEach-Object { [Console]::Out.WriteLine("$_") }
+                $code = $LASTEXITCODE
+                $ErrorActionPreference = $previous
+                if ($code -ne 0) { throw "pip failed with exit code $code." }
+            }
         }
         default { throw "Unknown component kind $($Component.kind)." }
     }
