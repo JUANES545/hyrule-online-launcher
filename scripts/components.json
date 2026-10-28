@@ -84,9 +84,11 @@
       "kind": "pip",
       "requires": "python",
       "requirements": "scripts/bcml-requirements.txt",
+      "sdistRequirements": "scripts/bcml-sdist-requirements.txt",
       "targets": [ ".tools/python38" ],
       "markers": [
-        { "file": "Lib/site-packages/bcml-3.10.8.dist-info/METADATA" }
+        { "file": "Lib/site-packages/bcml-3.10.8.dist-info/METADATA" },
+        { "file": "Lib/site-packages/proxy_tools/__init__.py" }
       ],
       "requiredFor": "Merging the multiplayer mod into the game",
       "verified": "Every wheel is pinned by SHA-256 in the requirements file (taken from the pypi.org JSON API). The pip install itself has not been run end to end."
