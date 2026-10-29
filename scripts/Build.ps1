@@ -11,7 +11,7 @@ if (Get-Process -Name HyruleOnline -ErrorAction SilentlyContinue) { throw 'Close
 New-Item -ItemType Directory -Force -Path $output | Out-Null
 $source = Join-Path $root 'src'
 & (Join-Path $framework 'csc.exe') /nologo /target:winexe /platform:x64 /optimize+ "/out:$(Join-Path $output 'HyruleOnline.exe')" `
-    "/win32manifest:$(Join-Path $source 'Launcher\app.manifest')" `
+    "/win32manifest:$(Join-Path $source 'Launcher\app.manifest')" "/win32icon:$(Join-Path $root 'assets\icon.ico')" `
     "/resource:$(Join-Path $source 'Launcher\Launcher.xaml'),Launcher.xaml" `
     "/reference:$(Join-Path $framework 'WPF\PresentationFramework.dll')" `
     "/reference:$(Join-Path $framework 'WPF\PresentationCore.dll')" `

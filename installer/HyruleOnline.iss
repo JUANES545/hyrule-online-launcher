@@ -23,6 +23,7 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 DisableProgramGroupPage=yes
 UninstallDisplayIcon={app}\.artifacts\app\HyruleOnline.exe
+SetupIconFile=..\assets\icon.ico
 OutputBaseFilename=HyruleOnline-{#AppVersion}-setup
 Compression=lzma2
 SolidCompression=yes
