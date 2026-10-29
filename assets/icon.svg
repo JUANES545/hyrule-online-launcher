@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <title>Hyrule Online</title>
+  <defs>
+    <linearGradient id="plate" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#16292D"/>
+      <stop offset="1" stop-color="#0A1214"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="128" cy="150" r="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#63E0BD" stop-opacity=".22"/>
+      <stop offset="1" stop-color="#63E0BD" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F6E7BC"/>
+      <stop offset="1" stop-color="#C99B3F"/>
+    </linearGradient>
+    <linearGradient id="teal" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7BF0CD"/>
+      <stop offset="1" stop-color="#2E9F84"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="52" fill="url(#plate)"/>
+  <rect x="8" y="8" width="240" height="240" rx="52" fill="url(#glow)"/>
+  <rect x="11" y="11" width="234" height="234" rx="49" fill="none" stroke="#344958" stroke-width="3"/>
+  <g stroke-width="7" stroke-linejoin="round">
+    <path d="M128 52 L169 126 H87 Z" fill="url(#gold)" stroke="url(#gold)"/>
+    <path d="M82 134 L123 208 H41 Z" fill="url(#teal)" stroke="url(#teal)"/>
+    <path d="M174 134 L215 208 H133 Z" fill="url(#teal)" stroke="url(#teal)"/>
+  </g>
+</svg>

@@ -131,6 +131,10 @@ namespace HyruleOnline {
    string sdist = File.ReadAllText(Path.Combine(root, "scripts", "bcml-sdist-requirements.txt"));
    Require(Regex.IsMatch(sdist, @"(?m)^proxy_tools==0\.1\.0 \\\r?\n\s+--hash=sha256:[0-9a-f]{64}"), "proxy_tools (needed by pywebview, source-only on PyPI) is pinned with a SHA-256");
    Require(File.ReadAllText(Path.Combine(root, "scripts", "components.json")).Contains("site-packages/proxy_tools/__init__.py"), "BCML counts as missing without proxy_tools, so existing installs get repaired");
+   byte[] ico = File.ReadAllBytes(Path.Combine(root, "assets", "icon.ico"));
+   Require(ico.Length > 6 && ico[0] == 0 && ico[1] == 0 && ico[2] == 1 && ico[3] == 0 && ico[4] >= 6, "assets/icon.ico is a multi-size icon");
+   Require(File.ReadAllText(Path.Combine(root, "scripts", "Build.ps1")).Contains("/win32icon:") && File.ReadAllText(Path.Combine(root, "installer", "HyruleOnline.iss")).Contains("SetupIconFile=..\\assets\\icon.ico"), "the exe and the installer carry the icon");
+   Require(File.Exists(Path.Combine(root, "assets", "icon.svg")) && File.Exists(Path.Combine(root, "steamos", "hyrule-online.png")), "the icon source and the SteamOS icon are shipped");
   }
 
   static void PreflightLayouts() {
